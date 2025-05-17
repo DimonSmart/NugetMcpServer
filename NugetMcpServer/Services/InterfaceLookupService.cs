@@ -70,7 +70,7 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
             logger.LogDebug(ex, "Failed to load assembly from memory");
             return null;
         }
-    }    
+    }
     /// <summary>
     /// Formats interface definition as a string
     /// </summary>
@@ -299,8 +299,8 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
 
         return result;
     }    /// <summary>
-    /// Process a single archive entry to extract interfaces
-    /// </summary>
+         /// Process a single archive entry to extract interfaces
+         /// </summary>
     private void ProcessArchiveEntry(ZipArchiveEntry entry, InterfaceListResult result)
     {
         try
@@ -424,11 +424,28 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
 
             var assemblyData = ms.ToArray();
             var assembly = LoadAssemblyFromMemory(assemblyData);
-
             if (assembly == null) return null;
-
             var iface = assembly.GetTypes()
-                .FirstOrDefault(t => t.IsInterface && t.Name == interfaceName);
+                .FirstOrDefault(t =>
+                {
+                    if (!t.IsInterface) return false;
+
+                    // Exact match
+                    if (t.Name == interfaceName) return true;
+
+                    // For generic types, compare the name part before the backtick
+                    if (t.IsGenericType)
+                    {
+                        int backtickIndex = t.Name.IndexOf('`');
+                        if (backtickIndex > 0)
+                        {
+                            string baseName = t.Name.Substring(0, backtickIndex);
+                            return baseName == interfaceName;
+                        }
+                    }
+
+                    return false;
+                });
 
             if (iface == null)
                 return null;

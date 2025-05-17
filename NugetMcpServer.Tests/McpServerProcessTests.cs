@@ -16,7 +16,7 @@ namespace NugetMcpServer.Tests
                 return;
 
             ExecuteWithErrorHandling(
-                () => 
+                () =>
                 {
                     testOutput.WriteLine("Shutting down server process...");
                     _serverProcess.Kill();

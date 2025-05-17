@@ -33,7 +33,7 @@ public static class ExceptionHandlingExtensions
             logger.LogError(ex, errorMessage);
             if (rethrow)
                 throw;
-            
+
             // For non-void methods when not rethrowing
             return default!;
         }
@@ -63,7 +63,7 @@ public static class ExceptionHandlingExtensions
             logger.LogError(ex, errorMessage);
             if (rethrow)
                 throw;
-            
+
             // For non-void methods when not rethrowing
             return default!;
         }

@@ -21,13 +21,13 @@ public class InterfaceInfo
     /// Assembly name where interface is defined
     /// </summary>
     public string AssemblyName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Returns a formatted name for display, converting generic notation from `N to <T>
     /// </summary>
     /// <returns>Formatted interface name</returns>
     public string GetFormattedName() => Name.FormatGenericTypeName();
-    
+
     /// <summary>
     /// Returns a formatted full name with namespace, converting generic notation
     /// </summary>

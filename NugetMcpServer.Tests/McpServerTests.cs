@@ -62,7 +62,6 @@ namespace NugetMcpServer.Tests
                 throw;
             }
         }
-
         [Fact]
         public async Task CanGetMazeCellInterfaceDefinition()
         {
@@ -78,7 +77,7 @@ namespace NugetMcpServer.Tests
                 var definition = await service.GetInterfaceDefinition(
                     "DimonSmart.MazeGenerator",
                     "ICell",
-                    version); 
+                    version);
 
                 testOutput.WriteLine("\n========== TEST OUTPUT: ICell INTERFACE DEFINITION ==========");
                 testOutput.WriteLine(definition);
@@ -87,6 +86,43 @@ namespace NugetMcpServer.Tests
                 // Verify we got a valid interface definition
                 Assert.Contains("interface", definition);
                 Assert.Contains("ICell", definition);
+            }
+            catch (Exception ex)
+            {
+                testOutput.WriteLine($"Error occurred: {ex.Message}");
+                testOutput.WriteLine(ex.StackTrace);
+                throw;
+            }
+        }
+
+        [Fact]
+        public async Task CanFindGenericInterfaceByBaseName()
+        {
+            var httpClient = new HttpClient();
+            var logger = new TestLogger<InterfaceLookupService>(testOutput);
+            var service = new InterfaceLookupService(logger, httpClient);
+
+            testOutput.WriteLine("Getting IMaze generic interface definition using base name...");
+            try
+            {
+                var version = await service.GetLatestVersion("DimonSmart.MazeGenerator");
+
+                // Try to get IMaze interface (actually IMaze<T> in the package)
+                var definition = await service.GetInterfaceDefinition(
+                    "DimonSmart.MazeGenerator",
+                    "IMaze",
+                    version);
+
+                testOutput.WriteLine("\n========== TEST OUTPUT: IMaze INTERFACE DEFINITION ==========");
+                testOutput.WriteLine(definition);
+                testOutput.WriteLine("================================================================\n");
+
+                // Verify we got a valid generic interface definition
+                Assert.Contains("interface", definition);
+                Assert.Contains("IMaze<", definition); // Should be formatted as IMaze<T>, not IMaze`1
+
+                // Verify we didn't get a "not found" error message
+                Assert.DoesNotContain("not found in package", definition);
             }
             catch (Exception ex)
             {
