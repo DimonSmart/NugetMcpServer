@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tools;
 using Xunit.Abstractions;
 
 namespace NugetMcpServer.Tests
@@ -10,13 +11,17 @@ namespace NugetMcpServer.Tests
         public async Task CanListInterfacesFromMazeGeneratorPackage()
         {
             var httpClient = new HttpClient();
-            var logger = new TestLogger<InterfaceLookupService>(testOutput);
-            var service = new InterfaceLookupService(logger, httpClient);
+            var packageLogger = new TestLogger<NuGetPackageService>(testOutput);
+            var listToolLogger = new TestLogger<ListInterfacesTool>(testOutput);
+            var defToolLogger = new TestLogger<GetInterfaceDefinitionTool>(testOutput);
+            var formattingService = new InterfaceFormattingService();
 
-            testOutput.WriteLine("Calling ListInterfaces on DimonSmart.MazeGenerator package...");
+            var packageService = new NuGetPackageService(packageLogger, httpClient);
+            var listTool = new ListInterfacesTool(listToolLogger, packageService);
+            var defTool = new GetInterfaceDefinitionTool(defToolLogger, packageService, formattingService); testOutput.WriteLine("Calling ListInterfaces on DimonSmart.MazeGenerator package...");
             try
             {
-                var result = await service.ListInterfaces("DimonSmart.MazeGenerator");
+                var result = await listTool.ListInterfaces("DimonSmart.MazeGenerator");
 
                 Assert.NotNull(result);
                 Assert.Equal("DimonSmart.MazeGenerator", result.PackageId);
@@ -40,7 +45,7 @@ namespace NugetMcpServer.Tests
                 if (mazeInterface != null)
                 {
                     testOutput.WriteLine($"\nFetching interface definition for {mazeInterface.Name}");
-                    var definition = await service.GetInterfaceDefinition(
+                    var definition = await defTool.GetInterfaceDefinition(
                         "DimonSmart.MazeGenerator",
                         mazeInterface.Name,
                         result.Version);
@@ -66,15 +71,19 @@ namespace NugetMcpServer.Tests
         public async Task CanGetMazeCellInterfaceDefinition()
         {
             var httpClient = new HttpClient();
-            var logger = new TestLogger<InterfaceLookupService>(testOutput);
-            var service = new InterfaceLookupService(logger, httpClient);
+            var packageLogger = new TestLogger<NuGetPackageService>(testOutput);
+            var defToolLogger = new TestLogger<GetInterfaceDefinitionTool>(testOutput);
+
+            var packageService = new NuGetPackageService(packageLogger, httpClient);
+            var formattingService = new InterfaceFormattingService();
+            var defTool = new GetInterfaceDefinitionTool(defToolLogger, packageService, formattingService);
 
             testOutput.WriteLine("Getting ICell interface definition from DimonSmart.MazeGenerator package...");
             try
             {
-                var version = await service.GetLatestVersion("DimonSmart.MazeGenerator");
+                var version = await packageService.GetLatestVersion("DimonSmart.MazeGenerator");
 
-                var definition = await service.GetInterfaceDefinition(
+                var definition = await defTool.GetInterfaceDefinition(
                     "DimonSmart.MazeGenerator",
                     "ICell",
                     version);
@@ -94,21 +103,24 @@ namespace NugetMcpServer.Tests
                 throw;
             }
         }
-
         [Fact]
         public async Task CanFindGenericInterfaceByBaseName()
         {
             var httpClient = new HttpClient();
-            var logger = new TestLogger<InterfaceLookupService>(testOutput);
-            var service = new InterfaceLookupService(logger, httpClient);
+            var packageLogger = new TestLogger<NuGetPackageService>(testOutput);
+            var defToolLogger = new TestLogger<GetInterfaceDefinitionTool>(testOutput);
+
+            var packageService = new NuGetPackageService(packageLogger, httpClient);
+            var formattingService = new InterfaceFormattingService();
+            var defTool = new GetInterfaceDefinitionTool(defToolLogger, packageService, formattingService);
 
             testOutput.WriteLine("Getting IMaze generic interface definition using base name...");
             try
             {
-                var version = await service.GetLatestVersion("DimonSmart.MazeGenerator");
+                var version = await packageService.GetLatestVersion("DimonSmart.MazeGenerator");
 
                 // Try to get IMaze interface (actually IMaze<T> in the package)
-                var definition = await service.GetInterfaceDefinition(
+                var definition = await defTool.GetInterfaceDefinition(
                     "DimonSmart.MazeGenerator",
                     "IMaze",
                     version);

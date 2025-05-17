@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tools;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -32,14 +33,16 @@ internal class Program
             options.LogToStandardErrorThreshold = LogLevel.Trace;
         });
 
+        // Register common services
+        builder.Services.AddSingleton<HttpClient>();
+        builder.Services.AddSingleton<NuGetPackageService>();
+        builder.Services.AddSingleton<InterfaceFormattingService>();
+
         // Register MCP server and STDIO transport
         builder.Services
             .AddMcpServer()
             .WithStdioServerTransport()
-            .WithToolsFromAssembly(typeof(InterfaceLookupService).Assembly);
-
-        // Register HttpClient for InterfaceLookupService
-        builder.Services.AddSingleton<HttpClient>();
+            .WithToolsFromAssembly(typeof(ListInterfacesTool).Assembly);
 
         await builder.Build().RunAsync();
         return 0;

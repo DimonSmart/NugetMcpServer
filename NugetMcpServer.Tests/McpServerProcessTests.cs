@@ -1,4 +1,5 @@
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tools;
 using System.Diagnostics;
 using Xunit.Abstractions;
 
@@ -90,18 +91,20 @@ namespace NugetMcpServer.Tests
                 StopServerProcess
             );
         }
-
         private async Task TestInterfacesDirectly()
         {
             testOutput.WriteLine("MCP server process started, testing interfaces directly...");
 
-            // Let's directly use InterfaceLookupService, which we know works correctly
+            // Use the new ListInterfacesTool class
             var httpClient = new HttpClient();
-            var logger = new TestLogger<InterfaceLookupService>(testOutput);
-            var service = new InterfaceLookupService(logger, httpClient);
+            var packageLogger = new TestLogger<NuGetPackageService>(testOutput);
+            var toolLogger = new TestLogger<ListInterfacesTool>(testOutput);
 
-            // Call the service directly to verify the package contains interfaces
-            var result = await service.ListInterfaces("DimonSmart.MazeGenerator");
+            var packageService = new NuGetPackageService(packageLogger, httpClient);
+            var listTool = new ListInterfacesTool(toolLogger, packageService);
+
+            // Call the tool directly to verify the package contains interfaces
+            var result = await listTool.ListInterfaces("DimonSmart.MazeGenerator");
 
             // Make sure we found interfaces
             Assert.NotNull(result);
