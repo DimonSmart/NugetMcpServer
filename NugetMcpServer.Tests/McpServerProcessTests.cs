@@ -30,12 +30,12 @@ namespace NugetMcpServer.Tests
         private async Task<Process> StartMcpServerProcess()
         {
             // Find the server executable path
-            string serverDirectory = Path.Combine(
+            var serverDirectory = Path.Combine(
                 AppDomain.CurrentDomain.BaseDirectory,
                 "..", "..", "..",
                 "..", "NugetMcpServer", "bin", "Debug", "net9.0", "win-x64");
 
-            string serverExecutablePath = Path.Combine(serverDirectory, "NugetMcpServer.exe");
+            var serverExecutablePath = Path.Combine(serverDirectory, "NugetMcpServer.exe");
 
             // Ensure the path exists
             if (!File.Exists(serverExecutablePath))

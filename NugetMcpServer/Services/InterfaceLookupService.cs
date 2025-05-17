@@ -36,29 +36,14 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
 
         return versions.Last();
     }
-
-
-    /// <summary>
-    /// Helper method to download a NuGet package and return it as a memory stream
-    /// </summary>
-    /// <param name="packageId">NuGet package ID</param>
-    /// <param name="version">Package version</param>
-    /// <returns>MemoryStream containing the package data</returns>
     private async Task<MemoryStream> DownloadPackageAsync(string packageId, string version)
     {
-        // Download .nupkg
         var url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
         var response = await httpClient.GetByteArrayAsync(url);
         return new MemoryStream(response);
     }
-
-    /// <summary>
-    /// Helper method to load and scan assemblies for interfaces directly from memory
-    /// </summary>
-    /// <param name="assemblyData">Assembly bytes</param>
-    /// <returns>Assembly if successfully loaded, null otherwise</returns>
     private Assembly? LoadAssemblyFromMemory(byte[] assemblyData)
     {
         try
@@ -70,13 +55,10 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
             logger.LogDebug(ex, "Failed to load assembly from memory");
             return null;
         }
-    }
-    /// <summary>
-    /// Formats interface definition as a string
-    /// </summary>
-    /// <param name="interfaceType">Interface type</param>
-    /// <param name="assemblyName">Assembly name</param>
-    /// <returns>Formatted interface definition</returns>
+    }    /// <summary>
+         /// Builds a string representation of an interface, including its properties, 
+         /// indexers, methods, and generic constraints
+         /// </summary>
     private string FormatInterfaceDefinition(Type interfaceType, string assemblyName)
     {
         var sb = new StringBuilder()
@@ -151,13 +133,8 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
         sb.AppendLine("}");
         return sb.ToString();
     }
-
-    /// <summary>
-    /// Check if a method is a property accessor (get/set) for a processed property
-    /// </summary>
     private bool IsPropertyAccessor(MethodInfo method, HashSet<string> processedProperties)
     {
-        // Property accessor methods start with get_ or set_ followed by property name
         if (method.Name.StartsWith("get_") || method.Name.StartsWith("set_"))
         {
             var propertyName = method.Name.Substring(4); // Skip get_ or set_
@@ -165,15 +142,9 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
         }
         return false;
     }
-
-    /// <summary>
-    /// Format a type name to be more C#-like 
-    /// </summary>
-    private string FormatTypeName(Type type) => type.FormatCSharpTypeName();
-
-    /// <summary>
-    /// Get all generic constraints for a generic interface
-    /// </summary>
+    private string FormatTypeName(Type type) => type.FormatCSharpTypeName();    /// <summary>
+                                                                                /// Builds the 'where T : [constraints]' string for generic interface parameters
+                                                                                /// </summary>
     private string GetGenericConstraints(Type interfaceType)
     {
         if (!interfaceType.IsGenericType)
@@ -212,26 +183,14 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
 
         return constraints.ToString();
     }
-
-    /// <summary>
-    /// Get all properties of an interface including those from base interfaces
-    /// </summary>
     private IEnumerable<PropertyInfo> GetInterfaceProperties(Type interfaceType)
     {
         var properties = interfaceType.GetProperties();
-
-        // Skip indexers (they'll be handled separately)
         return properties.Where(p => p.GetIndexParameters().Length == 0);
     }
-
-    /// <summary>
-    /// Get all indexers of an interface including those from base interfaces
-    /// </summary>
     private IEnumerable<PropertyInfo> GetInterfaceIndexers(Type interfaceType)
     {
         var properties = interfaceType.GetProperties();
-
-        // Only return indexers (properties with parameters)
         return properties.Where(p => p.GetIndexParameters().Length > 0);
     }
     /// <summary>
@@ -257,10 +216,6 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
             logger,
             "Error listing interfaces");
     }
-
-    /// <summary>
-    /// Core logic for listing interfaces without try/catch
-    /// </summary>
     private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version)
     {
         if (string.IsNullOrWhiteSpace(packageId))
@@ -298,9 +253,7 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
         }
 
         return result;
-    }    /// <summary>
-         /// Process a single archive entry to extract interfaces
-         /// </summary>
+    }
     private void ProcessArchiveEntry(ZipArchiveEntry entry, InterfaceListResult result)
     {
         try
@@ -367,10 +320,6 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
             logger,
             "Error fetching interface definition");
     }
-
-    /// <summary>
-    /// Core logic for getting interface definition without try/catch
-    /// </summary>
     private async Task<string> GetInterfaceDefinitionCore(
         string packageId,
         string interfaceName,
@@ -410,9 +359,6 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
         return $"Interface '{interfaceName}' not found in package {packageId}.";
     }
 
-    /// <summary>
-    /// Try to get interface definition from a specific archive entry
-    /// </summary>
     private async Task<string?> TryGetInterfaceFromEntry(ZipArchiveEntry entry, string interfaceName)
     {
         try
@@ -434,12 +380,12 @@ public class InterfaceLookupService(ILogger<InterfaceLookupService> logger, Http
                     if (t.Name == interfaceName) return true;
 
                     // For generic types, compare the name part before the backtick
-                    if (t.IsGenericType)
+                    if (!t.IsGenericType) return false;
                     {
-                        int backtickIndex = t.Name.IndexOf('`');
+                        var backtickIndex = t.Name.IndexOf('`');
                         if (backtickIndex > 0)
                         {
-                            string baseName = t.Name.Substring(0, backtickIndex);
+                            var baseName = t.Name.Substring(0, backtickIndex);
                             return baseName == interfaceName;
                         }
                     }
