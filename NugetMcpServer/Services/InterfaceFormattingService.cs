@@ -101,11 +101,9 @@ public class InterfaceFormattingService
         return false;
     }
 
-    private static string FormatTypeName(Type type) => type.FormatCSharpTypeName();
-
-    /// <summary>
-    /// Builds the 'where T : [constraints]' string for generic interface parameters
-    /// </summary>
+    private static string FormatTypeName(Type type) => type.FormatCSharpTypeName();    /// <summary>
+                                                                                       /// Builds the 'where T : [constraints]' string for generic interface parameters
+                                                                                       /// </summary>
     private string GetGenericConstraints(Type interfaceType)
     {
         if (!interfaceType.IsGenericType)
@@ -116,30 +114,35 @@ public class InterfaceFormattingService
 
         foreach (var arg in genericArgs)
         {
-            var argConstraints = new List<string>();
-
-            // Reference type constraint
-            if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.ReferenceTypeConstraint))
-                argConstraints.Add("class");
-
-            // Value type constraint
-            if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.NotNullableValueTypeConstraint))
-                argConstraints.Add("struct");
-
-            // Constructor constraint
-            if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.DefaultConstructorConstraint) &&
-                !arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.NotNullableValueTypeConstraint))
-                argConstraints.Add("new()");
-
-            // Interface constraints
-            foreach (var constraint in arg.GetGenericParameterConstraints())
+            // We can only check GenericParameterAttributes for generic parameters,
+            // not for concrete type arguments like in IMockGeneric<string>
+            if (arg.IsGenericParameter)
             {
-                if (constraint != typeof(ValueType)) // Skip ValueType for struct constraint
-                    argConstraints.Add(FormatTypeName(constraint));
-            }
+                var argConstraints = new List<string>();
 
-            if (argConstraints.Count > 0)
-                constraints.AppendLine($" where {arg.Name} : {string.Join(", ", argConstraints)}");
+                // Reference type constraint
+                if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.ReferenceTypeConstraint))
+                    argConstraints.Add("class");
+
+                // Value type constraint
+                if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.NotNullableValueTypeConstraint))
+                    argConstraints.Add("struct");
+
+                // Constructor constraint
+                if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.DefaultConstructorConstraint) &&
+                    !arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.NotNullableValueTypeConstraint))
+                    argConstraints.Add("new()");
+
+                // Interface constraints
+                foreach (var constraint in arg.GetGenericParameterConstraints())
+                {
+                    if (constraint != typeof(ValueType)) // Skip ValueType for struct constraint
+                        argConstraints.Add(FormatTypeName(constraint));
+                }
+
+                if (argConstraints.Count > 0)
+                    constraints.AppendLine($" where {arg.Name} : {string.Join(", ", argConstraints)}");
+            }
         }
 
         return constraints.ToString();

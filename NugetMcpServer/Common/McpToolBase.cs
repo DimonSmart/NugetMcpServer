@@ -6,14 +6,8 @@ namespace NuGetMcpServer.Common;
 /// <summary>
 /// Base class for MCP tools providing common functionality
 /// </summary>
-public abstract class McpToolBase<T> where T : class
+public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService packageService) where T : class
 {
-    protected readonly ILogger<T> Logger;
-    protected readonly NuGetPackageService PackageService;
-
-    protected McpToolBase(ILogger<T> logger, NuGetPackageService packageService)
-    {
-        Logger = logger;
-        PackageService = packageService;
-    }
+    protected readonly ILogger<T> Logger = logger;
+    protected readonly NuGetPackageService PackageService = packageService;
 }
