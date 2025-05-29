@@ -96,14 +96,15 @@ public class InterfaceFormattingService
         if (method.Name.StartsWith("get_") || method.Name.StartsWith("set_"))
         {
             var propertyName = method.Name.Substring(4); // Skip get_ or set_
-            return processedProperties.Contains(propertyName);
-        }
+            return processedProperties.Contains(propertyName);        }
         return false;
     }
 
-    private static string FormatTypeName(Type type) => type.FormatCSharpTypeName();    /// <summary>
-                                                                                       /// Builds the 'where T : [constraints]' string for generic interface parameters
-                                                                                       /// </summary>
+    private static string FormatTypeName(Type type) => type.FormatCSharpTypeName();
+    
+    /// <summary>
+    /// Builds the 'where T : [constraints]' string for generic interface parameters
+    /// </summary>
     private string GetGenericConstraints(Type interfaceType)
     {
         if (!interfaceType.IsGenericType)

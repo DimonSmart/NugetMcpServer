@@ -8,10 +8,11 @@ namespace NuGetMcpServer.Services;
 /// Service for formatting enum definitions
 /// </summary>
 public class EnumFormattingService
-{    /// <summary>
-     /// Builds a string representation of an enum, including its values,
-     /// attributes, and underlying type
-     /// </summary>
+{
+    /// <summary>
+    /// Builds a string representation of an enum, including its values,
+    /// attributes, and underlying type
+    /// </summary>
     public string FormatEnumDefinition(Type enumType)
     {
         if (!enumType.IsEnum)

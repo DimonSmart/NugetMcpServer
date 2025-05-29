@@ -31,12 +31,15 @@ public class InterfaceFormattingServiceTests : TestBase
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED INTERFACE ==========");
         TestOutput.WriteLine(formattedCode);
         TestOutput.WriteLine("=====================================================\n");
-    }        // Test interface for generic interface formatting
+    }
+
+    // Test interface for generic interface formatting
     public interface IMockGeneric<T>
     {
         T GetValue();
         void SetValue(T value);
     }
+
     [Fact]
     public void FormatInterfaceDefinition_WithGenericInterface_ReturnsFormattedCode()
     {

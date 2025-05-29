@@ -18,10 +18,11 @@ public class GetEnumDefinitionToolTests
     private readonly NuGetPackageService _packageService;
     private readonly Mock<EnumFormattingService> _formattingServiceMock = new();
     
-    public GetEnumDefinitionToolTests()
-    {
+    public GetEnumDefinitionToolTests()    {
         _packageService = new NuGetPackageService(_packageLoggerMock.Object, _httpClientMock.Object);
-    }    [Fact]
+    }
+
+    [Fact]
     public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_PackageIdIsEmpty()
     {
         // Arrange

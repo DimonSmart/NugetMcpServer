@@ -22,8 +22,7 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
         ILogger<GetInterfaceDefinitionTool> logger,
         NuGetPackageService packageService,
         InterfaceFormattingService formattingService)
-        : base(logger, packageService)
-    {
+        : base(logger, packageService)    {
         _formattingService = formattingService;
     }
 
@@ -34,8 +33,9 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
     ///   The NuGet package ID (exactly as on nuget.org).
     /// </param>
     /// <param name="interfaceName">
-    ///   Interface name without namespace.
-    ///   If not specified, will search for all interfaces in the assembly.
+    ///   Interface name (can include namespace) or short name. 
+    ///   Supports both 'IMyInterface' and 'MyNamespace.IMyInterface' formats.
+    ///   For generic interfaces, supports both 'IGeneric`1' and 'IGeneric' formats.
     /// </param>
     /// <param name="version">
     ///   (Optional) Version of the package. If not specified, the latest version will be used.
@@ -46,7 +46,7 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
        "Parameters: " +
        "packageId — NuGet package ID; " +
        "version (optional) — package version (defaults to latest); " +
-       "interfaceName (optional) — short interface name without namespace."
+       "interfaceName — interface name (supports both short names and full namespace names)."
     )]
     public Task<string> GetInterfaceDefinition(
         string packageId,
@@ -101,10 +101,9 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
             {
                 return definition;
             }
-        }
-
-        return $"Interface '{interfaceName}' not found in package {packageId}.";
+        }        return $"Interface '{interfaceName}' not found in package {packageId}.";
     }
+
     private async Task<string?> TryGetInterfaceFromEntry(ZipArchiveEntry entry, string interfaceName)
     {
         try
@@ -116,36 +115,7 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
             }
 
             var iface = assembly.GetTypes()
-                .FirstOrDefault(t =>
-                {
-                    if (!t.IsInterface)
-                    {
-                        return false;
-                    }
-
-                    // Exact match
-                    if (t.Name == interfaceName)
-                    {
-                        return true;
-                    }
-
-                    // For generic types, compare the name part before the backtick
-                    if (!t.IsGenericType)
-                    {
-                        return false;
-                    }
-
-                    {
-                        var backtickIndex = t.Name.IndexOf('`');
-                        if (backtickIndex > 0)
-                        {
-                            var baseName = t.Name.Substring(0, backtickIndex);
-                            return baseName == interfaceName;
-                        }
-                    }
-
-                    return false;
-                });
+                .FirstOrDefault(t => IsInterfaceMatch(t, interfaceName));
 
             if (iface == null)
             {
@@ -159,5 +129,44 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
             Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
             return null;
         }
+    }
+
+    private static bool IsInterfaceMatch(Type type, string interfaceName)
+    {
+        if (!type.IsInterface)
+        {
+            return false;
+        }
+
+        // Exact matches first
+        if (type.Name == interfaceName || type.FullName == interfaceName)
+        {
+            return true;
+        }
+
+        // Handle generic type matching
+        if (type.IsGenericType)
+        {
+            // Check if the provided name matches the generic base name (without `N suffix)
+            if (IsGenericBaseNameMatch(type.Name, interfaceName) ||
+                (type.FullName != null && IsGenericBaseNameMatch(type.FullName, interfaceName)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsGenericBaseNameMatch(string typeName, string searchName)
+    {
+        var backtickIndex = typeName.IndexOf('`');
+        if (backtickIndex <= 0)
+        {
+            return false;
+        }
+
+        var baseName = typeName.Substring(0, backtickIndex);
+        return baseName == searchName;
     }
 }
