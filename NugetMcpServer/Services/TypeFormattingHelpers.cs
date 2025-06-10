@@ -138,7 +138,7 @@ public static class TypeFormattingHelpers
 
         return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : "";
     }
-
+    
     /// <summary>
     /// Formats property modifiers (static, virtual, abstract, etc.)
     /// </summary>
@@ -149,10 +149,8 @@ public static class TypeFormattingHelpers
         var getter = property.GetGetMethod();
         var setter = property.GetSetMethod();
 
-        // Check if property is static (either getter or setter is static)
         if (getter?.IsStatic == true || setter?.IsStatic == true)
             modifiers.Add("static");
-        // Check virtual/abstract based on getter (setter usually follows getter)
         else if (getter?.IsVirtual == true && getter?.IsAbstract != true)
             modifiers.Add("virtual");
         else if (getter?.IsAbstract == true)

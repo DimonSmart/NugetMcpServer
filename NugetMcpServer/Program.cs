@@ -29,18 +29,17 @@ internal class Program
 
         var builder = Host.CreateApplicationBuilder(args);
 
-        // Console logging (stderr)
         builder.Logging.AddConsole(options =>
         {
             options.LogToStandardErrorThreshold = LogLevel.Trace;
-        });        // Register common services
+        });
+
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton<NuGetPackageService>();
         builder.Services.AddSingleton<InterfaceFormattingService>();
         builder.Services.AddSingleton<EnumFormattingService>();
         builder.Services.AddSingleton<ClassFormattingService>();
 
-        // Register MCP server and STDIO transport
         builder.Services
             .AddMcpServer()
             .WithStdioServerTransport()

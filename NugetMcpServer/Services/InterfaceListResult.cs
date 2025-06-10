@@ -32,18 +32,14 @@ public class InterfaceListResult
         var sb = new StringBuilder();
         sb.AppendLine($"/* INTERFACES FROM {PackageId} v{Version} */");
         sb.AppendLine();
-
-        // Group interfaces by assembly name
         var groupedInterfaces = Interfaces
             .GroupBy(i => i.AssemblyName)
             .OrderBy(g => g.Key);
 
         foreach (var group in groupedInterfaces)
         {
-            // Add assembly name as a sub-header
             sb.AppendLine($"## {group.Key}");
 
-            // List interfaces from this assembly without repeating the DLL name
             foreach (var iface in group.OrderBy(i => i.FullName))
             {
                 var formattedName = iface.GetFormattedFullName();

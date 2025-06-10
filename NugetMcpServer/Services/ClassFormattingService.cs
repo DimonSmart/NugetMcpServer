@@ -7,6 +7,7 @@ using System.Text;
 namespace NuGetMcpServer.Services;
 
 /// <summary>
+/// <summary>
 /// Service for formatting class definitions
 /// </summary>
 public class ClassFormattingService
@@ -18,7 +19,8 @@ public class ClassFormattingService
     public string FormatClassDefinition(Type classType, string assemblyName)
     {
         var sb = new StringBuilder()
-            .AppendLine($"/* C# CLASS FROM {assemblyName} */");        // Format the class declaration with modifiers and generics
+            .AppendLine($"/* C# CLASS FROM {assemblyName} */");
+
         sb.Append("public ");
 
         if (classType.IsAbstract && classType.IsSealed)
@@ -28,47 +30,35 @@ public class ClassFormattingService
         else if (classType.IsSealed && !classType.IsValueType)
             sb.Append("sealed ");
 
-        // Determine the type keyword
         string typeKeyword = classType.IsValueType ? "struct" : "class";
         sb.Append($"{typeKeyword} {TypeFormattingHelpers.FormatTypeName(classType)}");
 
-        // Add base class and interfaces
         var baseTypeInfo = GetBaseTypeInfo(classType);
         if (!string.IsNullOrEmpty(baseTypeInfo))
             sb.Append($" : {baseTypeInfo}");
 
-        // Add generic constraints if any
         if (classType.IsGenericType)
         {
             var constraints = TypeFormattingHelpers.GetGenericConstraints(classType);
             if (!string.IsNullOrEmpty(constraints))
                 sb.Append(constraints);
         }
-
         sb.AppendLine().AppendLine("{");
 
-        // Track processed property names to avoid duplicates when looking at get/set methods
         var processedProperties = new HashSet<string>();
 
-        // Add constants first
         AddConstants(sb, classType);
 
-        // Add readonly static fields
         AddReadonlyFields(sb, classType);
 
-        // Add properties
         AddProperties(sb, classType, processedProperties);
 
-        // Add indexers (special properties)
         AddIndexers(sb, classType, processedProperties);
 
-        // Add events
         AddEvents(sb, classType);
 
-        // Add methods (excluding property accessors and event accessors)
         AddMethods(sb, classType, processedProperties);
 
-        // Add nested delegates
         AddNestedDelegates(sb, classType);
 
         sb.AppendLine("}");
@@ -144,8 +134,8 @@ public class ClassFormattingService
         var methods = classType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
             .Where(m => !TypeFormattingHelpers.IsPropertyAccessor(m, processedProperties) &&
                        !TypeFormattingHelpers.IsEventAccessor(m) &&
-                       !m.IsSpecialName && // Skip operators and other special methods
-                       m.DeclaringType == classType); // Only methods declared in this class
+                       !m.IsSpecialName &&
+                       m.DeclaringType == classType);
 
         foreach (var method in methods)
         {
@@ -177,20 +167,17 @@ public class ClassFormattingService
             }
         }
     }
-
     private static string GetBaseTypeInfo(Type classType)
     {
         var parts = new List<string>();
 
-        // Add base class (excluding System.Object)
         if (classType.BaseType != null && classType.BaseType != typeof(object))
         {
             parts.Add(TypeFormattingHelpers.FormatTypeName(classType.BaseType));
         }
 
-        // Add implemented interfaces
         var interfaces = classType.GetInterfaces()
-            .Where(i => !classType.BaseType?.GetInterfaces().Contains(i) == true); // Exclude interfaces implemented by base class
+            .Where(i => !classType.BaseType?.GetInterfaces().Contains(i) == true);
 
         foreach (var iface in interfaces)
         {

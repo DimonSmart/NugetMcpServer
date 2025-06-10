@@ -245,8 +245,8 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
 
             currentKeywordIndex++;
         }
-        Logger.LogInformation("Balanced search results: {TotalResults} packages from {KeywordCount} keywords. " +
-                                      "Results per keyword: {ResultsPerKeyword}, remaining slots distributed: {RemainingSlots}",
+
+        Logger.LogInformation("Balanced search results: {TotalResults} packages from {KeywordCount} keywords. Results per keyword: {ResultsPerKeyword}, remaining slots distributed: {RemainingSlots}",
             balancedResults.Count, keywords.Count, resultsPerKeyword, maxTotalResults % keywords.Count);
 
         return balancedResults;

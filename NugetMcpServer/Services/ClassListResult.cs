@@ -32,18 +32,14 @@ public class ClassListResult
         var sb = new StringBuilder();
         sb.AppendLine($"/* CLASSES FROM {PackageId} v{Version} */");
         sb.AppendLine();
-
-        // Group classes by assembly name
         var groupedClasses = Classes
             .GroupBy(c => c.AssemblyName)
             .OrderBy(g => g.Key);
 
         foreach (var group in groupedClasses)
         {
-            // Add assembly name as a sub-header
             sb.AppendLine($"## {group.Key}");
 
-            // List classes from this assembly without repeating the DLL name
             foreach (var cls in group.OrderBy(c => c.FullName))
             {
                 var formattedName = cls.GetFormattedFullName();

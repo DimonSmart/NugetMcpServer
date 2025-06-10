@@ -27,13 +27,12 @@ namespace NugetMcpServer.Tests.Tools
 
         [Fact]
         public async Task GetInterfaceDefinition_WithSpecificInterface_ReturnsDefinition()
-        {
+        {            
             // Test with a known package and interface
             var packageId = "DimonSmart.MazeGenerator";
             var interfaceName = "ICell";
             var version = await _packageService.GetLatestVersion(packageId);
 
-            // Get interface definition
             var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
 
             // Assert
@@ -49,18 +48,15 @@ namespace NugetMcpServer.Tests.Tools
         [Fact]
         public async Task GetInterfaceDefinition_WithGenericInterface_ReturnsFormattedDefinition()
         {
-            // Test with a known generic interface
             var packageId = "DimonSmart.MazeGenerator";
-            var interfaceName = "IMaze";  // Generic interface (actually IMaze<T>)
+            var genericMazeInterfaceName = "IMaze";
             var version = await _packageService.GetLatestVersion(packageId);
 
-            // Get interface definition
-            var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
+            var definition = await _defTool.GetInterfaceDefinition(packageId, genericMazeInterfaceName, version);
 
-            // Assert
             Assert.NotNull(definition);
             Assert.Contains("interface", definition);
-            Assert.Contains("IMaze<", definition);  // Should be formatted as IMaze<T>, not IMaze`1
+            Assert.Contains("IMaze<", definition);
             Assert.DoesNotContain("not found in package", definition);
 
             TestOutput.WriteLine("\n========== TEST OUTPUT: IMaze INTERFACE DEFINITION ==========");
@@ -104,13 +100,11 @@ namespace NugetMcpServer.Tests.Tools
         [Fact]
         public async Task GetInterfaceDefinition_WithFullName_ReturnsDefinition()
         {
-            // Test with a known package and full interface name
             var packageId = "DimonSmart.MazeGenerator";
-            var interfaceName = "DimonSmart.MazeGenerator.ICell"; // Full name with namespace
+            var fullICellInterfaceName = "DimonSmart.MazeGenerator.ICell";
             var version = await _packageService.GetLatestVersion(packageId);
 
-            // Get interface definition
-            var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
+            var definition = await _defTool.GetInterfaceDefinition(packageId, fullICellInterfaceName, version);
 
             // Assert
             Assert.NotNull(definition);
@@ -126,18 +120,15 @@ namespace NugetMcpServer.Tests.Tools
         [Fact]
         public async Task GetInterfaceDefinition_WithGenericFullName_ReturnsFormattedDefinition()
         {
-            // Test with a known generic interface using full name
             var packageId = "DimonSmart.MazeGenerator";
-            var interfaceName = "DimonSmart.MazeGenerator.IMaze"; // Full name for generic interface
+            var fullGenericMazeInterfaceName = "DimonSmart.MazeGenerator.IMaze";
             var version = await _packageService.GetLatestVersion(packageId);
 
-            // Get interface definition
-            var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
+            var definition = await _defTool.GetInterfaceDefinition(packageId, fullGenericMazeInterfaceName, version);
 
-            // Assert
             Assert.NotNull(definition);
             Assert.Contains("interface", definition);
-            Assert.Contains("IMaze<", definition);  // Should be formatted as IMaze<T>, not IMaze`1
+            Assert.Contains("IMaze<", definition);
             Assert.DoesNotContain("not found in package", definition);
 
             TestOutput.WriteLine("\n========== TEST OUTPUT: IMaze INTERFACE DEFINITION (FULL NAME) ==========");

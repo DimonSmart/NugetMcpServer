@@ -25,18 +25,19 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_WithValidPackage_ReturnsClasses()
-    {
+    {        
         // Test with a known package
         var packageId = "DimonSmart.MazeGenerator";
 
-        // Get classes
         var result = await _listTool.ListClasses(packageId);
 
-        // Assert
         Assert.NotNull(result);
         Assert.Equal(packageId, result.PackageId);
         Assert.NotEmpty(result.Version);
-        Assert.NotEmpty(result.Classes); TestOutput.WriteLine($"Found {result.Classes.Count} classes in {result.PackageId} version {result.Version}"); TestOutput.WriteLine("\n========== TEST OUTPUT: LIST OF CLASSES ==========");
+        Assert.NotEmpty(result.Classes);
+
+        TestOutput.WriteLine($"Found {result.Classes.Count} classes in {result.PackageId} version {result.Version}");
+        TestOutput.WriteLine("\n========== TEST OUTPUT: LIST OF CLASSES ==========");
         TestOutput.WriteLine(result.ToFormattedString());
         TestOutput.WriteLine("================================================\n");
 
@@ -46,12 +47,10 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_WithSpecificVersion_ReturnsClasses()
-    {
-        // Test with a known package and version
+    {        // Test with a known package and version
         var packageId = "DimonSmart.MazeGenerator";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        // Get classes with specific version
         var result = await _listTool.ListClasses(packageId, version);
 
         // Assert
@@ -65,11 +64,9 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_ContainsClassModifierInformation()
-    {
+    {        
         // Test that the result contains modifier information
         var packageId = "DimonSmart.MazeGenerator";
-
-        // Get classes
         var result = await _listTool.ListClasses(packageId);
 
         // Assert

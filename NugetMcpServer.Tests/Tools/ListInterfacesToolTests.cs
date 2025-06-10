@@ -25,11 +25,10 @@ namespace NugetMcpServer.Tests.Tools
 
         [Fact]
         public async Task ListInterfaces_WithValidPackage_ReturnsInterfaces()
-        {
+        {            
             // Test with a known package
             var packageId = "DimonSmart.MazeGenerator";
 
-            // Get interfaces
             var result = await _listTool.ListInterfaces(packageId);
 
             // Assert
@@ -49,12 +48,11 @@ namespace NugetMcpServer.Tests.Tools
 
         [Fact]
         public async Task ListInterfaces_WithSpecificVersion_ReturnsInterfaces()
-        {
+        {            
             // Test with a known package and version
             var packageId = "DimonSmart.MazeGenerator";
             var version = await _packageService.GetLatestVersion(packageId);
 
-            // Get interfaces with specific version
             var result = await _listTool.ListInterfaces(packageId, version);
 
             // Assert

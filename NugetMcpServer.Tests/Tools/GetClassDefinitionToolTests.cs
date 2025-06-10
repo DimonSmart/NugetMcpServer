@@ -27,18 +27,18 @@ public class GetClassDefinitionToolTests : TestBase
 
     [Fact]
     public async Task GetClassDefinition_WithSpecificClass_ReturnsDefinition()
-    {        // Test with a known package and class
+    {
         var packageId = "DimonSmart.MazeGenerator";
-        var className = "Point"; // Using Point instead of Cell as Cell doesn't exist in current version
+        var pointClassName = "Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        // Get class definition
-        var definition = await _defTool.GetClassDefinition(packageId, className, version);
+        var definition = await _defTool.GetClassDefinition(packageId, pointClassName, version);
 
-        // Assert
-        Assert.NotNull(definition);
-        Assert.Contains("class", definition); // or "struct" if Point is a struct
-        Assert.Contains("Point", definition); TestOutput.WriteLine("\n========== TEST OUTPUT: Point CLASS DEFINITION ==========");
+        // Assert        Assert.NotNull(definition);
+        Assert.Contains("class", definition);
+        Assert.Contains("Point", definition);
+
+        TestOutput.WriteLine("\n========== TEST OUTPUT: Point CLASS DEFINITION ==========");
         TestOutput.WriteLine(definition);
         TestOutput.WriteLine("======================================================\n");
     }
@@ -46,13 +46,11 @@ public class GetClassDefinitionToolTests : TestBase
     [Fact]
     public async Task GetClassDefinition_WithGenericClass_ReturnsFormattedDefinition()
     {
-        // Test with a known generic class
         var packageId = "DimonSmart.MazeGenerator";
-        var className = "Maze";  // Generic class (actually Maze<T>)
+        var genericMazeClassName = "Maze";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        // Get class definition
-        var definition = await _defTool.GetClassDefinition(packageId, className, version);
+        var definition = await _defTool.GetClassDefinition(packageId, genericMazeClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -99,17 +97,15 @@ public class GetClassDefinitionToolTests : TestBase
 
     [Fact]
     public async Task GetClassDefinition_WithFullName_ReturnsDefinition()
-    {        // Test with a known package and full class name
+    {
         var packageId = "DimonSmart.MazeGenerator";
-        var className = "DimonSmart.MazeGenerator.Point"; // Full name with namespace, using Point instead of Cell
+        var fullPointClassName = "DimonSmart.MazeGenerator.Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        // Get class definition
-        var definition = await _defTool.GetClassDefinition(packageId, className, version);
+        var definition = await _defTool.GetClassDefinition(packageId, fullPointClassName, version);
 
-        // Assert
-        Assert.NotNull(definition);
-        Assert.Contains("class", definition); // or "struct" if Point is a struct
+        // Assert        Assert.NotNull(definition);
+        Assert.Contains("class", definition);
         Assert.Contains("Point", definition);
         Assert.DoesNotContain("not found in package", definition);
 
@@ -126,7 +122,6 @@ public class GetClassDefinitionToolTests : TestBase
         var className = "NonExistentClass";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        // Get class definition
         var definition = await _defTool.GetClassDefinition(packageId, className, version);
 
         // Assert

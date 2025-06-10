@@ -6,26 +6,19 @@ using Xunit.Abstractions;
 
 namespace NugetMcpServer.Tests.Services;
 
-public class ClassFormattingServiceTests : TestBase
+public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBase(testOutput)
 {
-    private readonly ClassFormattingService _formattingService;
-
-    public ClassFormattingServiceTests(ITestOutputHelper testOutput) : base(testOutput) => _formattingService = new ClassFormattingService();
-
-    [Fact]
+    private readonly ClassFormattingService _formattingService = new ClassFormattingService(); [Fact]
     public void FormatClassDefinition_WithSimpleClass_ReturnsFormattedCode()
     {
-        // Use a simple class that's part of the framework
         var classType = typeof(string);
         var assemblyName = "System.Private.CoreLib";
 
-        // Format the class
         var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
 
-        // Assert
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
-        Assert.Contains("public sealed class string", formattedCode); // string is the C# alias for String
+        Assert.Contains("public sealed class string", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED CLASS ==========");
         TestOutput.WriteLine(formattedCode);
@@ -35,14 +28,11 @@ public class ClassFormattingServiceTests : TestBase
     [Fact]
     public void FormatClassDefinition_WithStaticClass_ReturnsFormattedCode()
     {
-        // Use a static class like Console
         var classType = typeof(Console);
         var assemblyName = "System.Console";
 
-        // Format the class
         var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
 
-        // Assert
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
         Assert.Contains("public static class Console", formattedCode);
@@ -55,14 +45,11 @@ public class ClassFormattingServiceTests : TestBase
     [Fact]
     public void FormatClassDefinition_WithAbstractClass_ReturnsFormattedCode()
     {
-        // Use an abstract class like Stream
         var classType = typeof(System.IO.Stream);
         var assemblyName = "System.IO";
 
-        // Format the class
         var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
 
-        // Assert
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
         Assert.Contains("public abstract class Stream", formattedCode);
@@ -88,19 +75,15 @@ public class ClassFormattingServiceTests : TestBase
     [Fact]
     public void FormatClassDefinition_WithGenericClass_ReturnsFormattedCode()
     {
-        // Use our mock generic class to test formatting of generic classes
         var classType = typeof(MockGeneric<string>);
         var assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name!;
 
-        // Format the class
         var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
 
-        // Log the output first to see what's actually there
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED GENERIC CLASS ==========");
         TestOutput.WriteLine(formattedCode);
         TestOutput.WriteLine("========================================================\n");
 
-        // Assert
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
         Assert.Contains("public class MockGeneric<string>", formattedCode);
@@ -113,17 +96,14 @@ public class ClassFormattingServiceTests : TestBase
     [Fact]
     public void FormatClassDefinition_WithClassHavingConstants_ReturnsFormattedCode()
     {
-        // Create a simple test class with constants (since we can't easily find one in the framework)
-        var classType = typeof(int); // int has MaxValue, MinValue constants
+        var classType = typeof(int);
         var assemblyName = "System.Private.CoreLib";
 
-        // Format the class
         var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
 
-        // Assert
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
-        Assert.Contains("public struct int", formattedCode); // int is actually a struct, not a class
+        Assert.Contains("public struct int", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: CLASS WITH CONSTANTS ==========");
         TestOutput.WriteLine(formattedCode);

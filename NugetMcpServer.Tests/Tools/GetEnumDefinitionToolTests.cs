@@ -1,16 +1,9 @@
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
 
 using Moq;
 
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tools;
-
-using Xunit;
 
 namespace NuGetMcpServer.Tests.Tools;
 
@@ -26,6 +19,7 @@ public class GetEnumDefinitionToolTests
     {
         _packageService = new NuGetPackageService(_packageLoggerMock.Object, _httpClientMock.Object);
     }
+
     [Fact]
     public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_PackageIdIsEmpty()
     {
@@ -46,24 +40,19 @@ public class GetEnumDefinitionToolTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => tool.GetEnumDefinition("SomePackage", ""));
     }
 
-    // Note: Removed version check test as it would require mocking HttpClient which is challenging
-    // and not necessary for basic unit testing
-
     // Integration tests for enum lookup with real packages
     [Fact]
     public async Task GetEnumDefinition_WithShortName_ReturnsDefinition()
     {
-        // Test with a known package and short enum name
         var packageId = "System.ComponentModel.Annotations";
-        var enumName = "DataType"; // Short name
+        var dataTypeEnumName = "DataType";
 
         using var httpClient = new HttpClient();
         var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
         var formattingService = new EnumFormattingService();
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
 
-        // Get enum definition
-        var definition = await tool.GetEnumDefinition(packageId, enumName);
+        var definition = await tool.GetEnumDefinition(packageId, dataTypeEnumName);
 
         // Assert
         Assert.NotNull(definition);
@@ -75,17 +64,15 @@ public class GetEnumDefinitionToolTests
     [Fact]
     public async Task GetEnumDefinition_WithFullName_ReturnsDefinition()
     {
-        // Test with a known package and full enum name
         var packageId = "System.ComponentModel.Annotations";
-        var enumName = "System.ComponentModel.DataAnnotations.DataType"; // Full name
+        var fullDataTypeEnumName = "System.ComponentModel.DataAnnotations.DataType";
 
         using var httpClient = new HttpClient();
         var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
         var formattingService = new EnumFormattingService();
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
 
-        // Get enum definition
-        var definition = await tool.GetEnumDefinition(packageId, enumName);
+        var definition = await tool.GetEnumDefinition(packageId, fullDataTypeEnumName);
 
         // Assert
         Assert.NotNull(definition);

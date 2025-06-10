@@ -8,11 +8,10 @@ namespace NuGetMcpServer.Tests.Services;
 
 public class EnumFormattingServiceTests
 {
-    private readonly EnumFormattingService _service = new();
-
-    [Fact]
+    private readonly EnumFormattingService _service = new(); [Fact]
     public void FormatEnumDefinition_Should_Format_SimpleEnum()
-    {        // Arrange
+    {
+        // Arrange
         var enumType = typeof(TestEnum);
 
         // Act
