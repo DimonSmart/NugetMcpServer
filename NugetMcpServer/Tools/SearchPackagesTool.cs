@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -19,42 +20,43 @@ namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
 public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<SearchPackagesTool>(logger, packageService)
-{
-    [McpServerTool]
+{    [McpServerTool]
     [Description("Searches for NuGet packages by description or functionality with optional AI-enhanced fuzzy search.")]
     public Task<PackageSearchResult> SearchPackages(
         IMcpServer thisServer,
         [Description("Description of the functionality you're looking for")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
         [Description("Enable fuzzy search to include AI-generated package name alternatives (default: false)")] bool fuzzySearch = false,
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
         CancellationToken cancellationToken = default)
     {
         return ExecuteWithLoggingAsync(
-            () => SearchPackagesCore(thisServer, query, maxResults, fuzzySearch, cancellationToken),
+            () => SearchPackagesCore(thisServer, query, maxResults, fuzzySearch, progress, cancellationToken),
             Logger,
             "Error searching packages");
-    }
-
-    private async Task<PackageSearchResult> SearchPackagesCore(
+    }    private async Task<PackageSearchResult> SearchPackagesCore(
         IMcpServer thisServer,
         string query,
         int maxResults,
         bool fuzzySearch,
+        IProgress<ProgressNotificationValue>? progress,
         CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(query))
+    {        if (string.IsNullOrWhiteSpace(query))
             throw new ArgumentException("Query cannot be empty", nameof(query));
 
         if (maxResults <= 0 || maxResults > 100)
             maxResults = 100;
         Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
 
-        // Phase 1: Just in case - let's do direct serach
-        var directResults = await PackageService.SearchPackagesAsync(query, maxResults);
+        progress?.Report(new ProgressNotificationValue(5, "Starting package search", 1, fuzzySearch ? 6 : 2));
+
+        // Phase 1: Just in case - let's do direct search
+        var directResults = await PackageService.SearchPackagesAsync(query, maxResults, progress);
         Logger.LogInformation("Standard search found {Count} packages", directResults.Count);
 
         if (!fuzzySearch)
         {
+            progress?.Report(new ProgressNotificationValue(100, "Search completed", 2, 2, $"Found {directResults.Count} packages"));
             return new PackageSearchResult
             {
                 Query = query,
@@ -64,12 +66,15 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             };
         }
 
+        progress?.Report(new ProgressNotificationValue(40, "Generating AI package names", 2, 6));
+
         // Phase 2: Fuzzy search - enhance with AI-generated package name alternatives
         var aiPackageNames = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
 
         if (!aiPackageNames.Any())
         {
             Logger.LogWarning("AI package name generation failed or returned empty result");
+            progress?.Report(new ProgressNotificationValue(100, "AI generation failed, using direct results", 6, 6));
             return new PackageSearchResult
             {
                 Query = query,
@@ -81,9 +86,13 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
 
         Logger.LogInformation("Generated AI package names: {PackageNames}", string.Join(", ", aiPackageNames));
 
+        progress?.Report(new ProgressNotificationValue(60, "Searching with AI-generated keywords", 4, 6, string.Join(", ", aiPackageNames)));
+
         // Search for packages using balanced approach to avoid popular keywords overwhelming specific ones
-        var balancedAiResults = await SearchWithBalancedResultsAsync(aiPackageNames, maxResults, cancellationToken);
+        var balancedAiResults = await SearchWithBalancedResultsAsync(aiPackageNames, maxResults, progress, cancellationToken);
         Logger.LogInformation("AI-enhanced fuzzy search found {Count} balanced packages", balancedAiResults.Count);
+
+        progress?.Report(new ProgressNotificationValue(85, "Combining and deduplicating results", 5, 6));
 
         // Combine results, removing duplicates by package ID and sorting by popularity
         var combinedResults = directResults
@@ -93,6 +102,8 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             .OrderByDescending(p => p.DownloadCount)
             .Take(maxResults)
             .ToList();
+
+        progress?.Report(new ProgressNotificationValue(100, "Search completed", 6, 6, $"Found {combinedResults.Count} packages"));
 
         return new PackageSearchResult
         {
@@ -168,26 +179,34 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             .Select(s => s.Trim())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Take(expectedCount);
-    }
-
-    private async Task<List<Services.PackageInfo>> SearchWithBalancedResultsAsync(
+    }    private async Task<List<Services.PackageInfo>> SearchWithBalancedResultsAsync(
         IReadOnlyCollection<string> keywords,
         int maxTotalResults,
+        IProgress<ProgressNotificationValue>? progress,
         CancellationToken cancellationToken)
-    {
-        if (!keywords.Any())
+    {        if (!keywords.Any())
             return new List<Services.PackageInfo>();
 
         var keywordResults = new Dictionary<string, List<Services.PackageInfo>>();
         var resultsPerKeyword = Math.Max(1, maxTotalResults / keywords.Count);
         var remainingSlots = maxTotalResults % keywords.Count;
 
+        var keywordList = keywords.ToList();
+        var processedKeywords = 0;
+
         // Search for each keyword separately
-        foreach (var keyword in keywords)
+        foreach (var keyword in keywordList)
         {
             try
             {
-                var results = await PackageService.SearchPackagesAsync(keyword, resultsPerKeyword + 10);
+                progress?.Report(new ProgressNotificationValue(
+                    60 + (processedKeywords * 20.0 / keywordList.Count), 
+                    $"Searching for keyword: {keyword}", 
+                    processedKeywords + 1, 
+                    keywordList.Count, 
+                    keyword));
+                
+                var results = await PackageService.SearchPackagesAsync(keyword, resultsPerKeyword + 10, progress);
                 keywordResults[keyword] = results.ToList();
             }
             catch (Exception ex)
@@ -195,6 +214,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
                 Logger.LogWarning(ex, "Failed to search packages for keyword: {Keyword}", keyword);
                 keywordResults[keyword] = new List<Services.PackageInfo>();
             }
+            processedKeywords++;
         }
 
         // Balance the results - take equal amounts from each keyword

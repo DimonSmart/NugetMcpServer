@@ -11,6 +11,7 @@ using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -22,26 +23,24 @@ public class GetInterfaceDefinitionTool(
     ILogger<GetInterfaceDefinitionTool> logger,
     NuGetPackageService packageService,
     InterfaceFormattingService formattingService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
-{
-    [McpServerTool]
+{    [McpServerTool]
     [Description("Extracts and returns the C# interface definition from a specified NuGet package.")]
     public Task<string> GetInterfaceDefinition(
         [Description("NuGet package ID")] string packageId,
         [Description("Interface name (short name like 'IDisposable' or full name like 'System.IDisposable')")] string interfaceName,
-        [Description("Package version (optional, defaults to latest)")] string? version = null)
+        [Description("Package version (optional, defaults to latest)")] string? version = null,
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         return ExecuteWithLoggingAsync(
-            () => GetInterfaceDefinitionCore(packageId, interfaceName, version),
+            () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progress),
             Logger,
             "Error fetching interface definition");
-    }
-
-    private async Task<string> GetInterfaceDefinitionCore(
+    }    private async Task<string> GetInterfaceDefinitionCore(
         string packageId,
         string interfaceName,
-        string? version)
-    {
-        if (string.IsNullOrWhiteSpace(packageId))
+        string? version,
+        IProgress<ProgressNotificationValue>? progress)
+    {        if (string.IsNullOrWhiteSpace(packageId))
         {
             throw new ArgumentNullException(nameof(packageId));
         }
@@ -50,6 +49,8 @@ public class GetInterfaceDefinitionTool(
         {
             throw new ArgumentNullException(nameof(interfaceName));
         }
+
+        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -62,20 +63,30 @@ public class GetInterfaceDefinitionTool(
         Logger.LogInformation("Fetching interface {InterfaceName} from package {PackageId} version {Version}",
             interfaceName, packageId, version);
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
+        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+
+        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for interface", 3, 4));
+
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        foreach (var entry in archive.Entries)
+        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        var processedDlls = 0;
+
+        foreach (var entry in dllEntries)
         {
-            if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+            progress?.Report(new ProgressNotificationValue(70 + (processedDlls * 25.0 / dllEntries.Count), 
+                $"Scanning {Path.GetFileName(entry.FullName)}", 
+                processedDlls + 1, dllEntries.Count, 
+                entry.FullName));
 
             var definition = await TryGetInterfaceFromEntry(entry, interfaceName);
             if (definition != null)
             {
+                progress?.Report(new ProgressNotificationValue(100, "Interface found", 4, 4, interfaceName));
                 return definition;
             }
+            processedDlls++;
         }
 
         return $"Interface '{interfaceName}' not found in package {packageId}.";

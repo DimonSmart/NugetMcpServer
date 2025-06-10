@@ -11,6 +11,7 @@ using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -19,23 +20,23 @@ namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
 public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageService packageService) : McpToolBase<ListClassesTool>(logger, packageService)
-{
-    [McpServerTool]
+{    [McpServerTool]
     [Description("Lists all public classes available in a specified NuGet package.")]
     public Task<ClassListResult> ListClasses(
         [Description("NuGet package ID")] string packageId,
-        [Description("Package version (optional, defaults to latest)")] string? version = null)
+        [Description("Package version (optional, defaults to latest)")] string? version = null,
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         return ExecuteWithLoggingAsync(
-            () => ListClassesCore(packageId, version),
+            () => ListClassesCore(packageId, version, progress),
             Logger,
             "Error listing classes");
-    }
-
-    private async Task<ClassListResult> ListClassesCore(string packageId, string? version)
+    }    private async Task<ClassListResult> ListClassesCore(string packageId, string? version, IProgress<ProgressNotificationValue>? progress = null)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
+
+        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -49,6 +50,8 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         Logger.LogInformation("Listing classes from package {PackageId} version {Version}",
             packageId, version);
 
+        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+
         var result = new ClassListResult
         {
             PackageId = packageId,
@@ -56,7 +59,10 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
             Classes = []
         };
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+
+        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for classes", 3, 4));
+
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
         {
@@ -65,6 +71,8 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
 
             ProcessArchiveEntry(entry, result);
         }
+
+        progress?.Report(new ProgressNotificationValue(100, "Class listing completed", 4, 4, $"Found {result.Classes.Count} classes"));
 
         return result;
     }

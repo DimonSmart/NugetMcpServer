@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
+using NuGetMcpServer.Models;
+
 namespace NuGetMcpServer.Services;
 
 /// <summary>
@@ -42,20 +44,24 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
 
         return versions.Last();
-    }
-
+    }    
     /// <summary>
     /// Downloads a NuGet package as a memory stream
     /// </summary>
     /// <param name="packageId">Package ID</param>
     /// <param name="version">Package version</param>
+    /// <param name="progress">Progress notification for long-running operations</param>
     /// <returns>MemoryStream containing the package</returns>
-    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version)
-    {
+    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgress<ProgressNotificationValue>? progress = null)    {
         var url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
+        progress?.Report(new ProgressNotificationValue(25, "Starting package download", 1, 2, $"{packageId} v{version}"));
+
         var response = await httpClient.GetByteArrayAsync(url);
+
+        progress?.Report(new ProgressNotificationValue(100, "Package downloaded successfully", 2, 2, $"Downloaded {response.Length} bytes"));
+
         return new MemoryStream(response);
     }
 
@@ -75,18 +81,20 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             logger.LogDebug(ex, "Failed to load assembly from memory");
             return null;
         }
-    }
-
+    }    
+    
     /// <summary>
     /// Searches for NuGet packages by query
     /// </summary>
     /// <param name="query">Search query</param>
     /// <param name="take">Maximum number of results to return</param>
+    /// <param name="progress">Progress notification for long-running operations</param>
     /// <returns>List of matching packages</returns>
-    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20)
-    {
+    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20, IProgress<ProgressNotificationValue>? progress = null)    {
         if (string.IsNullOrWhiteSpace(query))
             return [];
+
+        progress?.Report(new ProgressNotificationValue(10, "Preparing search request", 1, 4));
 
         var searchUrl = $"https://azuresearch-usnc.nuget.org/query" +
                        $"?q={Uri.EscapeDataString(query)}" +
@@ -95,11 +103,19 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
         logger.LogInformation("Searching packages with query '{Query}' from {Url}", query, searchUrl);
 
+        progress?.Report(new ProgressNotificationValue(30, "Sending request to NuGet API", 2, 4));
+
         var json = await httpClient.GetStringAsync(searchUrl);
+
+        progress?.Report(new ProgressNotificationValue(60, "Processing search results", 3, 4));
+
         using var doc = JsonDocument.Parse(json);
 
         var packages = new List<PackageInfo>();
         var dataArray = doc.RootElement.GetProperty("data");
+
+        var totalElements = dataArray.GetArrayLength();
+        var processedElements = 0;
 
         foreach (var packageElement in dataArray.EnumerateArray())
         {
@@ -133,7 +149,21 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             }
 
             packages.Add(packageInfo);
+
+            processedElements++;
+            
+            // Report progress every 10% of packages processed
+            if (processedElements % Math.Max(1, totalElements / 10) == 0 || processedElements == totalElements)
+            {
+                var processingProgress = 60 + (processedElements * 30.0 / totalElements);
+                progress?.Report(new ProgressNotificationValue(processingProgress, 
+                    $"Processing package {processedElements} of {totalElements}", 
+                    processedElements, totalElements, 
+                    packageInfo.Id));
+            }
         }
+
+        progress?.Report(new ProgressNotificationValue(100, "Search completed", 4, 4, $"Found {packages.Count} packages"));
 
         return packages.OrderByDescending(p => p.DownloadCount).ToList();
     }

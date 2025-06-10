@@ -12,6 +12,7 @@ using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -20,23 +21,23 @@ namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
 public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService) : McpToolBase<ListInterfacesTool>(logger, packageService)
-{
-    [McpServerTool]
+{    [McpServerTool]
     [Description("Lists all public interfaces available in a specified NuGet package.")]
     public Task<InterfaceListResult> ListInterfaces(
         [Description("NuGet package ID")] string packageId,
-        [Description("Package version (optional, defaults to latest)")] string? version = null)
+        [Description("Package version (optional, defaults to latest)")] string? version = null,
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         return ExecuteWithLoggingAsync(
-            () => ListInterfacesCore(packageId, version),
+            () => ListInterfacesCore(packageId, version, progress),
             Logger,
             "Error listing interfaces");
-    }
-
-    private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version)
+    }    private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version, IProgress<ProgressNotificationValue>? progress = null)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
+
+        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -50,6 +51,8 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         Logger.LogInformation("Listing interfaces from package {PackageId} version {Version}",
             packageId, version);
 
+        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+
         var result = new InterfaceListResult
         {
             PackageId = packageId,
@@ -57,7 +60,10 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             Interfaces = new List<InterfaceInfo>()
         };
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+
+        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for interfaces", 3, 4));
+
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
         {
@@ -66,6 +72,8 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
 
             ProcessArchiveEntry(entry, result);
         }
+
+        progress?.Report(new ProgressNotificationValue(100, "Interface listing completed", 4, 4, $"Found {result.Interfaces.Count} interfaces"));
 
         return result;
     }

@@ -11,6 +11,7 @@ using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -22,27 +23,25 @@ public class GetClassDefinitionTool(
     ILogger<GetClassDefinitionTool> logger,
     NuGetPackageService packageService,
     ClassFormattingService formattingService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
-{
-    [McpServerTool]
+{    [McpServerTool]
     [Description("Extracts and returns the C# class definition from a specified NuGet package.")]
     public Task<string> GetClassDefinition(
         [Description("NuGet package ID")] string packageId,
         [Description("Class name (short name like 'String' or full name like 'System.String')")] string className,
-        [Description("Package version (optional, defaults to latest)")] string? version = null)
+        [Description("Package version (optional, defaults to latest)")] string? version = null,
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         return ExecuteWithLoggingAsync(
-            () => GetClassDefinitionCore(packageId, className, version),
+            () => GetClassDefinitionCore(packageId, className, version, progress),
             Logger,
             "Error fetching class definition");
-    }
-
-    private async Task<string> GetClassDefinitionCore(
+    }    private async Task<string> GetClassDefinitionCore(
         string packageId,
         string className,
-        string? version)
+        string? version,
+        IProgress<ProgressNotificationValue>? progress)
     {
-        if (string.IsNullOrWhiteSpace(packageId))
-        {
+        if (string.IsNullOrWhiteSpace(packageId))        {
             throw new ArgumentNullException(nameof(packageId));
         }
 
@@ -50,6 +49,8 @@ public class GetClassDefinitionTool(
         {
             throw new ArgumentNullException(nameof(className));
         }
+
+        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -62,7 +63,12 @@ public class GetClassDefinitionTool(
         Logger.LogInformation("Fetching class {ClassName} from package {PackageId} version {Version}",
             className, packageId, version);
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
+        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+
+        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for class", 3, 4));
+
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
         {
@@ -74,6 +80,7 @@ public class GetClassDefinitionTool(
             var definition = await TryGetClassFromEntry(entry, className);
             if (definition != null)
             {
+                progress?.Report(new ProgressNotificationValue(100, "Class found", 4, 4, className));
                 return definition;
             }
         }
