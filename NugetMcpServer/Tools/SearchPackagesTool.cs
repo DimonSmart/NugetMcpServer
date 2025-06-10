@@ -18,19 +18,10 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class SearchPackagesTool : McpToolBase<SearchPackagesTool>
+public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<SearchPackagesTool>(logger, packageService)
 {
-    public SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService)
-        : base(logger, packageService)
-    {
-    }
     [McpServerTool]
-    [Description(
-        "Searches for NuGet packages by description or functionality. " +
-        "Standard search uses only the original query. " +
-        "Fuzzy search enhances results by combining standard search with AI-generated package name alternatives " +
-        "based on the described functionality."
-    )]
+    [Description("Searches for NuGet packages by description or functionality with optional AI-enhanced fuzzy search.")]
     public Task<PackageSearchResult> SearchPackages(
         IMcpServer thisServer,
         [Description("Description of the functionality you're looking for")] string query,
@@ -71,8 +62,8 @@ public class SearchPackagesTool : McpToolBase<SearchPackagesTool>
                 Packages = directResults.Take(maxResults).ToList(),
                 UsedAiKeywords = false
             };
-        }        
-        
+        }
+
         // Phase 2: Fuzzy search - enhance with AI-generated package name alternatives
         var aiPackageNames = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
 

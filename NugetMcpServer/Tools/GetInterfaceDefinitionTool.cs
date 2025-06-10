@@ -18,44 +18,17 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool>
+public class GetInterfaceDefinitionTool(
+    ILogger<GetInterfaceDefinitionTool> logger,
+    NuGetPackageService packageService,
+    InterfaceFormattingService formattingService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
 {
-    private readonly InterfaceFormattingService _formattingService;
-
-    public GetInterfaceDefinitionTool(
-        ILogger<GetInterfaceDefinitionTool> logger,
-        NuGetPackageService packageService,
-        InterfaceFormattingService formattingService)
-        : base(logger, packageService)
-    {
-        _formattingService = formattingService;
-    }
-
-    /// <summary>
-    /// Extracts and returns the C# interface definition from a specified NuGet package.
-    /// </summary>
-    /// <param name="packageId">
-    ///   The NuGet package ID (exactly as on nuget.org).
-    /// </param>
-    /// <param name="interfaceName">
-    ///   Interface name without namespace.
-    ///   If not specified, will search for all interfaces in the assembly.
-    /// </param>
-    /// <param name="version">
-    ///   (Optional) Version of the package. If not specified, the latest version will be used.
-    /// </param>    
     [McpServerTool]
-    [Description(
-       "Extracts and returns the C# interface definition from a specified NuGet package. " +
-       "Parameters: " +
-       "packageId — NuGet package ID; " +
-       "version (optional) — package version (defaults to latest); " +
-       "interfaceName (optional) — short interface name without namespace."
-    )]
+    [Description("Extracts and returns the C# interface definition from a specified NuGet package.")]
     public Task<string> GetInterfaceDefinition(
-        string packageId,
-        string interfaceName,
-        string? version = null)
+        [Description("NuGet package ID")] string packageId,
+        [Description("Interface name (short name like 'IDisposable' or full name like 'System.IDisposable')")] string interfaceName,
+        [Description("Package version (optional, defaults to latest)")] string? version = null)
     {
         return ExecuteWithLoggingAsync(
             () => GetInterfaceDefinitionCore(packageId, interfaceName, version),
@@ -91,8 +64,6 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-
-        // Search in each DLL in the archive
         foreach (var entry in archive.Entries)
         {
             if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
@@ -118,7 +89,6 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
             {
                 return null;
             }
-
             var iface = assembly.GetTypes()
                 .FirstOrDefault(t =>
                 {
@@ -127,8 +97,14 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
                         return false;
                     }
 
-                    // Exact match
+                    // Exact match for short name
                     if (t.Name == interfaceName)
+                    {
+                        return true;
+                    }
+
+                    // Exact match for full name
+                    if (t.FullName == interfaceName)
                     {
                         return true;
                     }
@@ -144,7 +120,21 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
                         if (backtickIndex > 0)
                         {
                             var baseName = t.Name.Substring(0, backtickIndex);
-                            return baseName == interfaceName;
+                            if (baseName == interfaceName)
+                            {
+                                return true;
+                            }
+                        }
+
+                        // Also check full name for generics
+                        if (t.FullName != null)
+                        {
+                            var fullBacktickIndex = t.FullName.IndexOf('`');
+                            if (fullBacktickIndex > 0)
+                            {
+                                var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
+                                return fullBaseName == interfaceName;
+                            }
                         }
                     }
 
@@ -156,7 +146,7 @@ public class GetInterfaceDefinitionTool : McpToolBase<GetInterfaceDefinitionTool
                 return null;
             }
 
-            return _formattingService.FormatInterfaceDefinition(iface, Path.GetFileName(entry.FullName));
+            return formattingService.FormatInterfaceDefinition(iface, Path.GetFileName(entry.FullName));
         }
         catch (Exception ex)
         {

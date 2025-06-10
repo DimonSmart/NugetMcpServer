@@ -100,5 +100,49 @@ namespace NugetMcpServer.Tests.Tools
                 TestOutput.WriteLine("================================================================\n");
             }
         }
+
+        [Fact]
+        public async Task GetInterfaceDefinition_WithFullName_ReturnsDefinition()
+        {
+            // Test with a known package and full interface name
+            var packageId = "DimonSmart.MazeGenerator";
+            var interfaceName = "DimonSmart.MazeGenerator.ICell"; // Full name with namespace
+            var version = await _packageService.GetLatestVersion(packageId);
+
+            // Get interface definition
+            var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
+
+            // Assert
+            Assert.NotNull(definition);
+            Assert.Contains("interface", definition);
+            Assert.Contains("ICell", definition);
+            Assert.DoesNotContain("not found in package", definition);
+
+            TestOutput.WriteLine("\n========== TEST OUTPUT: ICell INTERFACE DEFINITION (FULL NAME) ==========");
+            TestOutput.WriteLine(definition);
+            TestOutput.WriteLine("=======================================================================\n");
+        }
+
+        [Fact]
+        public async Task GetInterfaceDefinition_WithGenericFullName_ReturnsFormattedDefinition()
+        {
+            // Test with a known generic interface using full name
+            var packageId = "DimonSmart.MazeGenerator";
+            var interfaceName = "DimonSmart.MazeGenerator.IMaze"; // Full name for generic interface
+            var version = await _packageService.GetLatestVersion(packageId);
+
+            // Get interface definition
+            var definition = await _defTool.GetInterfaceDefinition(packageId, interfaceName, version);
+
+            // Assert
+            Assert.NotNull(definition);
+            Assert.Contains("interface", definition);
+            Assert.Contains("IMaze<", definition);  // Should be formatted as IMaze<T>, not IMaze`1
+            Assert.DoesNotContain("not found in package", definition);
+
+            TestOutput.WriteLine("\n========== TEST OUTPUT: IMaze INTERFACE DEFINITION (FULL NAME) ==========");
+            TestOutput.WriteLine(definition);
+            TestOutput.WriteLine("======================================================================\n");
+        }
     }
 }

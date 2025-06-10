@@ -105,4 +105,26 @@ public class InterfaceFormattingServiceTests : TestBase
         TestOutput.WriteLine(formattedCode);
         TestOutput.WriteLine("========================================================\n");
     }
+
+    [Fact]
+    public void FormatInterfaceDefinition_WithFullNameMatch_ReturnsFormattedCode()
+    {
+        // Test that the service can format interfaces found by full name
+        var interfaceType = typeof(IDisposable);
+        var assemblyName = "System.Private.CoreLib";
+
+        // Format the interface (the service itself doesn't do the lookup, 
+        // but this validates the formatting works regardless of how the interface was found)
+        var formattedCode = _formattingService.FormatInterfaceDefinition(interfaceType, assemblyName);
+
+        // Assert
+        Assert.NotNull(formattedCode);
+        Assert.Contains($"/* C# INTERFACE FROM {assemblyName} */", formattedCode);
+        Assert.Contains("public interface IDisposable", formattedCode);
+        Assert.Contains("void Dispose()", formattedCode);
+
+        TestOutput.WriteLine("\n========== TEST OUTPUT: INTERFACE FROM FULL NAME LOOKUP ==========");
+        TestOutput.WriteLine(formattedCode);
+        TestOutput.WriteLine("================================================================\n");
+    }
 }

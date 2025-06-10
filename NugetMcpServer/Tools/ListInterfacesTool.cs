@@ -19,23 +19,13 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class ListInterfacesTool : McpToolBase<ListInterfacesTool>
+public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService) : McpToolBase<ListInterfacesTool>(logger, packageService)
 {
-    public ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService)
-        : base(logger, packageService)
-    {
-    }
     [McpServerTool]
-    [Description(
-       "Lists all public interfaces available in a specified NuGet package. " +
-       "Parameters: " +
-       "packageId — NuGet package ID; " +
-       "version (optional) — package version (defaults to latest). " +
-       "Returns package ID, version and list of interfaces."
-    )]
+    [Description("Lists all public interfaces available in a specified NuGet package.")]
     public Task<InterfaceListResult> ListInterfaces(
-        string packageId,
-        string? version = null)
+        [Description("NuGet package ID")] string packageId,
+        [Description("Package version (optional, defaults to latest)")] string? version = null)
     {
         return ExecuteWithLoggingAsync(
             () => ListInterfacesCore(packageId, version),
@@ -69,8 +59,6 @@ public class ListInterfacesTool : McpToolBase<ListInterfacesTool>
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version);
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-
-        // Scan each DLL in the package
         foreach (var entry in archive.Entries)
         {
             if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
@@ -86,7 +74,6 @@ public class ListInterfacesTool : McpToolBase<ListInterfacesTool>
     {
         try
         {
-            // Read the DLL into memory
             using var entryStream = entry.Open();
             using var ms = new MemoryStream();
             entryStream.CopyTo(ms);

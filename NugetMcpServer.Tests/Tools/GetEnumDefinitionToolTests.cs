@@ -48,4 +48,49 @@ public class GetEnumDefinitionToolTests
 
     // Note: Removed version check test as it would require mocking HttpClient which is challenging
     // and not necessary for basic unit testing
+
+    // Integration tests for enum lookup with real packages
+    [Fact]
+    public async Task GetEnumDefinition_WithShortName_ReturnsDefinition()
+    {
+        // Test with a known package and short enum name
+        var packageId = "System.ComponentModel.Annotations";
+        var enumName = "DataType"; // Short name
+
+        using var httpClient = new HttpClient();
+        var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
+        var formattingService = new EnumFormattingService();
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
+
+        // Get enum definition
+        var definition = await tool.GetEnumDefinition(packageId, enumName);
+
+        // Assert
+        Assert.NotNull(definition);
+        Assert.Contains("enum", definition);
+        Assert.Contains("DataType", definition);
+        Assert.DoesNotContain("not found in package", definition);
+    }
+
+    [Fact]
+    public async Task GetEnumDefinition_WithFullName_ReturnsDefinition()
+    {
+        // Test with a known package and full enum name
+        var packageId = "System.ComponentModel.Annotations";
+        var enumName = "System.ComponentModel.DataAnnotations.DataType"; // Full name
+
+        using var httpClient = new HttpClient();
+        var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
+        var formattingService = new EnumFormattingService();
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
+
+        // Get enum definition
+        var definition = await tool.GetEnumDefinition(packageId, enumName);
+
+        // Assert
+        Assert.NotNull(definition);
+        Assert.Contains("enum", definition);
+        Assert.Contains("DataType", definition);
+        Assert.DoesNotContain("not found in package", definition);
+    }
 }
