@@ -20,11 +20,9 @@ public class EnumFormattingService
             throw new ArgumentException($"Type {enumType.Name} is not an enum", nameof(enumType));
         }
 
-        var sb = new StringBuilder();
-
-        // Get the underlying type
+        var sb = new StringBuilder();        // Get the underlying type
         var underlyingType = Enum.GetUnderlyingType(enumType);
-        var underlyingTypeName = FormatTypeName(underlyingType);
+        var underlyingTypeName = TypeFormattingHelpers.FormatTypeName(underlyingType);
 
         // Format the enum declaration
         sb.Append($"public enum {enumType.Name}");
@@ -66,10 +64,7 @@ public class EnumFormattingService
                 sb.AppendLine();
             }
         }
-
         sb.AppendLine("}");
         return sb.ToString();
     }
-
-    private static string FormatTypeName(Type type) => type.FormatCSharpTypeName();
 }
