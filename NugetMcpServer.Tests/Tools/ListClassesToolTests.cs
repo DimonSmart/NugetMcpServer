@@ -25,7 +25,7 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_WithValidPackage_ReturnsClasses()
-    {        
+    {
         // Test with a known package
         var packageId = "DimonSmart.MazeGenerator";
 
@@ -64,7 +64,7 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_ContainsClassModifierInformation()
-    {        
+    {
         // Test that the result contains modifier information
         var packageId = "DimonSmart.MazeGenerator";
         var result = await _listTool.ListClasses(packageId);

@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
-using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -23,7 +23,8 @@ public class GetEnumDefinitionTool(
     ILogger<GetEnumDefinitionTool> logger,
     NuGetPackageService packageService,
     EnumFormattingService formattingService) : McpToolBase<GetEnumDefinitionTool>(logger, packageService)
-{    [McpServerTool]
+{
+    [McpServerTool]
     [Description("Extracts and returns the C# enum definition from a specified NuGet package.")]
     public Task<string> GetEnumDefinition(
         [Description("NuGet package ID")] string packageId,
@@ -35,13 +36,15 @@ public class GetEnumDefinitionTool(
             () => GetEnumDefinitionCore(packageId, enumName, version, progress),
             Logger,
             "Error fetching enum definition");
-    }    private async Task<string> GetEnumDefinitionCore(
+    }
+    private async Task<string> GetEnumDefinitionCore(
         string packageId,
         string enumName,
         string? version,
         IProgress<ProgressNotificationValue>? progress)
     {
-        if (string.IsNullOrWhiteSpace(packageId))        {
+        if (string.IsNullOrWhiteSpace(packageId))
+        {
             throw new ArgumentNullException(nameof(packageId));
         }
 
@@ -50,7 +53,7 @@ public class GetEnumDefinitionTool(
             throw new ArgumentNullException(nameof(enumName));
         }
 
-        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Resolving package version" });
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -62,11 +65,11 @@ public class GetEnumDefinitionTool(
 
         Logger.LogInformation("Fetching enum {EnumName} from package {PackageId} version {Version}", enumName, packageId, version);
 
-        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = $"Downloading package {packageId} v{version}" });
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for enum", 3, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 70, Total = 100, Message = "Scanning assemblies for enum" });
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
@@ -79,7 +82,7 @@ public class GetEnumDefinitionTool(
             var definition = await TryGetEnumFromEntry(entry, enumName);
             if (definition != null)
             {
-                progress?.Report(new ProgressNotificationValue(100, "Enum found", 4, 4, enumName));
+                progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Enum found: {enumName}" });
                 return definition;
             }
         }

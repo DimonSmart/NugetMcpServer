@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
-using NuGetMcpServer.Models;
+using ModelContextProtocol;
 
 namespace NuGetMcpServer.Services;
 
@@ -44,7 +44,8 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
 
         return versions.Last();
-    }    
+    }
+
     /// <summary>
     /// Downloads a NuGet package as a memory stream
     /// </summary>
@@ -52,15 +53,16 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     /// <param name="version">Package version</param>
     /// <param name="progress">Progress notification for long-running operations</param>
     /// <returns>MemoryStream containing the package</returns>
-    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgress<ProgressNotificationValue>? progress = null)    {
+    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgress<ProgressNotificationValue>? progress = null)
+    {
         var url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
-        progress?.Report(new ProgressNotificationValue(25, "Starting package download", 1, 2, $"{packageId} v{version}"));
+        progress?.Report(new ProgressNotificationValue() { Progress = 25, Total = 100, Message = $"Starting package download {packageId} v{version}" });
 
         var response = await httpClient.GetByteArrayAsync(url);
 
-        progress?.Report(new ProgressNotificationValue(100, "Package downloaded successfully", 2, 2, $"Downloaded {response.Length} bytes"));
+        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Package downloaded successfully" });
 
         return new MemoryStream(response);
     }
@@ -81,8 +83,8 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             logger.LogDebug(ex, "Failed to load assembly from memory");
             return null;
         }
-    }    
-    
+    }
+
     /// <summary>
     /// Searches for NuGet packages by query
     /// </summary>
@@ -90,11 +92,10 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     /// <param name="take">Maximum number of results to return</param>
     /// <param name="progress">Progress notification for long-running operations</param>
     /// <returns>List of matching packages</returns>
-    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20, IProgress<ProgressNotificationValue>? progress = null)    {
+    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20, IProgress<ProgressNotificationValue>? progress = null)
+    {
         if (string.IsNullOrWhiteSpace(query))
-            return [];
-
-        progress?.Report(new ProgressNotificationValue(10, "Preparing search request", 1, 4));
+            return []; progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Preparing search request" });
 
         var searchUrl = $"https://azuresearch-usnc.nuget.org/query" +
                        $"?q={Uri.EscapeDataString(query)}" +
@@ -103,11 +104,11 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
         logger.LogInformation("Searching packages with query '{Query}' from {Url}", query, searchUrl);
 
-        progress?.Report(new ProgressNotificationValue(30, "Sending request to NuGet API", 2, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Sending request to NuGet API" });
 
         var json = await httpClient.GetStringAsync(searchUrl);
 
-        progress?.Report(new ProgressNotificationValue(60, "Processing search results", 3, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Processing search results" });
 
         using var doc = JsonDocument.Parse(json);
 
@@ -148,22 +149,17 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
                     .ToList();
             }
 
-            packages.Add(packageInfo);
+            packages.Add(packageInfo); processedElements++;
 
-            processedElements++;
-            
             // Report progress every 10% of packages processed
             if (processedElements % Math.Max(1, totalElements / 10) == 0 || processedElements == totalElements)
             {
                 var processingProgress = 60 + (processedElements * 30.0 / totalElements);
-                progress?.Report(new ProgressNotificationValue(processingProgress, 
-                    $"Processing package {processedElements} of {totalElements}", 
-                    processedElements, totalElements, 
-                    packageInfo.Id));
+                progress?.Report(new ProgressNotificationValue() { Progress = (float)processingProgress, Total = 100, Message = $"Processing package {processedElements} of {totalElements}: {packageInfo.Id}" });
             }
         }
 
-        progress?.Report(new ProgressNotificationValue(100, "Search completed", 4, 4, $"Found {packages.Count} packages"));
+        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Search completed - Found {packages.Count} packages" });
 
         return packages.OrderByDescending(p => p.DownloadCount).ToList();
     }

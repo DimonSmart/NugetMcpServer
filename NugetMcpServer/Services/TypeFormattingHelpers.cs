@@ -138,7 +138,7 @@ public static class TypeFormattingHelpers
 
         return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : "";
     }
-    
+
     /// <summary>
     /// Formats property modifiers (static, virtual, abstract, etc.)
     /// </summary>

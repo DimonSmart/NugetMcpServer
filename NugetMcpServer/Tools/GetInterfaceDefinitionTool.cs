@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
-using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -23,7 +23,8 @@ public class GetInterfaceDefinitionTool(
     ILogger<GetInterfaceDefinitionTool> logger,
     NuGetPackageService packageService,
     InterfaceFormattingService formattingService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
-{    [McpServerTool]
+{
+    [McpServerTool]
     [Description("Extracts and returns the C# interface definition from a specified NuGet package.")]
     public Task<string> GetInterfaceDefinition(
         [Description("NuGet package ID")] string packageId,
@@ -35,12 +36,14 @@ public class GetInterfaceDefinitionTool(
             () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progress),
             Logger,
             "Error fetching interface definition");
-    }    private async Task<string> GetInterfaceDefinitionCore(
+    }
+    private async Task<string> GetInterfaceDefinitionCore(
         string packageId,
         string interfaceName,
         string? version,
         IProgress<ProgressNotificationValue>? progress)
-    {        if (string.IsNullOrWhiteSpace(packageId))
+    {
+        if (string.IsNullOrWhiteSpace(packageId))
         {
             throw new ArgumentNullException(nameof(packageId));
         }
@@ -50,7 +53,7 @@ public class GetInterfaceDefinitionTool(
             throw new ArgumentNullException(nameof(interfaceName));
         }
 
-        progress?.Report(new ProgressNotificationValue(10, "Resolving package version", 1, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Resolving package version" });
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -63,11 +66,11 @@ public class GetInterfaceDefinitionTool(
         Logger.LogInformation("Fetching interface {InterfaceName} from package {PackageId} version {Version}",
             interfaceName, packageId, version);
 
-        progress?.Report(new ProgressNotificationValue(30, "Downloading package", 2, 4, $"{packageId} v{version}"));
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = $"Downloading package {packageId} v{version}" });
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress?.Report(new ProgressNotificationValue(70, "Scanning assemblies for interface", 3, 4));
+        progress?.Report(new ProgressNotificationValue() { Progress = 70, Total = 100, Message = "Scanning assemblies for interface" });
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -75,15 +78,12 @@ public class GetInterfaceDefinitionTool(
 
         foreach (var entry in dllEntries)
         {
-            progress?.Report(new ProgressNotificationValue(70 + (processedDlls * 25.0 / dllEntries.Count), 
-                $"Scanning {Path.GetFileName(entry.FullName)}", 
-                processedDlls + 1, dllEntries.Count, 
-                entry.FullName));
+            progress?.Report(new ProgressNotificationValue() { Progress = (float)(70 + (processedDlls * 25.0 / dllEntries.Count)), Total = 100, Message = $"Scanning {Path.GetFileName(entry.FullName)}: {entry.FullName}" });
 
             var definition = await TryGetInterfaceFromEntry(entry, interfaceName);
             if (definition != null)
             {
-                progress?.Report(new ProgressNotificationValue(100, "Interface found", 4, 4, interfaceName));
+                progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Interface found: {interfaceName}" });
                 return definition;
             }
             processedDlls++;

@@ -27,7 +27,7 @@ namespace NugetMcpServer.Tests.Tools
 
         [Fact]
         public async Task GetInterfaceDefinition_WithSpecificInterface_ReturnsDefinition()
-        {            
+        {
             // Test with a known package and interface
             var packageId = "DimonSmart.MazeGenerator";
             var interfaceName = "ICell";
