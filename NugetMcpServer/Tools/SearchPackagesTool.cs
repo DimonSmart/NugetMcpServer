@@ -21,7 +21,59 @@ namespace NuGetMcpServer.Tools;
 [McpServerToolType]
 public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<SearchPackagesTool>(logger, packageService)
 {
-    private static readonly string[] StopWords = ["алгоритм", "пакет", "math", "formula"];
+    private static readonly string[] StopWords =
+    [
+        "алгоритм",
+        "алгоритмы",
+        "algorithm",
+        "algorithms",
+        "пакет",
+        "package",
+        "packages",
+        "library",
+        "libraries",
+        "framework",
+        "frameworks",
+        "component",
+        "components",
+        "module",
+        "modules",
+        "plugin",
+        "plugins",
+        "tool",
+        "tools",
+        "utility",
+        "utilities",
+        "utils",
+        "system",
+        "service",
+        "services",
+        "client",
+        "server",
+        "data",
+        "math",
+        "formula",
+        "formulas",
+        "api",
+        "apis",
+        "base",
+        "helper",
+        "helpers",
+        "common",
+        "core"
+    ];
+
+    private sealed class SearchContext
+    {
+        public HashSet<string> Keywords { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<SearchResultSet> Sets { get; } = [];
+
+        public void Add(string keyword, IEnumerable<PackageInfo> packages)
+        {
+            Keywords.Add(keyword);
+            Sets.Add(new SearchResultSet(keyword, packages.ToList()));
+        }
+    }
     [McpServerTool]
     [Description("Searches for NuGet packages by description or functionality with optional AI-enhanced fuzzy search. For non-fuzzy search, you can provide comma-separated keywords for faster targeted search with balanced results.")]
     public Task<PackageSearchResult> SearchPackages(
@@ -57,7 +109,6 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         }
 
         Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
-        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Searching" });
 
         if (!fuzzySearch)
         {
@@ -81,11 +132,11 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             };
         }
 
-        List<SearchResultSet> resultSets = new List<SearchResultSet>();
+        var ctx = new SearchContext();
 
         var direct = await PackageService.SearchPackagesAsync(query, maxResults);
-        resultSets.Add(new SearchResultSet(query, direct.ToList()));
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search complete" });
+        ctx.Add(query, direct);
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search" });
 
         // word-based search
         List<string> words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -95,22 +146,24 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        ctx.Keywords.UnionWith(words);
         List<SearchResultSet> wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
-        resultSets.AddRange(wordResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search complete" });
+        ctx.Sets.AddRange(wordResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search" });
 
         // AI suggestions
         IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
-        aiKeywords = aiKeywords
+        var filteredAi = aiKeywords
             .Where(k => !StopWords.Contains(k, StringComparer.OrdinalIgnoreCase))
-            .Where(k => !words.Contains(k, StringComparer.OrdinalIgnoreCase) && !k.Equals(query, StringComparison.OrdinalIgnoreCase))
+            .Where(k => !ctx.Keywords.Contains(k))
             .ToList();
 
-        List<SearchResultSet> aiResults = await SearchKeywordsAsync(aiKeywords, maxResults, cancellationToken);
-        resultSets.AddRange(aiResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 90, Total = 100, Message = "AI search complete" });
+        ctx.Keywords.UnionWith(filteredAi);
+        List<SearchResultSet> aiResults = await SearchKeywordsAsync(filteredAi, maxResults, cancellationToken);
+        ctx.Sets.AddRange(aiResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 90, Total = 100, Message = "AI search" });
 
-        List<PackageInfo> finalResults = SearchResultBalancer.Balance(resultSets, maxResults);
+        List<PackageInfo> finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
         progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
         return new PackageSearchResult
@@ -118,8 +171,8 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             Query = query,
             TotalCount = finalResults.Count,
             Packages = finalResults,
-            UsedAiKeywords = aiKeywords.Any(),
-            AiKeywords = string.Join(", ", aiKeywords)
+            UsedAiKeywords = filteredAi.Any(),
+            AiKeywords = string.Join(", ", filteredAi)
         };
     }
 

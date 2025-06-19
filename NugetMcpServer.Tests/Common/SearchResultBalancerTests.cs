@@ -42,4 +42,17 @@ public class SearchResultBalancerTests
         Assert.Equal(10, result.Count);
         Assert.Contains(result, p => p.Id == "S1");
     }
+
+    [Fact]
+    public void Balance_RemovesDuplicates()
+    {
+        SearchResultSet set1 = new("a", [P("X", 1)]);
+        SearchResultSet set2 = new("b", [P("X", 1), P("Y", 1)]);
+
+        List<PackageInfo> result = SearchResultBalancer.Balance([set1, set2], 5);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, p => p.Id == "X1");
+        Assert.Contains(result, p => p.Id == "Y1");
+    }
 }
