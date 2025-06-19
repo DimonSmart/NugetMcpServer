@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace NuGetMcpServer.Common;
 
-public record SearchResultSet(string Keyword, List<Services.PackageInfo> Packages);
+public record SearchResultSet(string Keyword, IReadOnlyList<Services.PackageInfo> Packages);
 
 public static class SearchResultBalancer
 {

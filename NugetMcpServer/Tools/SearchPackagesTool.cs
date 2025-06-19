@@ -37,6 +37,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             Logger,
             "Error searching packages");
     }
+
     private async Task<PackageSearchResult> SearchPackagesCore(
         IMcpServer thisServer,
         string query,
@@ -46,23 +47,27 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query))
+        {
             throw new ArgumentException("Query cannot be empty", nameof(query));
+        }
 
         if (maxResults <= 0 || maxResults > 100)
+        {
             maxResults = 100;
+        }
 
         Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
         progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Searching" });
 
         if (!fuzzySearch)
         {
-            var keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            List<string> keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(k => k.Trim())
                 .Where(k => !string.IsNullOrWhiteSpace(k))
                 .ToList();
 
-            var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
-            var balanced = SearchResultBalancer.Balance(keywordResults, maxResults);
+            List<SearchResultSet> keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
+            List<PackageInfo> balanced = SearchResultBalancer.Balance(keywordResults, maxResults);
 
             progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
@@ -76,37 +81,36 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             };
         }
 
-        var resultSets = new List<SearchResultSet>();
+        List<SearchResultSet> resultSets = new List<SearchResultSet>();
 
-        // direct search
-        var direct = await PackageService.SearchPackagesAsync(query, maxResults, null);
+        var direct = await PackageService.SearchPackagesAsync(query, maxResults);
         resultSets.Add(new SearchResultSet(query, direct.ToList()));
         progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search complete" });
 
         // word-based search
-        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        List<string> words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(w => w.Trim())
             .Where(w => !string.IsNullOrWhiteSpace(w))
             .Where(w => !StopWords.Contains(w, StringComparer.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
+        List<SearchResultSet> wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
         resultSets.AddRange(wordResults);
         progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search complete" });
 
         // AI suggestions
-        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
         aiKeywords = aiKeywords
             .Where(k => !StopWords.Contains(k, StringComparer.OrdinalIgnoreCase))
             .Where(k => !words.Contains(k, StringComparer.OrdinalIgnoreCase) && !k.Equals(query, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        var aiResults = await SearchKeywordsAsync(aiKeywords, maxResults, cancellationToken);
+        List<SearchResultSet> aiResults = await SearchKeywordsAsync(aiKeywords, maxResults, cancellationToken);
         resultSets.AddRange(aiResults);
         progress?.Report(new ProgressNotificationValue() { Progress = 90, Total = 100, Message = "AI search complete" });
 
-        var finalResults = SearchResultBalancer.Balance(resultSets, maxResults);
+        List<PackageInfo> finalResults = SearchResultBalancer.Balance(resultSets, maxResults);
         progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
         return new PackageSearchResult
@@ -125,24 +129,26 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         int packageCount,
         CancellationToken cancellationToken)
     {
-        var prompts = new[]
-        {
+        string[] prompts =
+        [
             PromptConstants.PackageSearchPrompt,
-        };
+        ];
 
-        var allResults = new List<string>();
-        var resultsPerPrompt = Math.Max(1, packageCount / prompts.Length);
+        List<string> allResults = new List<string>();
+        int resultsPerPrompt = Math.Max(1, packageCount / prompts.Length);
 
-        foreach (var promptTemplate in prompts)
+        foreach (string? promptTemplate in prompts)
         {
             try
             {
-                var formattedPrompt = string.Format(promptTemplate, resultsPerPrompt, originalQuery);
-                var names = await ExecuteSinglePromptAsync(thisServer, formattedPrompt, resultsPerPrompt, cancellationToken);
+                string formattedPrompt = string.Format(promptTemplate, resultsPerPrompt, originalQuery);
+                IEnumerable<string> names = await ExecuteSinglePromptAsync(thisServer, formattedPrompt, resultsPerPrompt, cancellationToken);
                 allResults.AddRange(names);
 
                 if (allResults.Count >= packageCount)
+                {
                     break;
+                }
             }
             catch (Exception ex)
             {
@@ -163,40 +169,37 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         int expectedCount,
         CancellationToken cancellationToken)
     {
-        var messages = new[]
-        {
+        ChatMessage[] messages =
+        [
             new ChatMessage(ChatRole.User, prompt)
-        };
+        ];
 
-        var options = new ChatOptions
+        ChatOptions options = new ChatOptions
         {
             MaxOutputTokens = expectedCount * 10,
             Temperature = 0.95f
         };
 
-        var response = await thisServer
+        ChatResponse response = await thisServer
             .AsSamplingChatClient()
             .GetResponseAsync(messages, options, cancellationToken);
 
         return response.ToString()
-            .Split(new[] { "\r", "\n", "," }, StringSplitOptions.RemoveEmptyEntries)
+            .Split(["\r", "\n", ","], StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.Trim())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Take(expectedCount);
     }
 
-    private async Task<List<SearchResultSet>> SearchKeywordsAsync(
-        IReadOnlyCollection<string> keywords,
-        int maxResults,
-        CancellationToken cancellationToken)
+    private async Task<List<SearchResultSet>> SearchKeywordsAsync(IReadOnlyCollection<string> keywords, int maxResults, CancellationToken cancellationToken)
     {
-        var results = new List<SearchResultSet>();
+        List<SearchResultSet> results = [];
 
-        foreach (var keyword in keywords)
+        foreach (string keyword in keywords)
         {
             try
             {
-                var packages = await PackageService.SearchPackagesAsync(keyword, maxResults, null);
+                var packages = await PackageService.SearchPackagesAsync(keyword, maxResults);
                 results.Add(new SearchResultSet(keyword, packages.ToList()));
             }
             catch (Exception ex)

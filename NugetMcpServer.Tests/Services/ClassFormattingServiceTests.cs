@@ -8,7 +8,7 @@ namespace NugetMcpServer.Tests.Services;
 
 public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBase(testOutput)
 {
-    private readonly ClassFormattingService _formattingService = new ClassFormattingService(); [Fact]
+    private readonly ClassFormattingService _formattingService = new(); [Fact]
     public void FormatClassDefinition_WithSimpleClass_ReturnsFormattedCode()
     {
         var classType = typeof(string);

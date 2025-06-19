@@ -26,17 +26,17 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     /// <returns>Latest version string</returns>
     public async Task<string> GetLatestVersion(string packageId)
     {
-        var indexUrl = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
+        string indexUrl = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
         logger.LogInformation("Fetching latest version for package {PackageId} from {Url}", packageId, indexUrl);
-        var json = await httpClient.GetStringAsync(indexUrl);
-        using var doc = JsonDocument.Parse(json);
+        string json = await httpClient.GetStringAsync(indexUrl);
+        using JsonDocument doc = JsonDocument.Parse(json);
 
-        var versionsArray = doc.RootElement.GetProperty("versions");
-        var versions = new List<string>();
+        JsonElement versionsArray = doc.RootElement.GetProperty("versions");
+        List<string> versions = new List<string>();
 
-        foreach (var element in versionsArray.EnumerateArray())
+        foreach (JsonElement element in versionsArray.EnumerateArray())
         {
-            var version = element.GetString();
+            string? version = element.GetString();
             if (!string.IsNullOrWhiteSpace(version))
             {
                 versions.Add(version);
@@ -55,12 +55,12 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     /// <returns>MemoryStream containing the package</returns>
     public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgress<ProgressNotificationValue>? progress = null)
     {
-        var url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
+        string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
         progress?.Report(new ProgressNotificationValue() { Progress = 25, Total = 100, Message = $"Starting package download {packageId} v{version}" });
 
-        var response = await httpClient.GetByteArrayAsync(url);
+        byte[] response = await httpClient.GetByteArrayAsync(url);
 
         progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Package downloaded successfully" });
 
@@ -85,52 +85,45 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
     }
 
+
     /// <summary>
     /// Searches for NuGet packages by query
     /// </summary>
     /// <param name="query">Search query</param>
     /// <param name="take">Maximum number of results to return</param>
-    /// <param name="progress">Progress notification for long-running operations</param>
     /// <returns>List of matching packages</returns>
-    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20, IProgress<ProgressNotificationValue>? progress = null)
+    public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return []; progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Preparing search request" });
+        {
+            return [];
+        }
 
-        var searchUrl = $"https://azuresearch-usnc.nuget.org/query" +
+        string searchUrl = $"https://azuresearch-usnc.nuget.org/query" +
                        $"?q={Uri.EscapeDataString(query)}" +
                        $"&take={take}" +
                        $"&sortBy=popularity-desc";
 
         logger.LogInformation("Searching packages with query '{Query}' from {Url}", query, searchUrl);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Sending request to NuGet API" });
-
         var json = await httpClient.GetStringAsync(searchUrl);
+        using JsonDocument doc = JsonDocument.Parse(json);
+        List<PackageInfo> packages = [];
+        JsonElement dataArray = doc.RootElement.GetProperty("data");
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Processing search results" });
-
-        using var doc = JsonDocument.Parse(json);
-
-        var packages = new List<PackageInfo>();
-        var dataArray = doc.RootElement.GetProperty("data");
-
-        var totalElements = dataArray.GetArrayLength();
-        var processedElements = 0;
-
-        foreach (var packageElement in dataArray.EnumerateArray())
+        foreach (JsonElement packageElement in dataArray.EnumerateArray())
         {
-            var packageInfo = new PackageInfo
+            PackageInfo packageInfo = new()
             {
                 Id = packageElement.GetProperty("id").GetString() ?? string.Empty,
                 Version = packageElement.GetProperty("version").GetString() ?? string.Empty,
-                Description = packageElement.TryGetProperty("description", out var desc) ? desc.GetString() : null,
-                DownloadCount = packageElement.TryGetProperty("totalDownloads", out var downloads) ? downloads.GetInt64() : 0,
-                ProjectUrl = packageElement.TryGetProperty("projectUrl", out var projectUrl) ? projectUrl.GetString() : null
+                Description = packageElement.TryGetProperty("description", out JsonElement desc) ? desc.GetString() : null,
+                DownloadCount = packageElement.TryGetProperty("totalDownloads", out JsonElement downloads) ? downloads.GetInt64() : 0,
+                ProjectUrl = packageElement.TryGetProperty("projectUrl", out JsonElement projectUrl) ? projectUrl.GetString() : null
             };
 
             // Extract tags
-            if (packageElement.TryGetProperty("tags", out var tagsElement) && tagsElement.ValueKind == JsonValueKind.Array)
+            if (packageElement.TryGetProperty("tags", out JsonElement tagsElement) && tagsElement.ValueKind == JsonValueKind.Array)
             {
                 packageInfo.Tags = tagsElement.EnumerateArray()
                     .Where(t => t.ValueKind == JsonValueKind.String)
@@ -140,7 +133,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             }
 
             // Extract authors
-            if (packageElement.TryGetProperty("authors", out var authorsElement) && authorsElement.ValueKind == JsonValueKind.Array)
+            if (packageElement.TryGetProperty("authors", out JsonElement authorsElement) && authorsElement.ValueKind == JsonValueKind.Array)
             {
                 packageInfo.Authors = authorsElement.EnumerateArray()
                     .Where(a => a.ValueKind == JsonValueKind.String)
@@ -148,18 +141,8 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
                     .Where(a => !string.IsNullOrWhiteSpace(a))
                     .ToList();
             }
-
-            packages.Add(packageInfo); processedElements++;
-
-            // Report progress every 10% of packages processed
-            if (processedElements % Math.Max(1, totalElements / 10) == 0 || processedElements == totalElements)
-            {
-                var processingProgress = 60 + (processedElements * 30.0 / totalElements);
-                progress?.Report(new ProgressNotificationValue() { Progress = (float)processingProgress, Total = 100, Message = $"Processing package {processedElements} of {totalElements}: {packageInfo.Id}" });
-            }
+            packages.Add(packageInfo);
         }
-
-        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Search completed - Found {packages.Count} packages" });
 
         return packages.OrderByDescending(p => p.DownloadCount).ToList();
     }

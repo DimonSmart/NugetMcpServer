@@ -8,7 +8,7 @@ namespace NugetMcpServer.Tests.Helpers;
 public abstract class TestBase(ITestOutputHelper testOutput)
 {
     protected readonly ITestOutputHelper TestOutput = testOutput;
-    protected readonly HttpClient HttpClient = new HttpClient();
+    protected readonly HttpClient HttpClient = new();
 
     protected static async Task ExecuteWithCleanupAsync(Func<Task> operation, Action cleanup)
     {
