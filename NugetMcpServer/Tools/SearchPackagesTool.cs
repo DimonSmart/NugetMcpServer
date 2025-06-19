@@ -20,7 +20,8 @@ namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
 public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<SearchPackagesTool>(logger, packageService)
-{    
+{
+    private static readonly string[] StopWords = ["алгоритм", "пакет", "math", "formula"];
     [McpServerTool]
     [Description("Searches for NuGet packages by description or functionality with optional AI-enhanced fuzzy search. For non-fuzzy search, you can provide comma-separated keywords for faster targeted search with balanced results.")]
     public Task<PackageSearchResult> SearchPackages(
@@ -49,10 +50,10 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
 
         if (maxResults <= 0 || maxResults > 100)
             maxResults = 100;
-        Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 5, Total = 100, Message = "Starting package search" });
-        
+        Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
+        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Searching" });
+
         if (!fuzzySearch)
         {
             var keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -60,67 +61,61 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
                 .Where(k => !string.IsNullOrWhiteSpace(k))
                 .ToList();
 
-            Logger.LogInformation("Performing balanced search with {Count} keywords: {Keywords}", keywords.Count, string.Join(", ", keywords));
-            progress?.Report(new ProgressNotificationValue() { Progress = 20, Total = 100, Message = $"Balanced search with {keywords.Count} keyword(s)" });
-            
-            var balancedResults = await SearchWithBalancedResultsAsync(keywords, maxResults, progress, cancellationToken);
-            progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Balanced search completed - Found {balancedResults.Count} packages" });
-            
+            var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
+            var balanced = SearchResultBalancer.Balance(keywordResults, maxResults);
+
+            progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
+
             return new PackageSearchResult
             {
                 Query = query,
-                TotalCount = balancedResults.Count,
-                Packages = balancedResults.Take(maxResults).ToList(),
+                TotalCount = balanced.Count,
+                Packages = balanced,
                 UsedAiKeywords = false,
-                AiKeywords = $"Balanced search keywords: {string.Join(", ", keywords)}"
+                AiKeywords = string.Join(", ", keywords)
             };
         }
 
-        // Phase 1: Direct search as fallback
-        var initialResults = await PackageService.SearchPackagesAsync(query, maxResults, progress);
-        Logger.LogInformation("Initial search found {Count} packages", initialResults.Count);
-        progress?.Report(new ProgressNotificationValue() { Progress = 40, Total = 100, Message = "Generating AI package names" });
+        var resultSets = new List<SearchResultSet>();
 
-        // Phase 2: Fuzzy search - enhance with AI-generated package name alternatives
-        var aiPackageNames = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
-        if (!aiPackageNames.Any())
-        {
-            Logger.LogWarning("AI package name generation failed or returned empty result");
-            progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "AI generation failed, using direct results" });
-            return new PackageSearchResult
-            {
-                Query = query,
-                TotalCount = initialResults.Count,
-                Packages = initialResults.Take(maxResults).ToList(),
-                UsedAiKeywords = false
-            };
-        }
+        // direct search
+        var direct = await PackageService.SearchPackagesAsync(query, maxResults, null);
+        resultSets.Add(new SearchResultSet(query, direct.ToList()));
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search complete" });
 
-        Logger.LogInformation("Generated AI package names: {PackageNames}", string.Join(", ", aiPackageNames));
-        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = $"Searching with AI-generated keywords: {string.Join(", ", aiPackageNames)}" });
-
-        var balancedAiResults = await SearchWithBalancedResultsAsync(aiPackageNames, maxResults, progress, cancellationToken);
-        Logger.LogInformation("AI-enhanced fuzzy search found {Count} balanced packages", balancedAiResults.Count);
-        progress?.Report(new ProgressNotificationValue() { Progress = 85, Total = 100, Message = "Combining and deduplicating results" });
-
-        // Combine results, removing duplicates by package ID and sorting by popularity
-        var combinedResults = initialResults
-            .Concat(balancedAiResults)
-            .GroupBy(p => p.Id.ToLowerInvariant())
-            .Select(g => g.First())
-            .OrderByDescending(p => p.DownloadCount)
-            .Take(maxResults)
+        // word-based search
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim())
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Where(w => !StopWords.Contains(w, StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Search completed - Found {combinedResults.Count} packages" });
+        var wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
+        resultSets.AddRange(wordResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search complete" });
+
+        // AI suggestions
+        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        aiKeywords = aiKeywords
+            .Where(k => !StopWords.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .Where(k => !words.Contains(k, StringComparer.OrdinalIgnoreCase) && !k.Equals(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var aiResults = await SearchKeywordsAsync(aiKeywords, maxResults, cancellationToken);
+        resultSets.AddRange(aiResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 90, Total = 100, Message = "AI search complete" });
+
+        var finalResults = SearchResultBalancer.Balance(resultSets, maxResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
         return new PackageSearchResult
         {
             Query = query,
-            TotalCount = combinedResults.Count,
-            Packages = combinedResults,
-            UsedAiKeywords = true,
-            AiKeywords = string.Join(", ", aiPackageNames)
+            TotalCount = finalResults.Count,
+            Packages = finalResults,
+            UsedAiKeywords = aiKeywords.Any(),
+            AiKeywords = string.Join(", ", aiKeywords)
         };
     }
 
@@ -190,93 +185,29 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             .Take(expectedCount);
     }
 
-    private async Task<IReadOnlyCollection<Services.PackageInfo>> SearchWithBalancedResultsAsync(
+    private async Task<List<SearchResultSet>> SearchKeywordsAsync(
         IReadOnlyCollection<string> keywords,
-        int maxTotalResults,
-        IProgress<ProgressNotificationValue>? progress,
+        int maxResults,
         CancellationToken cancellationToken)
     {
-        if (!keywords.Any())
-            return new List<Services.PackageInfo>();
+        var results = new List<SearchResultSet>();
 
-        var keywordResults = new Dictionary<string, List<Services.PackageInfo>>();
-        var resultsPerKeyword = Math.Max(1, maxTotalResults / keywords.Count);
-        var remainingSlots = maxTotalResults % keywords.Count;
-
-        var keywordList = keywords.ToList();
-        var processedKeywords = 0;
-
-        // Search for each keyword separately
-        foreach (var keyword in keywordList)
+        foreach (var keyword in keywords)
         {
             try
             {
-                progress?.Report(new ProgressNotificationValue() { Progress = (float)(60 + (processedKeywords * 20.0 / keywordList.Count)), Total = 100, Message = $"Searching for keyword: {keyword}" });
-
-                var results = await PackageService.SearchPackagesAsync(keyword, resultsPerKeyword + 10, progress);
-                keywordResults[keyword] = results.ToList();
+                var packages = await PackageService.SearchPackagesAsync(keyword, maxResults, null);
+                results.Add(new SearchResultSet(keyword, packages.ToList()));
             }
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "Failed to search packages for keyword: {Keyword}", keyword);
-                keywordResults[keyword] = new List<Services.PackageInfo>();
-            }
-            processedKeywords++;
-        }
-
-        // Balance the results - take equal amounts from each keyword
-        var balancedResults = new List<Services.PackageInfo>();
-        var usedPackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // First pass: take equal amounts from each keyword
-        for (var i = 0; i < resultsPerKeyword; i++)
-        {
-            foreach (var keyword in keywords)
-            {
-                if (!keywordResults.TryGetValue(keyword, out var results) || i >= results.Count)
-                    continue;
-
-                var package = results[i];
-                if (usedPackageIds.Add(package.Id))
-                {
-                    balancedResults.Add(package);
-
-                    if (balancedResults.Count >= maxTotalResults)
-                        return balancedResults;
-                }
+                results.Add(new SearchResultSet(keyword, []));
             }
         }
 
-        // Second pass: distribute remaining slots to keywords with more results
-        var keywordsWithMoreResults = keywordResults
-            .Where(kv => kv.Value.Count > resultsPerKeyword)
-            .OrderByDescending(kv => kv.Value.Count)
-            .ToList();
-
-        var currentKeywordIndex = 0;
-        while (balancedResults.Count < maxTotalResults && remainingSlots > 0 && keywordsWithMoreResults.Any())
-        {
-            var keywordPair = keywordsWithMoreResults[currentKeywordIndex % keywordsWithMoreResults.Count];
-            var results = keywordPair.Value;
-
-            for (var i = resultsPerKeyword; i < results.Count && balancedResults.Count < maxTotalResults && remainingSlots > 0; i++)
-            {
-                var package = results[i];
-                if (usedPackageIds.Add(package.Id))
-                {
-                    balancedResults.Add(package);
-                    remainingSlots--;
-                    break;
-                }
-            }
-
-            currentKeywordIndex++;
-        }
-
-        Logger.LogInformation("Balanced search results: {TotalResults} packages from {KeywordCount} keywords. Results per keyword: {ResultsPerKeyword}, remaining slots distributed: {RemainingSlots}",
-            balancedResults.Count, keywords.Count, resultsPerKeyword, maxTotalResults % keywords.Count);
-
-        return balancedResults;
+        return results;
     }
+
 
 }
