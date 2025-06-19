@@ -17,6 +17,7 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 - Real-time extraction of interfaces and enums from NuGet packages
 - **Smart package search with AI-enhanced keyword generation**
 - **Two-phase search: direct search + AI fallback for better results**
+- **Comma-separated keyword search for fast targeted results with balanced distribution**
 - **Package popularity ranking by download count**
 - Reduces LLM hallucinations by giving accurate API information
 - Supports specific package versions or latest version
