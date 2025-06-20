@@ -1,4 +1,5 @@
 using System;
+
 using ModelContextProtocol;
 
 namespace NuGetMcpServer.Extensions;
@@ -6,8 +7,17 @@ namespace NuGetMcpServer.Extensions;
 /// <summary>
 /// Auto-incrementing progress notifier with using pattern support
 /// </summary>
-public sealed class ProgressNotifier : IDisposable
+public sealed class ProgressNotifier : IDisposable, IProgressNotifier
 {
+    public sealed class NullProgressNotifier : IProgressNotifier
+    {
+        public void ReportMessage(string message)
+        {
+        }
+    }
+
+    public static IProgressNotifier VoidProgressNotifier = new NullProgressNotifier();
+
     private readonly IProgress<ProgressNotificationValue>? _progress;
     private int _currentProgress = 0;
     private bool _disposed = false;
@@ -53,5 +63,6 @@ public sealed class ProgressNotifier : IDisposable
         });
 
         _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

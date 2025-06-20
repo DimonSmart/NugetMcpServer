@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+
 using ModelContextProtocol;
-using NuGetMcpServer.Extensions;
+
 using NugetMcpServer.Tests.Helpers;
+
+using NuGetMcpServer.Extensions;
+
 using Xunit;
 using Xunit.Abstractions;
 
@@ -49,7 +53,7 @@ public class ProgressNotifierTests : TestBase
 
         // Assert - should never exceed 99
         Assert.All(_progress.Reports, report => Assert.True(report.Progress <= 99));
-        
+
         // Last few reports should be 99
         Assert.Equal(99, _progress.Reports[99].Progress);
         Assert.Equal(99, _progress.Reports[100].Progress);

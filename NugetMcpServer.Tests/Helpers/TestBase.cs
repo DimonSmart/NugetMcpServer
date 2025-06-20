@@ -2,9 +2,6 @@ using Xunit.Abstractions;
 
 namespace NugetMcpServer.Tests.Helpers;
 
-/// <summary>
-/// Base class for test classes with common setup logic
-/// </summary>
 public abstract class TestBase(ITestOutputHelper testOutput)
 {
     protected readonly ITestOutputHelper TestOutput = testOutput;

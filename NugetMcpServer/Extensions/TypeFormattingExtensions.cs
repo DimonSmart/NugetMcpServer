@@ -4,9 +4,6 @@ using System.Linq;
 
 namespace NuGetMcpServer.Extensions
 {
-    /// <summary>
-    /// Extension methods for formatting type names
-    /// </summary>
     public static class TypeFormattingExtensions
     {
         private static readonly Dictionary<Type, string> PrimitiveTypeMap = new()
@@ -29,11 +26,6 @@ namespace NuGetMcpServer.Extensions
             { typeof(sbyte), "sbyte" }
         };
 
-        /// <summary>
-        /// Formats a type name to be more C#-like
-        /// </summary>
-        /// <param name="type">Type to format</param>
-        /// <returns>Formatted type name</returns>
         public static string FormatCSharpTypeName(this Type type)
         {
             if (PrimitiveTypeMap.TryGetValue(type, out var mappedName))
@@ -58,13 +50,7 @@ namespace NuGetMcpServer.Extensions
 
             // Return the regular type name
             return type.Name;
-        }
-
-        /// <summary>
-        /// Formats a type name string by converting generic notation from `N to &lt;T, U, ...&gt;
-        /// </summary>
-        /// <param name="typeName">Type name to format</param>
-        /// <returns>Formatted type name</returns>
+        }        // Formats a type name string by converting generic notation from `N to <T, U, ...>
         public static string FormatGenericTypeName(this string typeName)
         {
             var tickIndex = typeName.IndexOf('`');
@@ -81,11 +67,7 @@ namespace NuGetMcpServer.Extensions
             return $"{baseName}<{genericArgs}>";
         }
 
-        /// <summary>
-        /// Formats a fully qualified type name with namespace by converting generic notation
-        /// </summary>
-        /// <param name="fullTypeName">Full type name with namespace</param>
-        /// <returns>Formatted full type name</returns>
+        // Formats a fully qualified type name with namespace by converting generic notation
         public static string FormatFullGenericTypeName(this string fullTypeName)
         {
             var lastDot = fullTypeName.LastIndexOf('.');

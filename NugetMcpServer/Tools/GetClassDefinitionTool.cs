@@ -32,16 +32,18 @@ public class GetClassDefinitionTool(
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
+        using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetClassDefinitionCore(packageId, className, version, progress),
+            () => GetClassDefinitionCore(packageId, className, version, progressNotifier),
             Logger,
             "Error fetching class definition");
     }
+
     private async Task<string> GetClassDefinitionCore(
         string packageId,
         string className,
         string? version,
-        IProgress<ProgressNotificationValue>? progress)
+        ProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -53,7 +55,7 @@ public class GetClassDefinitionTool(
             throw new ArgumentNullException(nameof(className));
         }
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Resolving package version" });
+        progress.ReportMessage("Resolving package version");
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -66,11 +68,11 @@ public class GetClassDefinitionTool(
         Logger.LogInformation("Fetching class {ClassName} from package {PackageId} version {Version}",
             className, packageId, version);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = $"Downloading package {packageId} v{version}" });
+        progress.ReportMessage($"Downloading package {packageId} v{version}");
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 70, Total = 100, Message = "Scanning assemblies for class" });
+        progress.ReportMessage("Scanning assemblies for class");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
@@ -83,7 +85,7 @@ public class GetClassDefinitionTool(
             var definition = await TryGetClassFromEntry(entry, className);
             if (definition != null)
             {
-                progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Class found: {className}" });
+                progress.ReportMessage($"Class found: {className}");
                 return definition;
             }
         }

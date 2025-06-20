@@ -6,16 +6,10 @@ using System.Text;
 
 namespace NuGetMcpServer.Services;
 
-/// <summary>
-/// <summary>
-/// Service for formatting class definitions
-/// </summary>
 public class ClassFormattingService
 {
-    /// <summary>
-    /// Builds a string representation of a class, including its properties, 
-    /// methods, constants, delegates, and other public members
-    /// </summary>
+    // Builds a string representation of a class, including its properties, 
+    // methods, constants, delegates, and other public members
     public string FormatClassDefinition(Type classType, string assemblyName)
     {
         var sb = new StringBuilder()

@@ -90,19 +90,14 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
             ctx.Sets.AddRange(keywordResults);
         }
-        progress.ReportMessage("Keyword search");
-
-        if (!fuzzySearch)
+        progress.ReportMessage("Keyword search"); if (!fuzzySearch)
         {
             var balanced = SearchResultBalancer.Balance(ctx.Sets, maxResults);
-
             return new PackageSearchResult
             {
                 Query = query,
                 TotalCount = balanced.Count,
-                Packages = balanced,
-                UsedAiKeywords = false,
-                AiKeywords = string.Join(", ", keywords)
+                Packages = balanced
             };
         }
 
@@ -136,17 +131,11 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             ctx.Sets.AddRange(aiResults);
         }
 
-        progress.ReportMessage("AI search");
-
-        var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
-
-        return new PackageSearchResult
+        progress.ReportMessage("AI search"); var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults); return new PackageSearchResult
         {
             Query = query,
             TotalCount = finalResults.Count,
-            Packages = finalResults,
-            UsedAiKeywords = filteredAi.Any(),
-            AiKeywords = string.Join(", ", filteredAi)
+            Packages = finalResults
         };
     }
 

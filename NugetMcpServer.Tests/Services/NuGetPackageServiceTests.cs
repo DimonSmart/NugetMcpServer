@@ -1,4 +1,3 @@
-using System.IO;
 using System.Reflection;
 
 using NugetMcpServer.Tests.Helpers;
@@ -6,6 +5,8 @@ using NugetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Services;
 
 using Xunit.Abstractions;
+
+using static NuGetMcpServer.Extensions.ProgressNotifier;
 
 namespace NugetMcpServer.Tests.Services
 {
@@ -42,7 +43,7 @@ namespace NugetMcpServer.Tests.Services
             var version = await _packageService.GetLatestVersion(packageId);
 
             // Download the package
-            using var packageStream = await _packageService.DownloadPackageAsync(packageId, version);
+            using var packageStream = await _packageService.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
 
             // Assert
             Assert.NotNull(packageStream);

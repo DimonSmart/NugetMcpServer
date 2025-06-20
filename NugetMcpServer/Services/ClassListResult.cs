@@ -4,29 +4,12 @@ using System.Text;
 
 namespace NuGetMcpServer.Services;
 
-/// <summary>
-/// Response model for class listing including package version information
-/// </summary>
 public class ClassListResult
 {
-    /// <summary>
-    /// NuGet package ID
-    /// </summary>
     public string PackageId { get; set; } = string.Empty;
-    /// <summary>
-    /// Package version
-    /// </summary>
     public string Version { get; set; } = string.Empty;
-
-    /// <summary>
-    /// List of classes found in the package
-    /// </summary>
     public List<ClassInfo> Classes { get; set; } = [];
 
-    /// <summary>
-    /// Returns a formatted string representation of the class list
-    /// </summary>
-    /// <returns>Formatted list of classes</returns>
     public string ToFormattedString()
     {
         var sb = new StringBuilder();

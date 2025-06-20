@@ -5,14 +5,8 @@ using System.Text;
 
 namespace NuGetMcpServer.Services;
 
-/// <summary>
-/// Service for formatting interface definitions
-/// </summary>
 public class InterfaceFormattingService
-{    /// <summary>
-     /// Builds a string representation of an interface, including its properties, 
-     /// indexers, methods, and generic constraints
-     /// </summary>
+{
     public string FormatInterfaceDefinition(Type interfaceType, string assemblyName)
     {
         var sb = new StringBuilder()

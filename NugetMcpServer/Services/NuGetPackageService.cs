@@ -15,17 +15,9 @@ using NuGetMcpServer.Extensions;
 
 namespace NuGetMcpServer.Services;
 
-/// <summary>
-/// Service for interacting with NuGet packages
-/// </summary>
 public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient httpClient)
 {
 
-    /// <summary>
-    /// Gets the latest version of a NuGet package
-    /// </summary>
-    /// <param name="packageId">NuGet package ID</param>
-    /// <returns>Latest version string</returns>
     public async Task<string> GetLatestVersion(string packageId)
     {
         string indexUrl = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
@@ -48,32 +40,21 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         return versions.Last();
     }
 
-    /// <summary>
-    /// Downloads a NuGet package as a memory stream
-    /// </summary>
-    /// <param name="packageId">Package ID</param>
-    /// <param name="version">Package version</param>
-    /// <param name="progress">Progress notification for long-running operations</param>
-    /// <returns>MemoryStream containing the package</returns>
-    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgress<ProgressNotificationValue>? progress = null)
+    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier progress)
     {
         string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
-        progress?.ReportMessage($"Starting package download {packageId} v{version}", 25);
+        progress.ReportMessage($"Starting package download {packageId} v{version}");
 
         byte[] response = await httpClient.GetByteArrayAsync(url);
 
-        progress?.ReportComplete("Package downloaded successfully");
+        progress.ReportMessage("Package downloaded successfully");
 
         return new MemoryStream(response);
     }
 
-    /// <summary>
-    /// Loads an assembly from a byte array
-    /// </summary>
-    /// <param name="assemblyData">Assembly binary data</param>
-    /// <returns>Loaded assembly or null if loading failed</returns>
+    // Loads an assembly from a byte array
     public Assembly? LoadAssemblyFromMemory(byte[] assemblyData)
     {
         try
@@ -87,13 +68,6 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
     }
 
-
-    /// <summary>
-    /// Searches for NuGet packages by query
-    /// </summary>
-    /// <param name="query">Search query</param>
-    /// <param name="take">Maximum number of results to return</param>
-    /// <returns>List of matching packages</returns>
     public async Task<IReadOnlyCollection<PackageInfo>> SearchPackagesAsync(string query, int take = 20)
     {
         if (string.IsNullOrWhiteSpace(query))

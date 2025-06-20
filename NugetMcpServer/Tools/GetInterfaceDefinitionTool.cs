@@ -32,16 +32,19 @@ public class GetInterfaceDefinitionTool(
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
+        using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progress),
+            () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progressNotifier),
             Logger,
             "Error fetching interface definition");
     }
+
+
     private async Task<string> GetInterfaceDefinitionCore(
         string packageId,
         string interfaceName,
         string? version,
-        IProgress<ProgressNotificationValue>? progress)
+        ProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -53,7 +56,7 @@ public class GetInterfaceDefinitionTool(
             throw new ArgumentNullException(nameof(interfaceName));
         }
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 10, Total = 100, Message = "Resolving package version" });
+        progress.ReportMessage("Resolving package version");
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -66,11 +69,11 @@ public class GetInterfaceDefinitionTool(
         Logger.LogInformation("Fetching interface {InterfaceName} from package {PackageId} version {Version}",
             interfaceName, packageId, version);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = $"Downloading package {packageId} v{version}" });
+        progress.ReportMessage($"Downloading package {packageId} v{version}");
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 70, Total = 100, Message = "Scanning assemblies for interface" });
+        progress.ReportMessage("Scanning assemblies for interface");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -78,12 +81,12 @@ public class GetInterfaceDefinitionTool(
 
         foreach (var entry in dllEntries)
         {
-            progress?.Report(new ProgressNotificationValue() { Progress = (float)(70 + (processedDlls * 25.0 / dllEntries.Count)), Total = 100, Message = $"Scanning {Path.GetFileName(entry.FullName)}: {entry.FullName}" });
+            progress.ReportMessage($"Scanning {Path.GetFileName(entry.FullName)}: {entry.FullName}");
 
             var definition = await TryGetInterfaceFromEntry(entry, interfaceName);
             if (definition != null)
             {
-                progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = $"Interface found: {interfaceName}" });
+                progress.ReportMessage($"Interface found: {interfaceName}");
                 return definition;
             }
             processedDlls++;

@@ -4,9 +4,7 @@ using Xunit.Abstractions;
 
 namespace NugetMcpServer.Tests.Helpers;
 
-/// <summary>
-/// Logger implementation for tests that writes to XUnit test output
-/// </summary>
+// Logger implementation for tests that writes to XUnit test output
 public class TestLogger<T>(ITestOutputHelper output) : ILogger<T>
 {
     private readonly ITestOutputHelper _output = output;

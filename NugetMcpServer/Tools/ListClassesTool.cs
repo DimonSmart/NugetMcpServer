@@ -28,17 +28,21 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
+        using var progressNotifier = new ProgressNotifier(progress);
+
         return ExecuteWithLoggingAsync(
-            () => ListClassesCore(packageId, version, progress),
+            () => ListClassesCore(packageId, version, progressNotifier),
             Logger,
             "Error listing classes");
     }
-    private async Task<ClassListResult> ListClassesCore(string packageId, string? version, IProgress<ProgressNotificationValue>? progress = null)
+
+
+    private async Task<ClassListResult> ListClassesCore(string packageId, string? version, IProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        progress?.ReportMessage("Resolving package version", 10);
+        progress.ReportMessage("Resolving package version");
 
         if (version.IsNullOrEmptyOrNullString())
         {
@@ -52,7 +56,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         Logger.LogInformation("Listing classes from package {PackageId} version {Version}",
             packageId, version);
 
-        progress?.ReportMessage($"Downloading package {packageId} v{version}", 30);
+        progress.ReportMessage($"Downloading package {packageId} v{version}");
 
         var result = new ClassListResult
         {
@@ -63,7 +67,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress?.ReportMessage("Scanning assemblies for classes", 70);
+        progress.ReportMessage("Scanning assemblies for classes");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         foreach (var entry in archive.Entries)
@@ -74,7 +78,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
             ProcessArchiveEntry(entry, result);
         }
 
-        progress?.ReportComplete($"Class listing completed - Found {result.Classes.Count} classes");
+        progress.ReportMessage($"Class listing completed - Found {result.Classes.Count} classes");
 
         return result;
     }
