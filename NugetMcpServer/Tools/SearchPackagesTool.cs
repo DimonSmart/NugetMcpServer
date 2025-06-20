@@ -12,6 +12,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 using NuGetMcpServer.Common;
+using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
@@ -43,8 +44,10 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         IProgress<ProgressNotificationValue>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        using var progressNotifier = new ProgressNotifier(progress);
+
         return ExecuteWithLoggingAsync(
-            () => SearchPackagesCore(thisServer, query, maxResults, fuzzySearch, progress, cancellationToken),
+            () => SearchPackagesCore(thisServer, query, maxResults, fuzzySearch, progressNotifier, cancellationToken),
             Logger,
             "Error searching packages");
     }
@@ -54,9 +57,11 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         string query,
         int maxResults,
         bool fuzzySearch,
-        IProgress<ProgressNotificationValue>? progress,
+        ProgressNotifier progress,
         CancellationToken cancellationToken)
     {
+
+
         if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
 
         if (maxResults <= 0 || maxResults > 100) maxResults = 100;
@@ -65,24 +70,31 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
 
         var ctx = new SearchContext();
 
-        var direct = await PackageService.SearchPackagesAsync(query, maxResults);
-        ctx.Add(query, direct);
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search" });
+        // Direct search - always performed without stop words filtering!
+        ctx.Add(query, await PackageService.SearchPackagesAsync(query, maxResults));
 
+        progress.ReportMessage("Direct search");
+
+        // Keyword search from comma-separated values, filtered by stop words and duplicates
         var keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(k => k.Trim())
             .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .Where(k => !ctx.Keywords.Contains(k))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        ctx.Keywords.UnionWith(keywords);
-        var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
-        ctx.Sets.AddRange(keywordResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Keyword search" });
+        if (keywords.Any())
+        {
+            ctx.Keywords.UnionWith(keywords);
+            var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
+            ctx.Sets.AddRange(keywordResults);
+        }
+        progress.ReportMessage("Keyword search");
 
         if (!fuzzySearch)
         {
             var balanced = SearchResultBalancer.Balance(ctx.Sets, maxResults);
-            progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
             return new PackageSearchResult
             {
@@ -94,31 +106,39 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             };
         }
 
+        // Word search from space-separated values, filtered by stop words and duplicates
         var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(w => w.Trim())
             .Where(w => !string.IsNullOrWhiteSpace(w))
             .Where(w => !StopWords.Words.Contains(w, StringComparer.OrdinalIgnoreCase))
+            .Where(w => !ctx.Keywords.Contains(w))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        ctx.Keywords.UnionWith(words);
-        var wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
-        ctx.Sets.AddRange(wordResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 80, Total = 100, Message = "Word search" });
+        if (words.Any())
+        {
+            ctx.Keywords.UnionWith(words);
+            var wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
+            ctx.Sets.AddRange(wordResults);
+        }
+        progress.ReportMessage("Word search");
 
-        // AI suggestions
+        // AI suggestions - filtered by stop words and duplicates
         IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken); var filteredAi = aiKeywords
             .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
             .Where(k => !ctx.Keywords.Contains(k))
             .ToList();
 
-        ctx.Keywords.UnionWith(filteredAi);
-        var aiResults = await SearchKeywordsAsync(filteredAi, maxResults, cancellationToken);
-        ctx.Sets.AddRange(aiResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 90, Total = 100, Message = "AI search" });
+        if (filteredAi.Any())
+        {
+            ctx.Keywords.UnionWith(filteredAi);
+            var aiResults = await SearchKeywordsAsync(filteredAi, maxResults, cancellationToken);
+            ctx.Sets.AddRange(aiResults);
+        }
+
+        progress.ReportMessage("AI search");
 
         var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
         return new PackageSearchResult
         {

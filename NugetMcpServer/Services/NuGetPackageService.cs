@@ -11,6 +11,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 
+using NuGetMcpServer.Extensions;
+
 namespace NuGetMcpServer.Services;
 
 /// <summary>
@@ -58,11 +60,11 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 25, Total = 100, Message = $"Starting package download {packageId} v{version}" });
+        progress?.ReportMessage($"Starting package download {packageId} v{version}", 25);
 
         byte[] response = await httpClient.GetByteArrayAsync(url);
 
-        progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Package downloaded successfully" });
+        progress?.ReportComplete("Package downloaded successfully");
 
         return new MemoryStream(response);
     }
