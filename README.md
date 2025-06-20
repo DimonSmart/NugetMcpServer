@@ -110,9 +110,9 @@ The server uses the .NET Generic Host and includes:
 
 ### Package Search Tools
 
-- `SearchPackages(query, maxResults?, fuzzySearch?)` - Searches for NuGet packages by description or functionality. 
-  - **Standard search mode (fuzzySearch=false, default)**: Uses original query terms only
-  - **Fuzzy search mode (fuzzySearch=true)**: Enhances results by combining standard search with AI-generated package name alternatives 
+- `SearchPackages(query, maxResults?, fuzzySearch?)` - Searches for NuGet packages by description or functionality.
+  - **Standard search mode (fuzzySearch=false, default)**: Performs direct search for the full query and also searches each comma-separated keyword if provided
+  - **Fuzzy search mode (fuzzySearch=true)**: Starts with the standard search and additionally tries each individual word and AI-generated package name alternatives
   - AI analyzes user's functional requirements and generates 3 most likely package names (e.g., "maze generation" → "MazeGenerator MazeBuilder MazeCreator")
   - Returns up to 50 most popular packages with details including download counts, descriptions, and project URLs
   - Results are sorted by popularity (download count) for better relevance
@@ -232,14 +232,13 @@ Response (formatted result shows combined results):
 #### How Fuzzy Search Works
 
 The search algorithm works as follows:
-- **Standard search mode (fuzzySearch=false)**: Uses only the original query terms
-- **Fuzzy search mode (fuzzySearch=true)**: 
-  1. Performs standard search with original query
-  2. Uses AI to analyze the functional requirements and generate 3 most likely package names
-  3. AI considers common .NET package naming patterns (e.g., "maze generation" → "MazeGenerator MazeBuilder MazeCreator")
-  4. Searches for AI-generated package names
-  5. Combines results, removes duplicates, and sorts by popularity
-  4. Combines and deduplicates results, sorted by popularity
+- **Standard search mode (fuzzySearch=false)**: Direct search for the whole query plus searches for comma-separated keywords
+- **Fuzzy search mode (fuzzySearch=true)**:
+  1. Runs the standard search
+  2. Searches each individual word from the query
+  3. Uses AI to suggest additional package names (e.g., "maze generation" → "MazeGenerator MazeBuilder MazeCreator")
+  4. Searches for the AI-generated names
+  5. Combines and deduplicates all results sorted by popularity
 
 ## Technical Details
 
