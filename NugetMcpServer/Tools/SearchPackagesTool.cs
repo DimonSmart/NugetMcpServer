@@ -34,7 +34,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         }
     }
     [McpServerTool]
-    [Description("Searches for NuGet packages by description or functionality with optional AI-enhanced fuzzy search. For non-fuzzy search, you can provide comma-separated keywords for faster targeted search with balanced results.")]
+    [Description("Searches for NuGet packages. The query is always searched directly. Without fuzzy search you can also provide comma-separated keywords. Fuzzy search extends the basic search with word and AI generated name matching.")]
     public Task<PackageSearchResult> SearchPackages(
         IMcpServer thisServer,
         [Description("Description of the functionality you're looking for, or comma-separated keywords for targeted search (fast option without fuzzy)")] string query,
@@ -63,16 +63,25 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
 
         Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
 
+        var ctx = new SearchContext();
+
+        var direct = await PackageService.SearchPackagesAsync(query, maxResults);
+        ctx.Add(query, direct);
+        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search" });
+
+        var keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(k => k.Trim())
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .ToList();
+
+        ctx.Keywords.UnionWith(keywords);
+        var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
+        ctx.Sets.AddRange(keywordResults);
+        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Keyword search" });
+
         if (!fuzzySearch)
         {
-            var keywords = query.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(k => k.Trim())
-                .Where(k => !string.IsNullOrWhiteSpace(k))
-                .ToList();
-
-            var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
-            var balanced = SearchResultBalancer.Balance(keywordResults, maxResults);
-
+            var balanced = SearchResultBalancer.Balance(ctx.Sets, maxResults);
             progress?.Report(new ProgressNotificationValue() { Progress = 100, Total = 100, Message = "Search complete" });
 
             return new PackageSearchResult
@@ -85,11 +94,6 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             };
         }
 
-        var ctx = new SearchContext();
-
-        var direct = await PackageService.SearchPackagesAsync(query, maxResults);
-        ctx.Add(query, direct);
-        progress?.Report(new ProgressNotificationValue() { Progress = 30, Total = 100, Message = "Direct search" });
         var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(w => w.Trim())
             .Where(w => !string.IsNullOrWhiteSpace(w))
@@ -100,7 +104,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         ctx.Keywords.UnionWith(words);
         var wordResults = await SearchKeywordsAsync(words, maxResults, cancellationToken);
         ctx.Sets.AddRange(wordResults);
-        progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search" });
+        progress?.Report(new ProgressNotificationValue() { Progress = 80, Total = 100, Message = "Word search" });
 
         // AI suggestions
         IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken); var filteredAi = aiKeywords
