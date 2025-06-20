@@ -57,15 +57,9 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         IProgress<ProgressNotificationValue>? progress,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            throw new ArgumentException("Query cannot be empty", nameof(query));
-        }
+        if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
 
-        if (maxResults <= 0 || maxResults > 100)
-        {
-            maxResults = 100;
-        }
+        if (maxResults <= 0 || maxResults > 100) maxResults = 100;
 
         Logger.LogInformation("Starting package search for query: {Query}, fuzzy: {FuzzySearch}", query, fuzzySearch);
 
@@ -109,7 +103,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         progress?.Report(new ProgressNotificationValue() { Progress = 60, Total = 100, Message = "Word search" });
 
         // AI suggestions
-        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);        var filteredAi = aiKeywords
+        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken); var filteredAi = aiKeywords
             .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
             .Where(k => !ctx.Keywords.Contains(k))
             .ToList();
