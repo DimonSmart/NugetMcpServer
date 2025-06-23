@@ -22,7 +22,6 @@ namespace NuGetMcpServer.Tools;
 [McpServerToolType]
 public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<SearchPackagesTool>(logger, packageService)
 {
-
     private sealed class SearchContext
     {
         public HashSet<string> Keywords { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -34,6 +33,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             Sets.Add(new SearchResultSet(keyword, packages.ToList()));
         }
     }
+
     [McpServerTool]
     [Description("Searches for NuGet packages. The query is always searched directly. Without fuzzy search you can also provide comma-separated keywords. Fuzzy search extends the basic search with word and AI generated name matching.")]
     public Task<PackageSearchResult> SearchPackages(
@@ -90,7 +90,10 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             var keywordResults = await SearchKeywordsAsync(keywords, maxResults, cancellationToken);
             ctx.Sets.AddRange(keywordResults);
         }
-        progress.ReportMessage("Keyword search"); if (!fuzzySearch)
+
+        progress.ReportMessage("Keyword search");
+        
+        if (!fuzzySearch)
         {
             var balanced = SearchResultBalancer.Balance(ctx.Sets, maxResults);
             return new PackageSearchResult
@@ -102,7 +105,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         }
 
         // Word search from space-separated values, filtered by stop words and duplicates
-        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        var words = keywords.SelectMany(k => k.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Select(w => w.Trim())
             .Where(w => !string.IsNullOrWhiteSpace(w))
             .Where(w => !StopWords.Words.Contains(w, StringComparer.OrdinalIgnoreCase))
@@ -119,7 +122,8 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
         progress.ReportMessage("Word search");
 
         // AI suggestions - filtered by stop words and duplicates
-        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken); var filteredAi = aiKeywords
+        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        var filteredAi = aiKeywords
             .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
             .Where(k => !ctx.Keywords.Contains(k))
             .ToList();
@@ -131,7 +135,10 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, NuGetPackage
             ctx.Sets.AddRange(aiResults);
         }
 
-        progress.ReportMessage("AI search"); var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults); return new PackageSearchResult
+        progress.ReportMessage("AI search");
+        var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
+        
+        return new PackageSearchResult
         {
             Query = query,
             TotalCount = finalResults.Count,
