@@ -2,39 +2,23 @@ namespace NuGetMcpServer.Common;
 
 public static class PromptConstants
 {
-    public const string PackageSearchPrompt1 = @"**Task:**
-Generate up to 5 keywords for task described in the UserRequest.
+    public const string PackageSearchPrompt = @"Task:
+Generate up to {0} (less is possible) User Request specific descriptive keywords.
+Keywords should help with highly relevant to User Request NuGet package finding.
+Use synonyms, variations of the original term.
 
-** Keyword Rules: **
-Keywords must be short, 1 word  (noun) or (noun + space + verb) not preferable but possible.
-You can use the UserRequest nouns close synonyms too.
+Keyword Rules:
 
-** Restrictions: **
-Do not generate very wide terms which could be far from initial Request (like Algorithm, Solver, Grid).
-If wide, common word, is strictly needed - add qualifier word (Like Genetic Algorithm)
+Keyword should be short, ideally one word
+Two-word terms are allowed if they are common enough
+Restrictions:
 
-** Output format: **
-Only keywords.
-Each keyword on a new line.
-No extra text.
-
-**UserRequest:**
-""Maze generation""";
-
-    public const string PackageSearchPrompt = @"**Task:**
-Generate up to {0} noun keywords for the UserRequest topic.
-
-**Keyword Rules:**
-- Keyword should be short, ideally one word
-- If keyword need clarification - keep both, keyword and keyword plus clarification
-
-**Restrictions:**
-- Avoid extremely wide keywords like ""Design"", ""Pattern"", ""Algorithm"", ""Generator"". As this keywords are useless without clarification.
-
-**Output format:**
+Exclude broad terms or general categories.
+Do not mention NuGet.
+Do not provide irrelevant keywords, If no more relevant - just return less results.
+Output format:
 Only keywords, one per line, no extra text, no numbering, no explanations.
 
-**UserRequest:**
+User Request:
 '{1}'";
-
 }

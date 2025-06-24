@@ -1,0 +1,164 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+
+using ModelContextProtocol;
+using ModelContextProtocol.Server;
+
+using NuGetMcpServer.Common;
+using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Services;
+
+using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
+
+namespace NuGetMcpServer.Tools;
+
+[McpServerToolType]
+public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<FuzzySearchPackagesTool>(logger, packageService)
+{
+    private sealed class SearchContext
+    {
+        public HashSet<string> Keywords { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<SearchResultSet> Sets { get; } = [];
+
+        public void Add(string keyword, IEnumerable<PackageInfo> packages)
+        {
+            Keywords.Add(keyword);
+            Sets.Add(new SearchResultSet(keyword, packages.ToList()));
+        }
+    }
+
+    [McpServerTool]
+    [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
+    public Task<PackageSearchResult> FuzzySearchPackages(
+        IMcpServer thisServer,
+        [Description("Description of the functionality you're looking for")] string query,
+        [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
+        IProgress<ProgressNotificationValue>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var progressNotifier = new ProgressNotifier(progress);
+
+        return ExecuteWithLoggingAsync(
+            () => FuzzySearchPackagesCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
+            Logger,
+            "Error performing fuzzy search for packages");
+    }
+
+    private async Task<PackageSearchResult> FuzzySearchPackagesCore(
+        IMcpServer thisServer,
+        string query,
+        int maxResults,
+        ProgressNotifier progress,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
+        ArgumentNullException.ThrowIfNull(thisServer);
+
+        if (maxResults <= 0 || maxResults > 100) maxResults = 100;
+
+        Logger.LogInformation("Starting fuzzy package search for query: {Query}", query);
+
+        var ctx = new SearchContext();
+
+        // Direct search as baseline
+        ctx.Add(query, await PackageService.SearchPackagesAsync(query, maxResults));
+        progress.ReportMessage("Direct search");
+
+        // AI suggestions - filtered by stop words and duplicates
+        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        var filteredAi = aiKeywords
+            .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .Where(k => !ctx.Keywords.Contains(k))
+            .ToList();
+
+        if (filteredAi.Any())
+        {
+            ctx.Keywords.UnionWith(filteredAi);
+            var aiResults = await SearchKeywordsAsync(filteredAi, maxResults, cancellationToken);
+            ctx.Sets.AddRange(aiResults);
+        }
+
+        progress.ReportMessage("AI search");
+        var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
+
+        return new PackageSearchResult
+        {
+            Query = query,
+            TotalCount = finalResults.Count,
+            Packages = finalResults
+        };
+    }
+
+    private async Task<IReadOnlyCollection<string>> AIGeneratePackageNamesAsync(
+        IMcpServer thisServer,
+        string originalQuery,
+        int packageCount,
+        CancellationToken cancellationToken)
+    {
+        var allResults = new List<string>();
+
+        try
+        {
+            string formattedPrompt = string.Format(PromptConstants.PackageSearchPrompt, 20, originalQuery);
+
+            ChatMessage[] messages = [new ChatMessage(ChatRole.User, formattedPrompt)];
+
+            ChatOptions options = new()
+            {
+                MaxOutputTokens = 20 * 5,
+                Temperature = 0.95f
+            };
+
+            ChatResponse response = await thisServer
+                .AsSamplingChatClient()
+                .GetResponseAsync(messages, options, cancellationToken);
+
+            var names = response.ToString()
+                .Split(["\r", "\n", ","], StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Take(20);
+
+            allResults.AddRange(names);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to execute prompt for query: {Query}", originalQuery);
+        }
+
+        return allResults
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(packageCount)
+            .ToList()
+            .AsReadOnly();
+    }
+
+    private async Task<List<SearchResultSet>> SearchKeywordsAsync(IReadOnlyCollection<string> keywords, int maxResults, CancellationToken cancellationToken)
+    {
+        List<SearchResultSet> results = [];
+
+        foreach (string keyword in keywords)
+        {
+            try
+            {
+                var packages = await PackageService.SearchPackagesAsync(keyword, maxResults);
+                results.Add(new SearchResultSet(keyword, packages.ToList()));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to search packages for keyword: {Keyword}", keyword);
+                results.Add(new SearchResultSet(keyword, []));
+            }
+        }
+
+        return results;
+    }
+}
