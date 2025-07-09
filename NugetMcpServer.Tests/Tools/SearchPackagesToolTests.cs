@@ -19,7 +19,7 @@ public class SearchPackagesToolTests : TestBase
         _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
         _toolLogger = new TestLogger<SearchPackagesTool>(TestOutput);
 
-        _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+        _packageService = CreateNuGetPackageService();
         _tool = new SearchPackagesTool(_toolLogger, _packageService);
     }
 

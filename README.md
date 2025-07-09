@@ -1,4 +1,3 @@
-
 # NugetMcpServer
 
 A powerful MCP server for getting accurate interface and enum definitions from NuGet packages. It helps reduce LLM hallucinations by giving precise information about real package APIs.
@@ -108,6 +107,11 @@ The server uses the .NET Generic Host and includes:
 
 - `GetEnumDefinition(packageId, enumName, version?)` - Gets the C# enum definition from a NuGet package. Parameters: packageId (NuGet package ID), enumName (short name without namespace), version (optional, defaults to latest)
 
+### Class Tools
+
+- `GetClassDefinition(packageId, className, version?)` - Gets the C# class definition from a NuGet package. Parameters: packageId (NuGet package ID), className (short or full name), version (optional, defaults to latest)
+- `ListClasses(packageId, version?)` - Lists all public classes in a NuGet package. Returns package ID, version, and the list of classes
+
 ### Package Search Tools
 
 - `SearchPackages(query, maxResults?, fuzzySearch?)` - Searches for NuGet packages by description or functionality.
@@ -117,6 +121,13 @@ The server uses the .NET Generic Host and includes:
   - Returns up to 50 most popular packages with details including download counts, descriptions, and project URLs
   - Results are sorted by popularity (download count) for better relevance
 
+### Package Information Tools
+
+- `GetPackageInfo(packageId, version?)` - Gets comprehensive information about a NuGet package including metadata, dependencies, and meta-package status. Shows clear warnings for meta-packages and guidance on where to find actual implementations.
+
+### Package Dependencies
+
+- `GetPackageDependencies(packageId, version?)` - Gets the dependencies of a NuGet package to help understand what other packages contain the actual implementations
 
 ## MCP Server Response Examples
 
@@ -302,5 +313,13 @@ Model Context Protocol (MCP) is a protocol that standardizes communication betwe
 ## License
 
 Unlicense - This is free and unencumbered software released into the public domain.
+
+### Meta-Package Support
+
+All tools that analyze package content (class definitions, interface definitions, enum definitions, and listing tools) now automatically detect meta-packages and show clear warnings. Meta-packages are NuGet packages that group other packages together without containing actual implementation code. When a meta-package is detected, the tools will:
+
+- Display a prominent warning that it's a meta-package
+- List the dependencies that contain the actual implementations
+- Provide guidance on which packages to analyze instead
 
 

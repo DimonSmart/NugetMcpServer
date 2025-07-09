@@ -4,20 +4,22 @@ using Moq;
 
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tools;
+using NugetMcpServer.Tests.Helpers;
 
-namespace NuGetMcpServer.Tests.Tools;
+using Xunit;
+using Xunit.Abstractions;
 
-public class GetEnumDefinitionToolTests
+namespace NugetMcpServer.Tests.Tools;
+
+public class GetEnumDefinitionToolTests : TestBase
 {
     private readonly Mock<ILogger<GetEnumDefinitionTool>> _loggerMock = new();
-    private readonly Mock<ILogger<NuGetPackageService>> _packageLoggerMock = new();
-    private readonly Mock<HttpClient> _httpClientMock = new();
     private readonly NuGetPackageService _packageService;
     private readonly Mock<EnumFormattingService> _formattingServiceMock = new();
 
-    public GetEnumDefinitionToolTests()
+    public GetEnumDefinitionToolTests(ITestOutputHelper testOutput) : base(testOutput)
     {
-        _packageService = new NuGetPackageService(_packageLoggerMock.Object, _httpClientMock.Object);
+        _packageService = CreateNuGetPackageService();
     }
 
     [Fact]
@@ -47,8 +49,7 @@ public class GetEnumDefinitionToolTests
         var packageId = "System.ComponentModel.Annotations";
         var dataTypeEnumName = "DataType";
 
-        using var httpClient = new HttpClient();
-        var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
+        var packageService = CreateNuGetPackageService();
         var formattingService = new EnumFormattingService();
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
 
@@ -67,8 +68,7 @@ public class GetEnumDefinitionToolTests
         var packageId = "System.ComponentModel.Annotations";
         var fullDataTypeEnumName = "System.ComponentModel.DataAnnotations.DataType";
 
-        using var httpClient = new HttpClient();
-        var packageService = new NuGetPackageService(_packageLoggerMock.Object, httpClient);
+        var packageService = CreateNuGetPackageService();
         var formattingService = new EnumFormattingService();
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
 

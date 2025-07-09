@@ -12,4 +12,7 @@ public class PackageInfo
     public List<string>? Tags { get; set; }
     public List<string>? Authors { get; set; }
     public List<string> FoundByKeywords { get; set; } = [];
+    public string? LicenseUrl { get; set; }
+    public bool IsMetaPackage { get; set; }
+    public List<PackageDependency> Dependencies { get; set; } = [];
 }

@@ -1,6 +1,7 @@
 using NugetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;
@@ -19,7 +20,7 @@ namespace NugetMcpServer.Tests.Tools
             _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
             _listToolLogger = new TestLogger<ListInterfacesTool>(TestOutput);
 
-            _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+            _packageService = CreateNuGetPackageService();
             _listTool = new ListInterfacesTool(_listToolLogger, _packageService);
         }
 
@@ -39,7 +40,7 @@ namespace NugetMcpServer.Tests.Tools
 
             TestOutput.WriteLine($"Found {result.Interfaces.Count} interfaces in {result.PackageId} version {result.Version}");
             TestOutput.WriteLine("\n========== TEST OUTPUT: LIST OF INTERFACES ==========");
-            TestOutput.WriteLine(result.ToFormattedString());
+            TestOutput.WriteLine(result.Format());
             TestOutput.WriteLine("===================================================\n");
 
             // Verify we found expected interfaces

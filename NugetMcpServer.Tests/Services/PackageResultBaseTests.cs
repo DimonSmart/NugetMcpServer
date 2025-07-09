@@ -1,4 +1,5 @@
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 
 namespace NugetMcpServer.Tests.Services;
 
@@ -20,13 +21,13 @@ public class PackageResultBaseTests
             }
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
         Assert.Contains("META-PACKAGE: Microsoft.SemanticKernel v1.60.0", formatted);
-        Assert.Contains("This is a meta-package that groups other related packages together", formatted);
+        Assert.Contains("This package groups other related packages together", formatted);
         Assert.Contains("Microsoft.SemanticKernel.Core", formatted);
         Assert.Contains("Microsoft.SemanticKernel.Connectors.AzureOpenAI", formatted);
-        Assert.Contains("To see actual classes and interfaces, please analyze one of the dependency packages", formatted);
+        Assert.Contains("💡 To see actual implementations, analyze one of the dependency packages", formatted);
     }
 
     [Fact]
@@ -47,7 +48,7 @@ public class PackageResultBaseTests
             }
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
         Assert.Contains("META-PACKAGE: SomeMetaPackage v1.0.0", formatted);
         Assert.Contains("SomePackage.Core", formatted);
@@ -67,9 +68,9 @@ public class PackageResultBaseTests
             Classes = new List<ClassInfo>()
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
-        Assert.Contains("CLASSES FROM Newtonsoft.Json v13.0.3", formatted);
+        Assert.Contains("Classes from Newtonsoft.Json v13.0.3", formatted);
         Assert.Contains("No public classes found in this package", formatted);
         Assert.DoesNotContain("META-PACKAGE", formatted);
     }
@@ -88,7 +89,7 @@ public class PackageResultBaseTests
             }
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
         Assert.Contains("META-PACKAGE: Microsoft.SemanticKernel v1.60.0", formatted);
         Assert.Contains("Microsoft.SemanticKernel.Core", formatted);
@@ -112,7 +113,7 @@ public class PackageResultBaseTests
             }
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
         Assert.Contains("META-PACKAGE: SomeMetaPackage v1.0.0", formatted);
         Assert.Contains("SomePackage.Core", formatted);

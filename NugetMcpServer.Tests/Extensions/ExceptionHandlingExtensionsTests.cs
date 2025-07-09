@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 
 namespace NugetMcpServer.Tests.Extensions;
 
-public class ExceptionHandlingExtensionsTests(ITestOutputHelper _)
+public class ExceptionHandlingExtensionsTests
 {
     private readonly Mock<ILogger> _mockLogger = new();
 

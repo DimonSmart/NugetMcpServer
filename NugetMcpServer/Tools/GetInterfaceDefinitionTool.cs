@@ -73,6 +73,27 @@ public class GetInterfaceDefinitionTool(
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
+        progress.ReportMessage("Extracting package information");
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
+        
+        var metaPackageWarning = string.Empty;
+        if (packageInfo.IsMetaPackage)
+        {
+            metaPackageWarning = $"⚠️  META-PACKAGE: {packageId} v{version}\n";
+            metaPackageWarning += "This package groups other related packages together and may not contain actual implementation code.\n";
+            
+            if (packageInfo.Dependencies.Count > 0)
+            {
+                metaPackageWarning += "Dependencies:\n";
+                foreach (var dependency in packageInfo.Dependencies)
+                {
+                    metaPackageWarning += $"  • {dependency.Id} ({dependency.Version})\n";
+                }
+                metaPackageWarning += "💡 To see actual implementations, analyze one of the dependency packages listed above.\n";
+            }
+            metaPackageWarning += "\n" + new string('-', 60) + "\n\n";
+        }
+
         progress.ReportMessage("Scanning assemblies for interface");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
@@ -87,12 +108,12 @@ public class GetInterfaceDefinitionTool(
             if (definition != null)
             {
                 progress.ReportMessage($"Interface found: {interfaceName}");
-                return definition;
+                return metaPackageWarning + definition;
             }
             processedDlls++;
         }
 
-        return $"Interface '{interfaceName}' not found in package {packageId}.";
+        return metaPackageWarning + $"Interface '{interfaceName}' not found in package {packageId}.";
     }
     private async Task<string?> TryGetInterfaceFromEntry(ZipArchiveEntry entry, string interfaceName)
     {

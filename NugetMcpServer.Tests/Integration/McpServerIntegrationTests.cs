@@ -100,11 +100,10 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
     {
         TestOutput.WriteLine("MCP server process started, testing interfaces directly...");
 
-        // Use the ListInterfacesTool class
         var packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
         var toolLogger = new TestLogger<ListInterfacesTool>(TestOutput);
 
-        var packageService = new NuGetPackageService(packageLogger, HttpClient);
+        var packageService = CreateNuGetPackageService();
         var listTool = new ListInterfacesTool(toolLogger, packageService);
 
         // Call the tool directly to verify the package contains interfaces

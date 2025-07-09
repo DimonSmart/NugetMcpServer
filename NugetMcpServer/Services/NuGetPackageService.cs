@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +15,7 @@ using NuGetMcpServer.Extensions;
 
 namespace NuGetMcpServer.Services;
 
-public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient httpClient)
+public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient httpClient, MetaPackageDetector metaPackageDetector)
 {
 
     public async Task<string> GetLatestVersion(string packageId)
@@ -72,47 +70,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
     public Task<bool> IsMetaPackageAsync(Stream packageStream)
     {
-        try
-        {
-            packageStream.Position = 0;
-
-            using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-            var files = reader.GetFiles();
-            var libFiles = files.Where(f => f.StartsWith("lib/", StringComparison.OrdinalIgnoreCase) &&
-                                       !f.EndsWith("/_._", StringComparison.OrdinalIgnoreCase) &&
-                                       !f.EndsWith("\\_._", StringComparison.OrdinalIgnoreCase)).ToList();
-
-            using var nuspecStream = reader.GetNuspec();
-            var nuspecReader = new NuspecReader(nuspecStream);
-            var dependencyGroups = nuspecReader.GetDependencyGroups();
-            var hasDependencies = dependencyGroups.Any(group => group.Packages.Any());
-            var description = nuspecReader.GetDescription() ?? string.Empty;
-
-            // Method 1: No lib files but has dependencies (classic meta-package)
-            if (!libFiles.Any() && hasDependencies)
-            {
-                logger.LogDebug("Package determined as meta-package: no lib files but has dependencies");
-                return Task.FromResult(true);
-            }
-
-            // Method 3: High dependency to content ratio (many dependencies, few lib files)
-            if (hasDependencies && dependencyGroups.SelectMany(g => g.Packages).Count() >= 2 && libFiles.Count <= 3)
-            {
-                logger.LogDebug("Package determined as meta-package: high dependency to content ratio ({DependencyCount} deps, {LibFileCount} lib files)",
-                    dependencyGroups.SelectMany(g => g.Packages).Count(), libFiles.Count);
-                return Task.FromResult(true);
-            }
-
-            logger.LogDebug("Package analysis: hasLib={HasLib}, hasDependencies={HasDependencies}, isMetaPackage=false",
-                libFiles.Any(), hasDependencies);
-
-            return Task.FromResult(false);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Error checking if package is meta-package, defaulting to false");
-            return Task.FromResult(false);
-        }
+        return Task.FromResult(metaPackageDetector.IsMetaPackage(packageStream));
     }
 
     public List<PackageDependency> GetPackageDependencies(Stream packageStream)
@@ -198,20 +156,45 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         return packages.OrderByDescending(p => p.DownloadCount).ToList();
     }
 
-    public string GetPackageDescription(Stream packageStream)
+    public PackageInfo GetPackageInfoAsync(Stream packageStream, string packageId, string version)
     {
         try
         {
+            var isMetaPackage = metaPackageDetector.IsMetaPackage(packageStream, packageId);
+            var dependencies = GetPackageDependencies(packageStream);
+
             packageStream.Position = 0;
             using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
             using var nuspecStream = reader.GetNuspec();
             var nuspecReader = new NuspecReader(nuspecStream);
-            return nuspecReader.GetDescription() ?? string.Empty;
+
+            var authors = nuspecReader.GetAuthors()?.Split(',').Select(a => a.Trim()).ToList() ?? [];
+            var tags = nuspecReader.GetTags()?.Split(' ', ',').Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? [];
+
+            return new PackageInfo
+            {
+                Id = packageId,
+                Version = version,
+                Description = nuspecReader.GetDescription() ?? string.Empty,
+                Authors = authors,
+                Tags = tags,
+                ProjectUrl = nuspecReader.GetProjectUrl()?.ToString() ?? string.Empty,
+                LicenseUrl = nuspecReader.GetLicenseUrl()?.ToString() ?? string.Empty,
+                IsMetaPackage = isMetaPackage,
+                Dependencies = dependencies
+            };
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Error extracting package description");
-            return string.Empty;
+            logger.LogError(ex, "Error getting package info for {PackageId} v{Version}", packageId, version);
+            return new PackageInfo
+            {
+                Id = packageId,
+                Version = version,
+                Description = "Error retrieving package information",
+                IsMetaPackage = false,
+                Dependencies = []
+            };
         }
     }
 }

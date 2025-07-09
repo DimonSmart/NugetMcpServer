@@ -20,7 +20,7 @@ public class GetClassDefinitionToolTests : TestBase
         _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
         _defToolLogger = new TestLogger<GetClassDefinitionTool>(TestOutput);
 
-        _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+        _packageService = CreateNuGetPackageService();
         _formattingService = new ClassFormattingService();
         _defTool = new GetClassDefinitionTool(_defToolLogger, _packageService, _formattingService);
     }

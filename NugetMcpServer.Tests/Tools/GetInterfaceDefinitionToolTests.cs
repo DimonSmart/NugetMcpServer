@@ -20,7 +20,7 @@ namespace NugetMcpServer.Tests.Tools
             _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
             _defToolLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
 
-            _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+            _packageService = CreateNuGetPackageService();
             _formattingService = new InterfaceFormattingService();
             _defTool = new GetInterfaceDefinitionTool(_defToolLogger, _packageService, _formattingService);
         }

@@ -1,15 +1,15 @@
 using System;
 using System.ComponentModel;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -22,7 +22,8 @@ namespace NuGetMcpServer.Tools;
 [McpServerToolType]
 public class AnalyzePackageStructureTool(
     ILogger<AnalyzePackageStructureTool> logger,
-    NuGetPackageService packageService) : McpToolBase<AnalyzePackageStructureTool>(logger, packageService)
+    NuGetPackageService packageService,
+    MetaPackageDetector metaPackageDetector) : McpToolBase<AnalyzePackageStructureTool>(logger, packageService)
 {
     [McpServerTool]
     [Description("Analyzes NuGet package structure to determine if it's a meta-package and lists its dependencies.")]
@@ -67,14 +68,14 @@ public class AnalyzePackageStructureTool(
 
         progress.ReportMessage("Analyzing package structure");
 
-        var analysis = await AnalyzePackageAsync(packageStream, packageId, version);
+        var analysis = AnalyzePackage(packageStream, packageId, version);
 
         progress.ReportMessage("Package analysis completed");
 
         return FormatAnalysisResult(analysis);
     }
 
-    private async Task<PackageAnalysisResult> AnalyzePackageAsync(Stream packageStream, string packageId, string version)
+    private PackageAnalysisResult AnalyzePackage(Stream packageStream, string packageId, string version)
     {
         var result = new PackageAnalysisResult
         {
@@ -82,113 +83,68 @@ public class AnalyzePackageStructureTool(
             Version = version
         };
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-
+        packageStream.Position = 0;
+        using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        
         // 1. Analyze .nuspec file
-        var nuspecEntry = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase));
-        if (nuspecEntry != null)
-        {
-            await AnalyzeNuspecAsync(nuspecEntry, result);
-        }
+        AnalyzeNuspec(reader, result);
 
         // 2. Analyze lib/ folder content
-        AnalyzeLibContent(archive, result);
+        AnalyzeLibContent(reader, result);
 
         // 3. Determine if it's a meta-package
-        result.IsMetaPackage = DetermineIfMetaPackage(result);
+        packageStream.Position = 0;
+        result.IsMetaPackage = metaPackageDetector.IsMetaPackage(packageStream, packageId);
 
         return result;
     }
 
-    private async Task AnalyzeNuspecAsync(ZipArchiveEntry nuspecEntry, PackageAnalysisResult result)
+    private void AnalyzeNuspec(PackageArchiveReader reader, PackageAnalysisResult result)
     {
-        using var nuspecStream = nuspecEntry.Open();
-        using var reader = new StreamReader(nuspecStream);
-        var nuspecContent = await reader.ReadToEndAsync();
+        using var nuspecStream = reader.GetNuspec();
+        var nuspecReader = new NuspecReader(nuspecStream);
+        
+        result.Description = nuspecReader.GetDescription() ?? string.Empty;
 
-        var doc = XDocument.Parse(nuspecContent);
-        var ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
+        // Check for explicit packageType = "Dependency"
+        var packageTypes = nuspecReader.GetPackageTypes();
+        result.HasDependencyPackageType = packageTypes.Any(pt => 
+            string.Equals(pt.Name, "Dependency", StringComparison.OrdinalIgnoreCase));
 
-        var metadata = doc.Root?.Element(ns + "metadata");
-        result.Description = metadata?.Element(ns + "description")?.Value ?? string.Empty;
-
-        var dependencyGroups = doc.Root?.Descendants(ns + "dependencies")?.Elements(ns + "group") ?? [];
-        var allDependencies = doc.Root?.Descendants(ns + "dependency") ?? [];
-
-        foreach (var dep in allDependencies)
+        var dependencyGroups = nuspecReader.GetDependencyGroups();
+        foreach (var group in dependencyGroups)
         {
-            var id = dep.Attribute("id")?.Value ?? string.Empty;
-            var versionAttr = dep.Attribute("version")?.Value ?? string.Empty;
-            var targetFramework = dep.Parent?.Attribute("targetFramework")?.Value ?? "Any";
-
-            if (!string.IsNullOrEmpty(id))
+            foreach (var dep in group.Packages)
             {
                 result.Dependencies.Add(new PackageDependency
                 {
-                    Id = id,
-                    Version = versionAttr,
-                    TargetFramework = targetFramework
+                    Id = dep.Id,
+                    Version = dep.VersionRange?.ToString() ?? string.Empty,
+                    TargetFramework = group.TargetFramework?.GetShortFolderName() ?? "Any"
                 });
             }
         }
     }
 
-    private static void AnalyzeLibContent(ZipArchive archive, PackageAnalysisResult result)
+    private static void AnalyzeLibContent(PackageArchiveReader reader, PackageAnalysisResult result)
     {
-        var libFiles = archive.Entries
-            .Where(e => e.FullName.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
-            .Where(e => !e.FullName.EndsWith("/"))
+        var files = reader.GetFiles();
+        var libFiles = files
+            .Where(f => f.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
+            .Where(f => !f.EndsWith("/"))
+            .Where(f => !f.EndsWith("/_._", StringComparison.OrdinalIgnoreCase))
+            .Where(f => !f.EndsWith("\\_._", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        result.LibFiles = libFiles.Select(f => f.FullName).ToList();
-    }
-
-    private bool DetermineIfMetaPackage(PackageAnalysisResult analysis)
-    {
-        // Method 1: No lib files but has dependencies
-        if (!analysis.LibFiles.Any() && analysis.Dependencies.Any())
-        {
-            Logger.LogDebug("Package {PackageId} determined as meta-package: no lib files but has dependencies", analysis.PackageId);
-            return true;
-        }
-
-        // Method 2: Only placeholder/reference assemblies (very small DLLs with no real types)
-        var dllFiles = analysis.LibFiles.Where(f => f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (dllFiles.Any() && analysis.Dependencies.Count >= 2)
-        {
-            Logger.LogDebug("Package {PackageId} might be meta-package: has {DllCount} DLLs and {DepCount} dependencies",
-                analysis.PackageId, dllFiles.Count, analysis.Dependencies.Count);
-        }
-
-        // Method 3: Check if description suggests it's a meta-package
-        if (analysis.Description.Contains("meta", StringComparison.OrdinalIgnoreCase) ||
-            analysis.Description.Contains("umbrella", StringComparison.OrdinalIgnoreCase) ||
-            analysis.Description.Contains("collection", StringComparison.OrdinalIgnoreCase))
-        {
-            Logger.LogDebug("Package {PackageId} determined as meta-package: description suggests meta-package", analysis.PackageId);
-            return true;
-        }
-
-        // Method 4: High dependency to content ratio
-        if (analysis.Dependencies.Count >= 3 && analysis.LibFiles.Count <= 2)
-        {
-            Logger.LogDebug("Package {PackageId} determined as meta-package: high dependency to content ratio", analysis.PackageId);
-            return true;
-        }
-
-        return false;
+        result.LibFiles = libFiles;
     }
 
     private string FormatAnalysisResult(PackageAnalysisResult analysis)
     {
         if (analysis.IsMetaPackage)
-        {
             return FormatMetaPackageResult(analysis);
-        }
-        else
-        {
-            return FormatRegularPackageResult(analysis);
-        }
+            
+        return FormatRegularPackageResult(analysis);
     }
 
     private string FormatMetaPackageResult(PackageAnalysisResult analysis)

@@ -18,7 +18,7 @@ namespace NugetMcpServer.Tests.Services
         public NuGetPackageServiceTests(ITestOutputHelper testOutput) : base(testOutput)
         {
             _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
-            _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+            _packageService = CreateNuGetPackageService();
         }
 
         [Fact]

@@ -14,6 +14,7 @@ using ModelContextProtocol.Server;
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 
@@ -59,27 +60,22 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        // First, check if this is a meta-package
-        progress.ReportMessage("Checking package structure");
-        var isMetaPackage = await PackageService.IsMetaPackageAsync(packageStream);
+        progress.ReportMessage("Extracting package information");
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
         
-        if (isMetaPackage)
+        if (packageInfo.IsMetaPackage)
         {
-            packageStream.Position = 0;
-            var dependencies = PackageService.GetPackageDependencies(packageStream);
-            var description = PackageService.GetPackageDescription(packageStream);
-            
             var metaResult = new MetaPackageResult
             {
                 PackageId = packageId,
                 Version = version,
-                Dependencies = dependencies,
-                Description = description
+                Dependencies = packageInfo.Dependencies,
+                Description = packageInfo.Description ?? string.Empty
             };
             
-            progress.ReportMessage($"Meta-package detected with {dependencies.Count} dependencies");
+            progress.ReportMessage($"Meta-package detected with {packageInfo.Dependencies.Count} dependencies");
             
-            return metaResult.ToFormattedString();
+            return metaResult.Format();
         }
 
         progress.ReportMessage("Scanning assemblies for classes");
@@ -103,7 +99,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
 
         progress.ReportMessage($"Class listing completed - Found {classResult.Classes.Count} classes");
         
-        return classResult.ToFormattedString();
+        return classResult.Format();
     }
 
     private void ProcessArchiveEntry(ZipArchiveEntry entry, ClassListResult result)

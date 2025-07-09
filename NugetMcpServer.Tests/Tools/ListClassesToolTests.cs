@@ -1,6 +1,7 @@
 using NugetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;
@@ -19,7 +20,7 @@ public class ListClassesToolTests : TestBase
         _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
         _listToolLogger = new TestLogger<ListClassesTool>(TestOutput);
 
-        _packageService = new NuGetPackageService(_packageLogger, HttpClient);
+        _packageService = CreateNuGetPackageService();
         _listTool = new ListClassesTool(_listToolLogger, _packageService);
     }
 
@@ -38,7 +39,7 @@ public class ListClassesToolTests : TestBase
 
         TestOutput.WriteLine($"Found {result.Classes.Count} classes in {result.PackageId} version {result.Version}");
         TestOutput.WriteLine("\n========== TEST OUTPUT: LIST OF CLASSES ==========");
-        TestOutput.WriteLine(result.ToFormattedString());
+        TestOutput.WriteLine(result.Format());
         TestOutput.WriteLine("================================================\n");
 
         // Verify we found expected classes - using Point instead of Cell as Cell doesn't exist in current version

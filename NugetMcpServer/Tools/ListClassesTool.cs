@@ -67,25 +67,14 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
 
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
-        progress.ReportMessage("Checking package structure");
-        var isMetaPackage = await PackageService.IsMetaPackageAsync(packageStream);
+        progress.ReportMessage("Extracting package information");
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
         
-        if (isMetaPackage)
-        {
-            packageStream.Position = 0;
-            var dependencies = PackageService.GetPackageDependencies(packageStream);
-            var description = PackageService.GetPackageDescription(packageStream);
-            
-            result.IsMetaPackage = true;
-            result.Dependencies = dependencies;
-            result.Description = description;
-            
-            progress.ReportMessage($"Meta-package detected with {dependencies.Count} dependencies - scanning for own classes");
-        }
-        else
-        {
-            progress.ReportMessage("Scanning assemblies for classes");
-        }
+        result.IsMetaPackage = packageInfo.IsMetaPackage;
+        result.Dependencies = packageInfo.Dependencies;
+        result.Description = packageInfo.Description ?? string.Empty;
+
+        progress.ReportMessage("Scanning assemblies for classes");
         packageStream.Position = 0;
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         

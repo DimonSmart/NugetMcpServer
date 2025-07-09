@@ -1,11 +1,12 @@
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 
 namespace NugetMcpServer.Tests.Services;
 
 public class PackageSearchResultTests
 {
     [Fact]
-    public void ToFormattedString_IncludesFoundByKeywords()
+    public void Format_IncludesFoundByKeywords()
     {
         var package1 = new PackageInfo
         {
@@ -22,14 +23,14 @@ public class PackageSearchResultTests
             Version = "2.0.0",
             DownloadCount = 500,
             FoundByKeywords = ["example"]
-        }; var result = new PackageSearchResult
+        };        var result = new PackageSearchResult
         {
             Query = "test query",
             TotalCount = 2,
             Packages = [package1, package2]
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
 
         Assert.Contains("NUGET PACKAGE SEARCH RESULTS FOR: test query", formatted);
         Assert.Contains("TestPackage1 v1.0.0", formatted);
@@ -40,7 +41,7 @@ public class PackageSearchResultTests
     }
 
     [Fact]
-    public void ToFormattedString_OrdersByDownloadCount()
+    public void Format_OrdersByDownloadCount()
     {
         var package1 = new PackageInfo
         {
@@ -56,14 +57,14 @@ public class PackageSearchResultTests
             Version = "1.0.0",
             DownloadCount = 1000,
             FoundByKeywords = ["test"]
-        }; var result = new PackageSearchResult
+        };        var result = new PackageSearchResult
         {
             Query = "test",
             TotalCount = 2,
             Packages = [package1, package2] // Less popular first
         };
 
-        var formatted = result.ToFormattedString();
+        var formatted = result.Format();
         var morePopularIndex = formatted.IndexOf("MorePopular");
         var lessPopularIndex = formatted.IndexOf("LessPopular");
 
