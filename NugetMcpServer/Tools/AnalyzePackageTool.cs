@@ -1,9 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -20,23 +20,24 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService) : McpToolBase<ListInterfacesTool>(logger, packageService)
+public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackageService packageService) : McpToolBase<AnalyzePackageTool>(logger, packageService)
 {
     [McpServerTool]
-    [Description("Lists all public interfaces available in a specified NuGet package.")]
-    public Task<InterfaceListResult> ListInterfaces(
+    [Description("Analyzes a NuGet package and returns either class information or meta-package information.")]
+    public Task<string> AnalyzePackage(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
+
         return ExecuteWithLoggingAsync(
-            () => ListInterfacesCore(packageId, version, progressNotifier),
+            () => AnalyzePackageCore(packageId, version, progressNotifier),
             Logger,
-            "Error listing interfaces");
+            "Error analyzing package");
     }
 
-    private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version, IProgressNotifier progress)
+    private async Task<string> AnalyzePackageCore(string packageId, string? version, IProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -52,19 +53,13 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         packageId = packageId ?? string.Empty;
         version = version ?? string.Empty;
 
-        Logger.LogInformation("Listing interfaces from package {PackageId} version {Version}", packageId, version);
+        Logger.LogInformation("Analyzing package {PackageId} version {Version}", packageId, version);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
-        var result = new InterfaceListResult
-        {
-            PackageId = packageId,
-            Version = version,
-            Interfaces = new List<InterfaceInfo>()
-        };
-
         using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
 
+        // First, check if this is a meta-package
         progress.ReportMessage("Checking package structure");
         var isMetaPackage = await PackageService.IsMetaPackageAsync(packageStream);
         
@@ -74,34 +69,44 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             var dependencies = PackageService.GetPackageDependencies(packageStream);
             var description = PackageService.GetPackageDescription(packageStream);
             
-            result.IsMetaPackage = true;
-            result.Dependencies = dependencies;
-            result.Description = description;
+            var metaResult = new MetaPackageResult
+            {
+                PackageId = packageId,
+                Version = version,
+                Dependencies = dependencies,
+                Description = description
+            };
             
-            progress.ReportMessage($"Meta-package detected with {dependencies.Count} dependencies - scanning for own interfaces");
+            progress.ReportMessage($"Meta-package detected with {dependencies.Count} dependencies");
+            
+            return metaResult.ToFormattedString();
         }
-        else
-        {
-            progress.ReportMessage("Scanning assemblies for interfaces");
-        }
+
+        progress.ReportMessage("Scanning assemblies for classes");
 
         // Reset stream position
         packageStream.Position = 0;
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         
+        var classResult = new ClassListResult
+        {
+            PackageId = packageId,
+            Version = version
+        };
+        
+        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
         
         foreach (var entry in dllEntries)
         {
-            ProcessArchiveEntry(entry, result);
+            ProcessArchiveEntry(entry, classResult);
         }
 
-        progress.ReportMessage($"Interface listing completed - Found {result.Interfaces.Count} interfaces");
-
-        return result;
+        progress.ReportMessage($"Class listing completed - Found {classResult.Classes.Count} classes");
+        
+        return classResult.ToFormattedString();
     }
 
-    private void ProcessArchiveEntry(ZipArchiveEntry entry, InterfaceListResult result)
+    private void ProcessArchiveEntry(ZipArchiveEntry entry, ClassListResult result)
     {
         try
         {
@@ -115,17 +120,20 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             if (assembly == null) return;
 
             var assemblyName = Path.GetFileName(entry.FullName);
-            var interfaces = assembly.GetTypes()
-                .Where(t => t.IsInterface && t.IsPublic)
+            var classes = assembly.GetTypes()
+                .Where(t => t.IsClass && t.IsPublic && !t.IsNested) // Public classes, excluding nested classes
                 .ToList();
 
-            foreach (var iface in interfaces)
+            foreach (var cls in classes)
             {
-                result.Interfaces.Add(new InterfaceInfo
+                result.Classes.Add(new ClassInfo
                 {
-                    Name = iface.Name,
-                    FullName = iface.FullName ?? string.Empty,
-                    AssemblyName = assemblyName
+                    Name = cls.Name,
+                    FullName = cls.FullName ?? string.Empty,
+                    AssemblyName = assemblyName,
+                    IsStatic = cls.IsAbstract && cls.IsSealed,
+                    IsAbstract = cls.IsAbstract && !cls.IsSealed,
+                    IsSealed = cls.IsSealed && !cls.IsAbstract
                 });
             }
         }

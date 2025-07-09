@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
-using ModelContextProtocol;
+using NuGet.Packaging;
 
 using NuGetMcpServer.Extensions;
 
@@ -40,16 +42,16 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         return versions.Last();
     }
 
-    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier progress)
+    public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier? progress = null)
     {
         string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
-        progress.ReportMessage($"Starting package download {packageId} v{version}");
+        progress?.ReportMessage($"Starting package download {packageId} v{version}");
 
         byte[] response = await httpClient.GetByteArrayAsync(url);
 
-        progress.ReportMessage("Package downloaded successfully");
+        progress?.ReportMessage("Package downloaded successfully");
 
         return new MemoryStream(response);
     }
@@ -65,6 +67,79 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         {
             logger.LogDebug(ex, "Failed to load assembly from memory");
             return null;
+        }
+    }
+
+    public Task<bool> IsMetaPackageAsync(Stream packageStream)
+    {
+        try
+        {
+            packageStream.Position = 0;
+
+            using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+            var files = reader.GetFiles();
+            var libFiles = files.Where(f => f.StartsWith("lib/", StringComparison.OrdinalIgnoreCase) &&
+                                       !f.EndsWith("/_._", StringComparison.OrdinalIgnoreCase) &&
+                                       !f.EndsWith("\\_._", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            using var nuspecStream = reader.GetNuspec();
+            var nuspecReader = new NuspecReader(nuspecStream);
+            var dependencyGroups = nuspecReader.GetDependencyGroups();
+            var hasDependencies = dependencyGroups.Any(group => group.Packages.Any());
+            var description = nuspecReader.GetDescription() ?? string.Empty;
+
+            // Method 1: No lib files but has dependencies (classic meta-package)
+            if (!libFiles.Any() && hasDependencies)
+            {
+                logger.LogDebug("Package determined as meta-package: no lib files but has dependencies");
+                return Task.FromResult(true);
+            }
+
+            // Method 3: High dependency to content ratio (many dependencies, few lib files)
+            if (hasDependencies && dependencyGroups.SelectMany(g => g.Packages).Count() >= 2 && libFiles.Count <= 3)
+            {
+                logger.LogDebug("Package determined as meta-package: high dependency to content ratio ({DependencyCount} deps, {LibFileCount} lib files)",
+                    dependencyGroups.SelectMany(g => g.Packages).Count(), libFiles.Count);
+                return Task.FromResult(true);
+            }
+
+            logger.LogDebug("Package analysis: hasLib={HasLib}, hasDependencies={HasDependencies}, isMetaPackage=false",
+                libFiles.Any(), hasDependencies);
+
+            return Task.FromResult(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Error checking if package is meta-package, defaulting to false");
+            return Task.FromResult(false);
+        }
+    }
+
+    public List<PackageDependency> GetPackageDependencies(Stream packageStream)
+    {
+        try
+        {
+            packageStream.Position = 0;
+            using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+            using var nuspecStream = reader.GetNuspec();
+            var nuspecReader = new NuspecReader(nuspecStream);
+            var dependencyGroups = nuspecReader.GetDependencyGroups();
+
+            var dependencies = dependencyGroups
+                .SelectMany(group => group.Packages.Select(package => new PackageDependency
+                {
+                    Id = package.Id,
+                    Version = package.VersionRange?.ToString() ?? "latest"
+                }))
+                .DistinctBy(d => d.Id)
+                .ToList();
+
+            return dependencies;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Error extracting package dependencies using NuGet API, falling back to manual parsing");
+            return [];
         }
     }
 
@@ -121,5 +196,22 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
 
         return packages.OrderByDescending(p => p.DownloadCount).ToList();
+    }
+
+    public string GetPackageDescription(Stream packageStream)
+    {
+        try
+        {
+            packageStream.Position = 0;
+            using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+            using var nuspecStream = reader.GetNuspec();
+            var nuspecReader = new NuspecReader(nuspecStream);
+            return nuspecReader.GetDescription() ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Error extracting package description");
+            return string.Empty;
+        }
     }
 }

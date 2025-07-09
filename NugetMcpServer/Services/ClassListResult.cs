@@ -4,17 +4,32 @@ using System.Text;
 
 namespace NuGetMcpServer.Services;
 
-public class ClassListResult
+public class ClassListResult : PackageResultBase
 {
-    public string PackageId { get; set; } = string.Empty;
-    public string Version { get; set; } = string.Empty;
     public List<ClassInfo> Classes { get; set; } = [];
 
-    public string ToFormattedString()
+    public override string ToFormattedString()
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"/* CLASSES FROM {PackageId} v{Version} */");
-        sb.AppendLine();
+        
+        if (!HandleMetaPackageFormatting(sb, Classes.Count, "classes"))
+        {
+            return sb.ToString();
+        }
+        
+        if (!IsMetaPackage)
+        {
+            sb.AppendLine($"/* CLASSES FROM {PackageId} v{Version} */");
+            sb.AppendLine();
+            
+            if (Classes.Count == 0)
+            {
+                sb.AppendLine("No public classes found in this package.");
+                sb.AppendLine();
+                return sb.ToString();
+            }
+        }
+
         var groupedClasses = Classes
             .GroupBy(c => c.AssemblyName)
             .OrderBy(g => g.Key);

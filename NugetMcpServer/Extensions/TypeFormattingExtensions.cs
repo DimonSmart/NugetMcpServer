@@ -33,7 +33,6 @@ namespace NuGetMcpServer.Extensions
                 return mappedName;
             }
 
-            // Handle generic types
             if (type.IsGenericType)
             {
                 var genericTypeName = type.Name;
@@ -48,9 +47,8 @@ namespace NuGetMcpServer.Extensions
                 return $"{genericTypeName}<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
             }
 
-            // Return the regular type name
             return type.Name;
-        }        // Formats a type name string by converting generic notation from `N to <T, U, ...>
+        }
         public static string FormatGenericTypeName(this string typeName)
         {
             var tickIndex = typeName.IndexOf('`');
@@ -67,7 +65,6 @@ namespace NuGetMcpServer.Extensions
             return $"{baseName}<{genericArgs}>";
         }
 
-        // Formats a fully qualified type name with namespace by converting generic notation
         public static string FormatFullGenericTypeName(this string fullTypeName)
         {
             var lastDot = fullTypeName.LastIndexOf('.');

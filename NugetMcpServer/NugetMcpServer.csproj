@@ -21,6 +21,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.5" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.5" />
         <PackageReference Include="ModelContextProtocol" Version="0.2.0-preview.3" />
+        <PackageReference Include="NuGet.Packaging" Version="6.11.1" />
         <PackageReference Include="System.IO.Compression" Version="4.3.0" />
         <PackageReference Include="System.Text.Json" Version="9.0.5" />
     </ItemGroup>

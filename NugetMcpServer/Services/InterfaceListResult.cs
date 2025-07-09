@@ -4,17 +4,32 @@ using System.Text;
 
 namespace NuGetMcpServer.Services;
 
-public class InterfaceListResult
+public class InterfaceListResult : PackageResultBase
 {
-    public string PackageId { get; set; } = string.Empty;
-    public string Version { get; set; } = string.Empty;
     public List<InterfaceInfo> Interfaces { get; set; } = [];
 
-    public string ToFormattedString()
+    public override string ToFormattedString()
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"/* INTERFACES FROM {PackageId} v{Version} */");
-        sb.AppendLine();
+        
+        if (!HandleMetaPackageFormatting(sb, Interfaces.Count, "interfaces"))
+        {
+            return sb.ToString();
+        }
+        
+        if (!IsMetaPackage)
+        {
+            sb.AppendLine($"/* INTERFACES FROM {PackageId} v{Version} */");
+            sb.AppendLine();
+            
+            if (Interfaces.Count == 0)
+            {
+                sb.AppendLine("No public interfaces found in this package.");
+                sb.AppendLine();
+                return sb.ToString();
+            }
+        }
+
         var groupedInterfaces = Interfaces
             .GroupBy(i => i.AssemblyName)
             .OrderBy(g => g.Key);
