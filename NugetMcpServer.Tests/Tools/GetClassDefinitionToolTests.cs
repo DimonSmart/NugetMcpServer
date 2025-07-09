@@ -34,7 +34,8 @@ public class GetClassDefinitionToolTests : TestBase
 
         var definition = await _defTool.GetClassDefinition(packageId, pointClassName, version);
 
-        // Assert        Assert.NotNull(definition);
+        // Assert
+        Assert.NotNull(definition);
         Assert.Contains("class", definition);
         Assert.Contains("Point", definition);
 
@@ -104,7 +105,8 @@ public class GetClassDefinitionToolTests : TestBase
 
         var definition = await _defTool.GetClassDefinition(packageId, fullPointClassName, version);
 
-        // Assert        Assert.NotNull(definition);
+        // Assert
+        Assert.NotNull(definition);
         Assert.Contains("class", definition);
         Assert.Contains("Point", definition);
         Assert.DoesNotContain("not found in package", definition);

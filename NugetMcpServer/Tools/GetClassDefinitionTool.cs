@@ -74,13 +74,13 @@ public class GetClassDefinitionTool(
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
-        
+
         var metaPackageWarning = string.Empty;
         if (packageInfo.IsMetaPackage)
         {
             metaPackageWarning = $"⚠️  META-PACKAGE: {packageId} v{version}\n";
             metaPackageWarning += "This package groups other related packages together and may not contain actual implementation code.\n";
-            
+
             if (packageInfo.Dependencies.Count > 0)
             {
                 metaPackageWarning += "Dependencies:\n";
@@ -96,13 +96,13 @@ public class GetClassDefinitionTool(
         progress.ReportMessage("Scanning assemblies for class");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        foreach (var entry in archive.Entries)
-        {
-            if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
 
+        // Filter to avoid duplicate DLLs from different target frameworks
+        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+
+        foreach (var entry in uniqueDllEntries)
+        {
             var definition = await TryGetClassFromEntry(entry, className);
             if (definition != null)
             {
@@ -118,13 +118,11 @@ public class GetClassDefinitionTool(
     {
         try
         {
-            var assembly = await LoadAssemblyFromEntryAsync(entry);
-            if (assembly == null)
-            {
-                return null;
-            }
+            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
 
-            var classType = assembly.GetTypes()
+            if (assembly == null) return null;
+
+            var classType = types
                 .FirstOrDefault(t =>
                 {
                     if (!t.IsClass || !t.IsPublic)
@@ -132,13 +130,11 @@ public class GetClassDefinitionTool(
                         return false;
                     }
 
-                    // Exact match for short name
                     if (t.Name == className)
                     {
                         return true;
                     }
 
-                    // Exact match for full name
                     if (t.FullName == className)
                     {
                         return true;
@@ -161,7 +157,6 @@ public class GetClassDefinitionTool(
                             }
                         }
 
-                        // Also check full name for generics
                         if (t.FullName != null)
                         {
                             var fullBacktickIndex = t.FullName.IndexOf('`');

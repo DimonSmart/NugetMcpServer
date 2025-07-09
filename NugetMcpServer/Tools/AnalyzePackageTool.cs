@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
@@ -50,7 +51,6 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        // Ensure we have non-null values for packageId and version
         packageId = packageId ?? string.Empty;
         version = version ?? string.Empty;
 
@@ -62,7 +62,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
-        
+
         if (packageInfo.IsMetaPackage)
         {
             var metaResult = new MetaPackageResult
@@ -72,33 +72,35 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
                 Dependencies = packageInfo.Dependencies,
                 Description = packageInfo.Description ?? string.Empty
             };
-            
+
             progress.ReportMessage($"Meta-package detected with {packageInfo.Dependencies.Count} dependencies");
-            
+
             return metaResult.Format();
         }
 
         progress.ReportMessage("Scanning assemblies for classes");
 
-        // Reset stream position
         packageStream.Position = 0;
-        
+
         var classResult = new ClassListResult
         {
             PackageId = packageId,
             Version = version
         };
-        
+
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-        
-        foreach (var entry in dllEntries)
+
+        // Filter to avoid duplicate DLLs from different target frameworks
+        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+
+        foreach (var entry in uniqueDllEntries)
         {
             ProcessArchiveEntry(entry, classResult);
         }
 
         progress.ReportMessage($"Class listing completed - Found {classResult.Classes.Count} classes");
-        
+
         return classResult.Format();
     }
 
@@ -111,13 +113,13 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
             entryStream.CopyTo(ms);
 
             var assemblyData = ms.ToArray();
-            var assembly = PackageService.LoadAssemblyFromMemory(assemblyData);
+            var (assembly, types) = PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
 
             if (assembly == null) return;
 
             var assemblyName = Path.GetFileName(entry.FullName);
-            var classes = assembly.GetTypes()
-                .Where(t => t.IsClass && t.IsPublic && !t.IsNested) // Public classes, excluding nested classes
+            var classes = types
+                .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
                 .ToList();
 
             foreach (var cls in classes)

@@ -8,14 +8,14 @@ public static class InterfaceListResultFormatter
     public static string Format(this InterfaceListResult result)
     {
         var sb = new StringBuilder();
-        
+
         sb.Append(result.GetMetaPackageWarningIfAny());
 
         if (result.ShouldShowMetaPackageWarningOnly(result.Interfaces.Count))
         {
             return sb.ToString();
         }
-        
+
         if (!result.IsMetaPackage)
         {
             sb.AppendLine($"Interfaces from {result.PackageId} v{result.Version}");

@@ -26,7 +26,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         using JsonDocument doc = JsonDocument.Parse(json);
 
         JsonElement versionsArray = doc.RootElement.GetProperty("versions");
-        List<string> versions = new List<string>();
+        var versions = new List<string>();
 
         foreach (JsonElement element in versionsArray.EnumerateArray())
         {
@@ -54,7 +54,34 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         return new MemoryStream(response);
     }
 
-    // Loads an assembly from a byte array
+    public (Assembly? assembly, Type[] types) LoadAssemblyFromMemoryWithTypes(byte[] assemblyData)
+    {
+        try
+        {
+            var assembly = Assembly.Load(assemblyData);
+
+            try
+            {
+                var types = assembly.GetTypes();
+                return (assembly, types);
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                logger.LogWarning("Some types could not be loaded from assembly due to missing dependencies. Loaded {LoadedCount} out of {TotalCount} types",
+                    ex.Types.Count(t => t != null), ex.Types.Length);
+
+                var loadedTypes = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
+                return (assembly, loadedTypes);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to load assembly from memory. Assembly size: {Size} bytes", assemblyData.Length);
+            return (null, Array.Empty<Type>());
+        }
+    }
+
+
     public Assembly? LoadAssemblyFromMemory(byte[] assemblyData)
     {
         try
@@ -63,7 +90,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to load assembly from memory");
+            logger.LogWarning(ex, "Failed to load assembly from memory. Assembly size: {Size} bytes", assemblyData.Length);
             return null;
         }
     }

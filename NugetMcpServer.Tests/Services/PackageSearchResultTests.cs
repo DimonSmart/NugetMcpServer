@@ -23,7 +23,7 @@ public class PackageSearchResultTests
             Version = "2.0.0",
             DownloadCount = 500,
             FoundByKeywords = ["example"]
-        };        var result = new PackageSearchResult
+        }; var result = new PackageSearchResult
         {
             Query = "test query",
             TotalCount = 2,
@@ -57,7 +57,7 @@ public class PackageSearchResultTests
             Version = "1.0.0",
             DownloadCount = 1000,
             FoundByKeywords = ["test"]
-        };        var result = new PackageSearchResult
+        }; var result = new PackageSearchResult
         {
             Query = "test",
             TotalCount = 2,

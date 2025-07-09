@@ -48,7 +48,8 @@ public class ListClassesToolTests : TestBase
 
     [Fact]
     public async Task ListClasses_WithSpecificVersion_ReturnsClasses()
-    {        // Test with a known package and version
+    {
+        // Test with a known package and version
         var packageId = "DimonSmart.MazeGenerator";
         var version = await _packageService.GetLatestVersion(packageId);
 

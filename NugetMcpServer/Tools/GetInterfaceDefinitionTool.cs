@@ -39,7 +39,6 @@ public class GetInterfaceDefinitionTool(
             "Error fetching interface definition");
     }
 
-
     private async Task<string> GetInterfaceDefinitionCore(
         string packageId,
         string interfaceName,
@@ -75,13 +74,13 @@ public class GetInterfaceDefinitionTool(
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
-        
+
         var metaPackageWarning = string.Empty;
         if (packageInfo.IsMetaPackage)
         {
             metaPackageWarning = $"⚠️  META-PACKAGE: {packageId} v{version}\n";
             metaPackageWarning += "This package groups other related packages together and may not contain actual implementation code.\n";
-            
+
             if (packageInfo.Dependencies.Count > 0)
             {
                 metaPackageWarning += "Dependencies:\n";
@@ -98,9 +97,12 @@ public class GetInterfaceDefinitionTool(
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // Filter to avoid duplicate DLLs from different target frameworks
+        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
         var processedDlls = 0;
 
-        foreach (var entry in dllEntries)
+        foreach (var entry in uniqueDllEntries)
         {
             progress.ReportMessage($"Scanning {Path.GetFileName(entry.FullName)}: {entry.FullName}");
 
@@ -119,12 +121,11 @@ public class GetInterfaceDefinitionTool(
     {
         try
         {
-            var assembly = await LoadAssemblyFromEntryAsync(entry);
-            if (assembly == null)
-            {
-                return null;
-            }
-            var iface = assembly.GetTypes()
+            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
+
+            if (assembly == null) return null;
+
+            var iface = types
                 .FirstOrDefault(t =>
                 {
                     if (!t.IsInterface)
@@ -132,13 +133,11 @@ public class GetInterfaceDefinitionTool(
                         return false;
                     }
 
-                    // Exact match for short name
                     if (t.Name == interfaceName)
                     {
                         return true;
                     }
 
-                    // Exact match for full name
                     if (t.FullName == interfaceName)
                     {
                         return true;
@@ -161,7 +160,6 @@ public class GetInterfaceDefinitionTool(
                             }
                         }
 
-                        // Also check full name for generics
                         if (t.FullName != null)
                         {
                             var fullBacktickIndex = t.FullName.IndexOf('`');

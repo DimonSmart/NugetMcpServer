@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -85,7 +86,7 @@ public class AnalyzePackageStructureTool(
 
         packageStream.Position = 0;
         using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        
+
         // 1. Analyze .nuspec file
         AnalyzeNuspec(reader, result);
 
@@ -103,12 +104,12 @@ public class AnalyzePackageStructureTool(
     {
         using var nuspecStream = reader.GetNuspec();
         var nuspecReader = new NuspecReader(nuspecStream);
-        
+
         result.Description = nuspecReader.GetDescription() ?? string.Empty;
 
         // Check for explicit packageType = "Dependency"
         var packageTypes = nuspecReader.GetPackageTypes();
-        result.HasDependencyPackageType = packageTypes.Any(pt => 
+        result.HasDependencyPackageType = packageTypes.Any(pt =>
             string.Equals(pt.Name, "Dependency", StringComparison.OrdinalIgnoreCase));
 
         var dependencyGroups = nuspecReader.GetDependencyGroups();
@@ -143,7 +144,7 @@ public class AnalyzePackageStructureTool(
     {
         if (analysis.IsMetaPackage)
             return FormatMetaPackageResult(analysis);
-            
+
         return FormatRegularPackageResult(analysis);
     }
 
@@ -191,10 +192,66 @@ public class AnalyzePackageStructureTool(
         if (analysis.Dependencies.Any())
         {
             result += $"\nDEPENDENCIES_COUNT: {analysis.Dependencies.Count}\n";
+            result += "DEPENDENCIES:\n";
+
+            var uniqueDeps = analysis.Dependencies
+                .GroupBy(d => d.Id)
+                .Select(g => g.First())
+                .OrderBy(d => d.Id)
+                .Take(100)
+                .ToList();
+
+            foreach (var dep in uniqueDeps)
+            {
+                result += $"  - {dep.Id} ({dep.Version})\n";
+            }
+
+            if (analysis.Dependencies.Count > 100)
+            {
+                result += $"  ... and {analysis.Dependencies.Count - 100} more\n";
+            }
         }
 
-        result += "\nRECOMMENDATION: This package contains actual implementations. Use class/interface listing tools.\n";
+        result += $"\nRECOMMENDATION: {GenerateSmartRecommendations(analysis)}\n";
 
         return result;
+    }
+
+    private string GenerateSmartRecommendations(PackageAnalysisResult analysis)
+    {
+        var recommendations = new List<string>();
+
+        recommendations.Add("This package contains actual implementations. Use class/interface listing tools.");
+
+        if (!analysis.Dependencies.Any())
+        {
+            return string.Join(" ", recommendations);
+        }
+
+        var packageNameParts = analysis.PackageId.Split('.');
+        if (packageNameParts.Length >= 2)
+        {
+            var packagePrefix = string.Join(".", packageNameParts.Take(2));
+
+            var relatedDependencies = analysis.Dependencies
+                .Where(d => d.Id.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase) &&
+                           !string.Equals(d.Id, analysis.PackageId, StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.Id)
+                .Distinct()
+                .OrderBy(id => id)
+                .ToList();
+
+            if (relatedDependencies.Any())
+            {
+                recommendations.Add($"Related packages in the same family that may contain additional implementations: {string.Join(", ", relatedDependencies)}.");
+            }
+        }
+
+        if (analysis.Dependencies.Count > 0)
+        {
+            recommendations.Add("Consider exploring dependencies for additional functionality.");
+        }
+
+        return string.Join(" ", recommendations);
     }
 }

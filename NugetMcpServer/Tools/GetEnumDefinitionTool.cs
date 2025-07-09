@@ -72,13 +72,13 @@ public class GetEnumDefinitionTool(
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
-        
+
         var metaPackageWarning = string.Empty;
         if (packageInfo.IsMetaPackage)
         {
             metaPackageWarning = $"⚠️  META-PACKAGE: {packageId} v{version}\n";
             metaPackageWarning += "This package groups other related packages together and may not contain actual implementation code.\n";
-            
+
             if (packageInfo.Dependencies.Count > 0)
             {
                 metaPackageWarning += "Dependencies:\n";
@@ -94,13 +94,13 @@ public class GetEnumDefinitionTool(
         progress.ReportMessage("Scanning assemblies for enum");
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        foreach (var entry in archive.Entries)
-        {
-            if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
 
+        // Filter to avoid duplicate DLLs from different target frameworks
+        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+
+        foreach (var entry in uniqueDllEntries)
+        {
             var definition = await TryGetEnumFromEntry(entry, enumName);
             if (definition != null)
             {
@@ -116,13 +116,11 @@ public class GetEnumDefinitionTool(
     {
         try
         {
-            var assembly = await LoadAssemblyFromEntryAsync(entry);
+            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
 
-            if (assembly == null)
-            {
-                return null;
-            }
-            var enumType = assembly.GetTypes()
+            if (assembly == null) return null;
+
+            var enumType = types
                 .FirstOrDefault(t => t.IsEnum && (t.Name == enumName || t.FullName == enumName));
 
             if (enumType == null)

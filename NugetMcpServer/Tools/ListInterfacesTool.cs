@@ -48,7 +48,6 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        // Ensure we have non-null values for packageId and version
         packageId = packageId ?? string.Empty;
         version = version ?? string.Empty;
 
@@ -67,7 +66,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
-        
+
         result.IsMetaPackage = packageInfo.IsMetaPackage;
         result.Dependencies = packageInfo.Dependencies;
         result.Description = packageInfo.Description ?? string.Empty;
@@ -75,10 +74,13 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         progress.ReportMessage("Scanning assemblies for interfaces");
         packageStream.Position = 0;
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        
+
         var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-        
-        foreach (var entry in dllEntries)
+
+        // Filter to avoid duplicate DLLs from different target frameworks
+        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+
+        foreach (var entry in uniqueDllEntries)
         {
             ProcessArchiveEntry(entry, result);
         }
@@ -92,22 +94,29 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
     {
         try
         {
+            Logger.LogInformation("Processing archive entry: {EntryName}", entry.FullName);
+
             using var entryStream = entry.Open();
             using var ms = new MemoryStream();
             entryStream.CopyTo(ms);
 
             var assemblyData = ms.ToArray();
-            var assembly = PackageService.LoadAssemblyFromMemory(assemblyData);
+            Logger.LogInformation("Archive entry {EntryName} size: {Size} bytes", entry.FullName, assemblyData.Length);
+
+            var (assembly, types) = PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
 
             if (assembly == null) return;
 
             var assemblyName = Path.GetFileName(entry.FullName);
-            var interfaces = assembly.GetTypes()
+            var interfaces = types
                 .Where(t => t.IsInterface && t.IsPublic)
                 .ToList();
 
+            Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyName);
+
             foreach (var iface in interfaces)
             {
+                Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
                 result.Interfaces.Add(new InterfaceInfo
                 {
                     Name = iface.Name,
@@ -118,7 +127,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+            Logger.LogError(ex, "Error processing archive entry {EntryName}", entry.FullName);
         }
     }
 }
