@@ -1,3 +1,4 @@
+using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
 

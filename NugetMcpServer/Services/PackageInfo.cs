@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NuGetMcpServer.Models;
 
 namespace NuGetMcpServer.Services;
 

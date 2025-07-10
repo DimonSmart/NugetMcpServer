@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Models;
 
 namespace NuGetMcpServer.Services;
 
