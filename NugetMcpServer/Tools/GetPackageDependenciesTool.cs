@@ -94,7 +94,7 @@ public class GetPackageDependenciesTool(
                 result += "\nTo explore the actual implementations, try listing classes/interfaces from these dependencies:\n";
                 foreach (var dep in uniqueDependencies.Take(3))
                 {
-                    result += $"  - nuget_list_classes(packageId=\"{dep.Id}\")\n";
+                    result += $"  - NuGet_list_classes(packageId=\"{dep.Id}\")\n";
                 }
             }
         }

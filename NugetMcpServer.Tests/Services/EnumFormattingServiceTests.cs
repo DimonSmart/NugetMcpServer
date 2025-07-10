@@ -1,8 +1,4 @@
-using System;
-
 using NuGetMcpServer.Services;
-
-using Xunit;
 
 namespace NuGetMcpServer.Tests.Services;
 

@@ -1,4 +1,4 @@
-using NugetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
@@ -6,7 +6,7 @@ using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Tools;
+namespace NuGetMcpServer.Tests.Tools;
 
 public class ListClassesToolTests : TestBase
 {

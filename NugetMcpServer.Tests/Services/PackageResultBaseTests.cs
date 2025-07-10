@@ -2,7 +2,7 @@ using NuGetMcpServer.Models;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
 
-namespace NugetMcpServer.Tests.Services;
+namespace NuGetMcpServer.Tests.Services;
 
 public class PackageResultBaseTests
 {

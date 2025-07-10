@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Helpers;
+namespace NuGetMcpServer.Tests.Helpers;
 
 // Logger implementation for tests that writes to XUnit test output
 public class TestLogger<T>(ITestOutputHelper output) : ILogger<T>

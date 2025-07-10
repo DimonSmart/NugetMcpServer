@@ -1,6 +1,6 @@
 using System.Reflection;
 
-using NugetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
 
@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 
 using static NuGetMcpServer.Extensions.ProgressNotifier;
 
-namespace NugetMcpServer.Tests.Services
+namespace NuGetMcpServer.Tests.Services
 {
     public class NuGetPackageServiceTests : TestBase
     {

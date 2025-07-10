@@ -1,10 +1,10 @@
-using NugetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Services;
+namespace NuGetMcpServer.Tests.Services;
 
 public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBase(testOutput)
 {

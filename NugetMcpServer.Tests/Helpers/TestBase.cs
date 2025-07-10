@@ -4,7 +4,7 @@ using NuGetMcpServer.Services;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Helpers;
+namespace NuGetMcpServer.Tests.Helpers;
 
 public abstract class TestBase(ITestOutputHelper testOutput)
 {

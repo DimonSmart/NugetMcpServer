@@ -8,7 +8,7 @@ public static class PackageSearchResultFormatter
     public static string Format(this PackageSearchResult result)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"/* NUGET PACKAGE SEARCH RESULTS FOR: {result.Query} */");
+        sb.AppendLine($"/* NuGet PACKAGE SEARCH RESULTS FOR: {result.Query} */");
 
         sb.AppendLine($"/* FOUND {result.TotalCount} PACKAGES (SHOWING TOP {result.Packages.Count}) */");
         sb.AppendLine();

@@ -1,7 +1,7 @@
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Services;
 
-namespace NugetMcpServer.Tests.Common;
+namespace NuGetMcpServer.Tests.Common;
 
 public class SearchResultBalancerTests
 {

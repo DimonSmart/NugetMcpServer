@@ -66,7 +66,7 @@ public static class StopWords
         "misc",
         "module",
         "modules",
-        "nuget",
+        "NuGet",
         "package",
         "packages",
         "plugin",

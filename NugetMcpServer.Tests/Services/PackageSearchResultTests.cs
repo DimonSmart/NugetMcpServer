@@ -1,7 +1,7 @@
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
 
-namespace NugetMcpServer.Tests.Services;
+namespace NuGetMcpServer.Tests.Services;
 
 public class PackageSearchResultTests
 {
@@ -32,7 +32,7 @@ public class PackageSearchResultTests
 
         var formatted = result.Format();
 
-        Assert.Contains("NUGET PACKAGE SEARCH RESULTS FOR: test query", formatted);
+        Assert.Contains("NuGet PACKAGE SEARCH RESULTS FOR: test query", formatted);
         Assert.Contains("TestPackage1 v1.0.0", formatted);
         Assert.Contains("**Found by keywords**: test, sample", formatted);
         Assert.Contains("TestPackage2 v2.0.0", formatted);

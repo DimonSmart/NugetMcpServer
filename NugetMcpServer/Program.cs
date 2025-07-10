@@ -23,7 +23,7 @@ internal class Program
                 ?? asm.GetName().Version?.ToString()
                 ?? "unknown";
 
-            Console.WriteLine($"NugetMcpServer {version}");
+            Console.WriteLine($"NuGetMcpServer {version}");
             return 0;
         }
 

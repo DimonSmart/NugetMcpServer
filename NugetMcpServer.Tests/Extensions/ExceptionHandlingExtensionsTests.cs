@@ -6,7 +6,7 @@ using NuGetMcpServer.Extensions;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Extensions;
+namespace NuGetMcpServer.Tests.Extensions;
 
 public class ExceptionHandlingExtensionsTests
 {

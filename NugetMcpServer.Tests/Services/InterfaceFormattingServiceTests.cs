@@ -1,13 +1,13 @@
 using System.Collections;
 using System.Reflection;
 
-using NugetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Services;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Services;
+namespace NuGetMcpServer.Tests.Services;
 
 public class InterfaceFormattingServiceTests : TestBase
 {

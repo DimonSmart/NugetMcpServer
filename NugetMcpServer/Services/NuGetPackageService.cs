@@ -21,7 +21,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
     public async Task<string> GetLatestVersion(string packageId)
     {
-        string indexUrl = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
+        string indexUrl = $"https://api.NuGet.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
         logger.LogInformation("Fetching latest version for package {PackageId} from {Url}", packageId, indexUrl);
         string json = await httpClient.GetStringAsync(indexUrl);
         using JsonDocument doc = JsonDocument.Parse(json);
@@ -43,7 +43,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
     public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier? progress = null)
     {
-        string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
+        string url = $"https://api.NuGet.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
         progress?.ReportMessage($"Starting package download {packageId} v{version}");
@@ -132,7 +132,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             return [];
         }
 
-        string searchUrl = $"https://azuresearch-usnc.nuget.org/query" +
+        string searchUrl = $"https://azuresearch-usnc.NuGet.org/query" +
                        $"?q={Uri.EscapeDataString(query)}" +
                        $"&take={take}" +
                        $"&sortBy=popularity-desc";

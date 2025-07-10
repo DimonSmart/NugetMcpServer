@@ -1,4 +1,4 @@
-using NugetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tests.Helpers;
 
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -6,7 +6,7 @@ using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;
 
-namespace NugetMcpServer.Tests.Services;
+namespace NuGetMcpServer.Tests.Services;
 
 public class MetaPackageDetectorDataDrivenTests : TestBase
 {
