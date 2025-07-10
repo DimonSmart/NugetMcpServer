@@ -1,15 +1,14 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -64,30 +63,12 @@ public class GetPackageDependenciesTool(
 
         progress.ReportMessage("Analyzing package dependencies");
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-
-        var nuspecEntry = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase));
-        if (nuspecEntry == null)
-        {
-            return $"No .nuspec file found in package {packageId}.";
-        }
-
-        using var nuspecStream = nuspecEntry.Open();
-        using var reader = new StreamReader(nuspecStream);
-        var nuspecContent = await reader.ReadToEndAsync();
-
-        var doc = XDocument.Parse(nuspecContent);
-        var ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
-
-        var metadata = doc.Root?.Element(ns + "metadata");
-        var title = metadata?.Element(ns + "title")?.Value ?? packageId;
-        var description = metadata?.Element(ns + "description")?.Value ?? "No description available";
-
-        var dependencies = doc.Root?.Descendants(ns + "dependency").ToList() ?? [];
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
+        var dependencies = PackageService.GetPackageDependencies(packageStream);
 
         var result = $"/* DEPENDENCIES FOR {packageId} v{version} */\n\n";
-        result += $"Title: {title}\n";
-        result += $"Description: {description}\n\n";
+        result += $"Title: {packageInfo.Id}\n";
+        result += $"Description: {packageInfo.Description}\n\n";
 
         if (dependencies.Count == 0)
         {
@@ -98,11 +79,6 @@ public class GetPackageDependenciesTool(
             result += $"This package has {dependencies.Count} dependencies:\n\n";
 
             var uniqueDependencies = dependencies
-                .Select(dep => new
-                {
-                    Id = dep.Attribute("id")?.Value ?? "Unknown",
-                    Version = dep.Attribute("version")?.Value ?? "Unknown"
-                })
                 .GroupBy(d => d.Id)
                 .Select(g => g.First())
                 .OrderBy(d => d.Id)
@@ -123,13 +99,22 @@ public class GetPackageDependenciesTool(
             }
         }
 
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var hasOnlySmallDlls = dllFiles.All(f =>
+        {
+            try
+            {
+                using var stream = packageReader.GetStream(f);
+                return stream.Length < 50000;
+            }
+            catch
+            {
+                return false;
+            }
+        });
 
-        // Filter to avoid duplicate DLLs from different target frameworks  
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
-        var hasOnlySmallDlls = uniqueDllEntries.All(e => e.Length < 50000);
-
-        if (dependencies.Count > 0 && hasOnlySmallDlls && uniqueDllEntries.Any())
+        if (dependencies.Count > 0 && hasOnlySmallDlls && dllFiles.Any())
         {
             result += "\nNOTE: This appears to be a meta-package that primarily serves to group related packages together.\n";
             result += "The actual functionality is implemented in the dependencies listed above.\n";

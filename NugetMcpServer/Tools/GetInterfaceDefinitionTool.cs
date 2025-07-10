@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +7,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -76,18 +76,15 @@ public class GetInterfaceDefinitionTool(
 
         progress.ReportMessage("Scanning assemblies for interface");
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-
-        // Filter to avoid duplicate DLLs from different target frameworks
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var dllFiles = FilterUniqueAssemblies(packageReader);
         var processedDlls = 0;
 
-        foreach (var entry in uniqueDllEntries)
+        foreach (var filePath in dllFiles)
         {
-            progress.ReportMessage($"Scanning {Path.GetFileName(entry.FullName)}: {entry.FullName}");
+            progress.ReportMessage($"Scanning {System.IO.Path.GetFileName(filePath)}: {filePath}");
 
-            var definition = await TryGetInterfaceFromEntry(entry, interfaceName);
+            var definition = await TryGetInterfaceFromFile(packageReader, filePath, interfaceName);
             if (definition != null)
             {
                 progress.ReportMessage($"Interface found: {interfaceName}");
@@ -98,11 +95,11 @@ public class GetInterfaceDefinitionTool(
 
         return metaPackageWarning + $"Interface '{interfaceName}' not found in package {packageId}.";
     }
-    private async Task<string?> TryGetInterfaceFromEntry(ZipArchiveEntry entry, string interfaceName)
+    private async Task<string?> TryGetInterfaceFromFile(PackageArchiveReader packageReader, string filePath, string interfaceName)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
+            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
 
             if (assembly == null) return null;
 
@@ -160,11 +157,11 @@ public class GetInterfaceDefinitionTool(
                 return null;
             }
 
-            return formattingService.FormatInterfaceDefinition(iface, Path.GetFileName(entry.FullName));
+            return formattingService.FormatInterfaceDefinition(iface, System.IO.Path.GetFileName(filePath));
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
             return null;
         }
     }

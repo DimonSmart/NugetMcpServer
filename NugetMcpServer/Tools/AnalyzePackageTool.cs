@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +7,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -20,8 +20,9 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackageService packageService) : McpToolBase<AnalyzePackageTool>(logger, packageService)
+public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackageService packageService, ArchiveProcessingService archiveProcessingService) : McpToolBase<AnalyzePackageTool>(logger, packageService)
 {
+    private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
     [Description("Analyzes a NuGet package and returns either class information or meta-package information.")]
     public Task<string> AnalyzePackage(
@@ -83,15 +84,12 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
             Version = version!
         };
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var loadedAssemblies = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
-        // Filter to avoid duplicate DLLs from different target frameworks
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
-
-        foreach (var entry in uniqueDllEntries)
+        foreach (var assemblyInfo in loadedAssemblies)
         {
-            ProcessArchiveEntry(entry, classResult);
+            ProcessAssemblyTypes(assemblyInfo.Types, assemblyInfo.AssemblyName, classResult);
         }
 
         progress.ReportMessage($"Class listing completed - Found {classResult.Classes.Count} classes");
@@ -99,40 +97,23 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         return classResult.Format();
     }
 
-    private void ProcessArchiveEntry(ZipArchiveEntry entry, ClassListResult result)
+    private void ProcessAssemblyTypes(Type[] types, string assemblyName, ClassListResult result)
     {
-        try
+        var classes = types
+            .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
+            .ToList();
+
+        foreach (var cls in classes)
         {
-            using var entryStream = entry.Open();
-            using var ms = new MemoryStream();
-            entryStream.CopyTo(ms);
-
-            var assemblyData = ms.ToArray();
-            var (assembly, types) = PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
-
-            if (assembly == null) return;
-
-            var assemblyName = Path.GetFileName(entry.FullName);
-            var classes = types
-                .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
-                .ToList();
-
-            foreach (var cls in classes)
+            result.Classes.Add(new ClassInfo
             {
-                result.Classes.Add(new ClassInfo
-                {
-                    Name = cls.Name,
-                    FullName = cls.FullName ?? string.Empty,
-                    AssemblyName = assemblyName,
-                    IsStatic = cls.IsAbstract && cls.IsSealed,
-                    IsAbstract = cls.IsAbstract && !cls.IsSealed,
-                    IsSealed = cls.IsSealed && !cls.IsAbstract
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+                Name = cls.Name,
+                FullName = cls.FullName ?? string.Empty,
+                AssemblyName = assemblyName,
+                IsStatic = cls.IsAbstract && cls.IsSealed,
+                IsAbstract = cls.IsAbstract && !cls.IsSealed,
+                IsSealed = cls.IsSealed && !cls.IsAbstract
+            });
         }
     }
 }

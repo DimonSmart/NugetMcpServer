@@ -13,6 +13,7 @@ public class ListClassesToolTests : TestBase
     private readonly TestLogger<NuGetPackageService> _packageLogger;
     private readonly TestLogger<ListClassesTool> _listToolLogger;
     private readonly NuGetPackageService _packageService;
+    private readonly ArchiveProcessingService _archiveProcessingService;
     private readonly ListClassesTool _listTool;
 
     public ListClassesToolTests(ITestOutputHelper testOutput) : base(testOutput)
@@ -21,7 +22,8 @@ public class ListClassesToolTests : TestBase
         _listToolLogger = new TestLogger<ListClassesTool>(TestOutput);
 
         _packageService = CreateNuGetPackageService();
-        _listTool = new ListClassesTool(_listToolLogger, _packageService);
+        _archiveProcessingService = CreateArchiveProcessingService();
+        _listTool = new ListClassesTool(_listToolLogger, _packageService, _archiveProcessingService);
     }
 
     [Fact]

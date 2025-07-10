@@ -13,6 +13,7 @@ namespace NugetMcpServer.Tests.Tools
         private readonly TestLogger<NuGetPackageService> _packageLogger;
         private readonly TestLogger<ListInterfacesTool> _listToolLogger;
         private readonly NuGetPackageService _packageService;
+        private readonly ArchiveProcessingService _archiveProcessingService;
         private readonly ListInterfacesTool _listTool;
 
         public ListInterfacesToolTests(ITestOutputHelper testOutput) : base(testOutput)
@@ -21,7 +22,8 @@ namespace NugetMcpServer.Tests.Tools
             _listToolLogger = new TestLogger<ListInterfacesTool>(TestOutput);
 
             _packageService = CreateNuGetPackageService();
-            _listTool = new ListInterfacesTool(_listToolLogger, _packageService);
+            _archiveProcessingService = CreateArchiveProcessingService();
+            _listTool = new ListInterfacesTool(_listToolLogger, _packageService, _archiveProcessingService);
         }
 
         [Fact]

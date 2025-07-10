@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +7,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -74,15 +74,12 @@ public class GetEnumDefinitionTool(
 
         progress.ReportMessage("Scanning assemblies for enum");
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var dllFiles = FilterUniqueAssemblies(packageReader);
 
-        // Filter to avoid duplicate DLLs from different target frameworks
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
-
-        foreach (var entry in uniqueDllEntries)
+        foreach (var filePath in dllFiles)
         {
-            var definition = await TryGetEnumFromEntry(entry, enumName);
+            var definition = await TryGetEnumFromFile(packageReader, filePath, enumName);
             if (definition != null)
             {
                 progress.ReportMessage($"Enum found: {enumName}");
@@ -93,11 +90,11 @@ public class GetEnumDefinitionTool(
         return metaPackageWarning + $"Enum '{enumName}' not found in package {packageId}.";
     }
 
-    private async Task<string?> TryGetEnumFromEntry(ZipArchiveEntry entry, string enumName)
+    private async Task<string?> TryGetEnumFromFile(PackageArchiveReader packageReader, string filePath, string enumName)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
+            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
 
             if (assembly == null) return null;
 
@@ -109,12 +106,12 @@ public class GetEnumDefinitionTool(
                 return null;
             }
 
-            var assemblyName = Path.GetFileName(entry.FullName);
+            var assemblyName = System.IO.Path.GetFileName(filePath);
             return $"/* C# ENUM FROM {assemblyName} */\r\n" + formattingService.FormatEnumDefinition(enumType);
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
             return null;
         }
     }

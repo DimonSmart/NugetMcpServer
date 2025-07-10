@@ -96,10 +96,6 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         }
     }
 
-    public Task<bool> IsMetaPackageAsync(Stream packageStream)
-    {
-        return Task.FromResult(metaPackageDetector.IsMetaPackage(packageStream));
-    }
 
     public List<PackageDependency> GetPackageDependencies(Stream packageStream)
     {

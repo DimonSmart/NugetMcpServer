@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -10,6 +8,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -20,8 +20,9 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService) : McpToolBase<ListInterfacesTool>(logger, packageService)
+public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackageService packageService, ArchiveProcessingService archiveProcessingService) : McpToolBase<ListInterfacesTool>(logger, packageService)
 {
+    private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
     [Description("Lists all public interfaces available in a specified NuGet package.")]
     public Task<InterfaceListResult> ListInterfaces(
@@ -70,16 +71,13 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
 
         progress.ReportMessage("Scanning assemblies for interfaces");
         packageStream.Position = 0;
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        var loadedAssemblies = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
-        // Filter to avoid duplicate DLLs from different target frameworks
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
-
-        foreach (var entry in uniqueDllEntries)
+        foreach (var assemblyInfo in loadedAssemblies)
         {
-            ProcessArchiveEntry(entry, result);
+            ProcessAssemblyTypes(assemblyInfo.Types, assemblyInfo.AssemblyName, result);
         }
 
         progress.ReportMessage($"Interface listing completed - Found {result.Interfaces.Count} interfaces");
@@ -87,44 +85,25 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         return result;
     }
 
-    private void ProcessArchiveEntry(ZipArchiveEntry entry, InterfaceListResult result)
+    private void ProcessAssemblyTypes(Type[] types, string assemblyName, InterfaceListResult result)
     {
-        try
+        Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyName);
+
+        var interfaces = types
+            .Where(t => t.IsInterface && t.IsPublic)
+            .ToList();
+
+        Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyName);
+
+        foreach (var iface in interfaces)
         {
-            Logger.LogInformation("Processing archive entry: {EntryName}", entry.FullName);
-
-            using var entryStream = entry.Open();
-            using var ms = new MemoryStream();
-            entryStream.CopyTo(ms);
-
-            var assemblyData = ms.ToArray();
-            Logger.LogInformation("Archive entry {EntryName} size: {Size} bytes", entry.FullName, assemblyData.Length);
-
-            var (assembly, types) = PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
-
-            if (assembly == null) return;
-
-            var assemblyName = Path.GetFileName(entry.FullName);
-            var interfaces = types
-                .Where(t => t.IsInterface && t.IsPublic)
-                .ToList();
-
-            Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyName);
-
-            foreach (var iface in interfaces)
+            Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
+            result.Interfaces.Add(new InterfaceInfo
             {
-                Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
-                result.Interfaces.Add(new InterfaceInfo
-                {
-                    Name = iface.Name,
-                    FullName = iface.FullName ?? string.Empty,
-                    AssemblyName = assemblyName
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error processing archive entry {EntryName}", entry.FullName);
+                Name = iface.Name,
+                FullName = iface.FullName ?? string.Empty,
+                AssemblyName = assemblyName
+            });
         }
     }
 }

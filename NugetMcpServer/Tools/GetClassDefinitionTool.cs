@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +7,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -76,15 +76,15 @@ public class GetClassDefinitionTool(
 
         progress.ReportMessage("Scanning assemblies for class");
 
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        // Filter to avoid duplicate DLLs from different target frameworks
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
+        // We need to inject the ArchiveProcessingService for this to work properly
+        // For now, use the old approach but with a cleaner method
+        var dllFiles = FilterUniqueAssemblies(packageReader);
 
-        foreach (var entry in uniqueDllEntries)
+        foreach (var filePath in dllFiles)
         {
-            var definition = await TryGetClassFromEntry(entry, className);
+            var definition = await TryGetClassFromFile(packageReader, filePath, className);
             if (definition != null)
             {
                 progress.ReportMessage($"Class found: {className}");
@@ -95,11 +95,11 @@ public class GetClassDefinitionTool(
         return metaPackageWarning + $"Class '{className}' not found in package {packageId}.";
     }
 
-    private async Task<string?> TryGetClassFromEntry(ZipArchiveEntry entry, string className)
+    private async Task<string?> TryGetClassFromFile(PackageArchiveReader packageReader, string filePath, string className)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromEntryWithTypesAsync(entry);
+            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
 
             if (assembly == null) return null;
 
@@ -157,11 +157,11 @@ public class GetClassDefinitionTool(
                 return null;
             }
 
-            return formattingService.FormatClassDefinition(classType, Path.GetFileName(entry.FullName));
+            return formattingService.FormatClassDefinition(classType, System.IO.Path.GetFileName(filePath));
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
             return null;
         }
     }

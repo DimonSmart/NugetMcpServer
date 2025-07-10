@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +7,8 @@ using Microsoft.Extensions.Logging;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
@@ -19,8 +19,9 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageService packageService) : McpToolBase<ListClassesTool>(logger, packageService)
+public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageService packageService, ArchiveProcessingService archiveProcessingService) : McpToolBase<ListClassesTool>(logger, packageService)
 {
+    private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
     [Description("Lists all public classes available in a specified NuGet package.")]
     public Task<ClassListResult> ListClasses(
@@ -72,15 +73,13 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
 
         progress.ReportMessage("Scanning assemblies for classes");
         packageStream.Position = 0;
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        var dllEntries = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+        var loadedAssemblies = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
-        var uniqueDllEntries = FilterUniqueAssemblies(dllEntries);
-
-        foreach (var entry in uniqueDllEntries)
+        foreach (var assemblyInfo in loadedAssemblies)
         {
-            ProcessArchiveEntry(entry, result);
+            ProcessAssemblyTypes(assemblyInfo.Types, assemblyInfo.AssemblyName, result);
         }
 
         progress.ReportMessage($"Class listing completed - Found {result.Classes.Count} classes");
@@ -88,40 +87,23 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         return result;
     }
 
-    private void ProcessArchiveEntry(ZipArchiveEntry entry, ClassListResult result)
+    private void ProcessAssemblyTypes(Type[] types, string assemblyName, ClassListResult result)
     {
-        try
+        var classes = types
+            .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
+            .ToList();
+
+        foreach (var cls in classes)
         {
-            using var entryStream = entry.Open();
-            using var ms = new MemoryStream();
-            entryStream.CopyTo(ms);
-
-            var assemblyData = ms.ToArray();
-            var (assembly, types) = PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
-
-            if (assembly == null) return;
-
-            var assemblyName = Path.GetFileName(entry.FullName);
-            var classes = types
-                .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
-                .ToList();
-
-            foreach (var cls in classes)
+            result.Classes.Add(new ClassInfo
             {
-                result.Classes.Add(new ClassInfo
-                {
-                    Name = cls.Name,
-                    FullName = cls.FullName ?? string.Empty,
-                    AssemblyName = assemblyName,
-                    IsStatic = cls.IsAbstract && cls.IsSealed,
-                    IsAbstract = cls.IsAbstract && !cls.IsSealed,
-                    IsSealed = cls.IsSealed && !cls.IsAbstract
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Error processing archive entry {EntryName}", entry.FullName);
+                Name = cls.Name,
+                FullName = cls.FullName ?? string.Empty,
+                AssemblyName = assemblyName,
+                IsStatic = cls.IsAbstract && cls.IsSealed,
+                IsAbstract = cls.IsAbstract && !cls.IsSealed,
+                IsSealed = cls.IsSealed && !cls.IsAbstract
+            });
         }
     }
 }

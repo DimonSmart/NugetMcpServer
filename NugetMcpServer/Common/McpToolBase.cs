@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
+
+using NuGet.Packaging;
 
 using NuGetMcpServer.Services;
 
@@ -17,28 +18,31 @@ public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService pack
     protected readonly ILogger<T> Logger = logger;
     protected readonly NuGetPackageService PackageService = packageService;
 
-    protected async Task<(Assembly? assembly, System.Type[] types)> LoadAssemblyFromEntryWithTypesAsync(ZipArchiveEntry entry)
+    protected async Task<(Assembly? assembly, Type[] types)> LoadAssemblyFromFileAsync(PackageArchiveReader packageReader, string filePath)
     {
-        using var entryStream = entry.Open();
+        using var fileStream = packageReader.GetStream(filePath);
         using var ms = new MemoryStream();
-        await entryStream.CopyToAsync(ms);
+        await fileStream.CopyToAsync(ms);
 
         var assemblyData = ms.ToArray();
         return PackageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
     }
 
     /// <summary>
-    /// Filters DLL entries to avoid duplicates from different target frameworks.
+    /// Gets a filtered list of unique DLL files from the package, avoiding duplicates from different target frameworks.
     /// Prefers newer framework versions when multiple versions of the same assembly exist.
     /// </summary>
-    protected static List<ZipArchiveEntry> FilterUniqueAssemblies(List<ZipArchiveEntry> dllEntries)
+    protected static List<string> FilterUniqueAssemblies(PackageArchiveReader packageReader)
     {
+        var allFiles = packageReader.GetFiles();
+        var dllFiles = allFiles.Where(f => f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+
         // Group by assembly name (filename without extension)
-        var groupedByName = dllEntries
-            .GroupBy(entry => Path.GetFileNameWithoutExtension(entry.Name), StringComparer.OrdinalIgnoreCase)
+        var groupedByName = dllFiles
+            .GroupBy(file => Path.GetFileNameWithoutExtension(file), StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var result = new List<ZipArchiveEntry>();
+        var result = new List<string>();
 
         foreach (var group in groupedByName)
         {
@@ -50,10 +54,10 @@ public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService pack
             else
             {
                 // Multiple versions - prefer the most appropriate one
-                var bestEntry = SelectBestAssemblyEntry(group.ToList());
-                if (bestEntry != null)
+                var bestFile = SelectBestAssemblyFile(group.ToList());
+                if (bestFile != null)
                 {
-                    result.Add(bestEntry);
+                    result.Add(bestFile);
                 }
             }
         }
@@ -62,13 +66,13 @@ public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService pack
     }
 
     /// <summary>
-    /// Selects the best assembly entry from multiple versions.
+    /// Selects the best assembly file from multiple versions.
     /// Priority: net8.0 > net6.0 > netstandard2.1 > netstandard2.0 > net4x > others
     /// </summary>
-    private static ZipArchiveEntry? SelectBestAssemblyEntry(List<ZipArchiveEntry> entries)
+    private static string? SelectBestAssemblyFile(List<string> files)
     {
-        if (!entries.Any()) return null;
-        if (entries.Count == 1) return entries.First();
+        if (!files.Any()) return null;
+        if (files.Count == 1) return files.First();
 
         // Define framework priority (higher number = higher priority)
         var frameworkPriorities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
@@ -90,18 +94,18 @@ public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService pack
             { "net45", 33 }
         };
 
-        var bestEntry = entries
-            .Select(entry => new
+        var bestFile = files
+            .Select(file => new
             {
-                Entry = entry,
-                Framework = ExtractFrameworkFromPath(entry.FullName),
-                Priority = GetFrameworkPriority(ExtractFrameworkFromPath(entry.FullName), frameworkPriorities)
+                File = file,
+                Framework = ExtractFrameworkFromPath(file),
+                Priority = GetFrameworkPriority(ExtractFrameworkFromPath(file), frameworkPriorities)
             })
             .OrderByDescending(x => x.Priority)
-            .ThenBy(x => x.Entry.FullName) // Consistent ordering for same priority
+            .ThenBy(x => x.File) // Consistent ordering for same priority
             .First();
 
-        return bestEntry.Entry;
+        return bestFile.File;
     }
 
     /// <summary>

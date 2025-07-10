@@ -22,11 +22,12 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         _detector = new MetaPackageDetector(_logger);
         _packageService = CreateNuGetPackageService();
 
+        var archiveProcessingService = CreateArchiveProcessingService();
         var classesLogger = new TestLogger<ListClassesTool>(TestOutput);
-        _listClassesTool = new ListClassesTool(classesLogger, _packageService);
+        _listClassesTool = new ListClassesTool(classesLogger, _packageService, archiveProcessingService);
 
         var interfacesLogger = new TestLogger<ListInterfacesTool>(TestOutput);
-        _listInterfacesTool = new ListInterfacesTool(interfacesLogger, _packageService);
+        _listInterfacesTool = new ListInterfacesTool(interfacesLogger, _packageService, archiveProcessingService);
     }
 
     public static TheoryData<string, bool> MetaPackageTestData => new()

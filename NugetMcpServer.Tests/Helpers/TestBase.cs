@@ -22,6 +22,12 @@ public abstract class TestBase(ITestOutputHelper testOutput)
         return new NuGetPackageService(NullLogger<NuGetPackageService>.Instance, HttpClient, metaPackageDetector);
     }
 
+    protected ArchiveProcessingService CreateArchiveProcessingService()
+    {
+        var packageService = CreateNuGetPackageService();
+        return new ArchiveProcessingService(NullLogger<ArchiveProcessingService>.Instance, packageService);
+    }
+
     protected static async Task ExecuteWithCleanupAsync(Func<Task> operation, Action cleanup)
     {
         try
