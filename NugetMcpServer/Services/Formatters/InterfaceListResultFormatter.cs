@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text;
+using NuGetMcpServer.Extensions;
 
 namespace NuGetMcpServer.Services.Formatters;
 
@@ -45,7 +46,7 @@ public static class InterfaceListResultFormatter
 
             foreach (var iface in group.OrderBy(i => i.FullName))
             {
-                var formattedName = iface.GetFormattedFullName();
+                var formattedName = iface.FullName.FormatFullGenericTypeName();
                 sb.AppendLine($"- {formattedName}");
             }
 

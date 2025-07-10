@@ -10,7 +10,4 @@ public class ClassInfo
     public bool IsStatic { get; set; }
     public bool IsAbstract { get; set; }
     public bool IsSealed { get; set; }
-
-    // Converts generic notation from `N to <T> for display
-    public string GetFormattedFullName() => FullName.FormatGenericTypeName();
 }

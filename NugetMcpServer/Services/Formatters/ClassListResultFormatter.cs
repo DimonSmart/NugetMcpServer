@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using NuGetMcpServer.Extensions;
 
 namespace NuGetMcpServer.Services.Formatters;
 
@@ -46,7 +47,7 @@ public static class ClassListResultFormatter
 
             foreach (var cls in group.OrderBy(c => c.FullName))
             {
-                var formattedName = cls.GetFormattedFullName();
+                var formattedName = cls.FullName.FormatGenericTypeName();
                 var modifiers = new List<string>();
 
                 if (cls.IsStatic) modifiers.Add("static");
