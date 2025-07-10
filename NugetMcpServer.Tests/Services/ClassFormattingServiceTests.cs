@@ -13,11 +13,12 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var classType = typeof(string);
         var assemblyName = "System.Private.CoreLib";
+        var packageName = "TestPackage";
 
-        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
+        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName, packageName);
 
         Assert.NotNull(formattedCode);
-        Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
+        Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
         Assert.Contains("public sealed class string", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED CLASS ==========");
@@ -30,11 +31,12 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var classType = typeof(Console);
         var assemblyName = "System.Console";
+        var packageName = "TestPackage";
 
-        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
+        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName, packageName);
 
         Assert.NotNull(formattedCode);
-        Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
+        Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
         Assert.Contains("public static class Console", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED STATIC CLASS ==========");
@@ -47,11 +49,12 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var classType = typeof(System.IO.Stream);
         var assemblyName = "System.IO";
+        var packageName = "TestPackage";
 
-        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
+        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName, packageName);
 
         Assert.NotNull(formattedCode);
-        Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
+        Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
         Assert.Contains("public abstract class Stream", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED ABSTRACT CLASS ==========");
@@ -77,15 +80,16 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var classType = typeof(MockGeneric<string>);
         var assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name!;
+        var packageName = "TestPackage";
 
-        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
+        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName, packageName);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: FORMATTED GENERIC CLASS ==========");
         TestOutput.WriteLine(formattedCode);
         TestOutput.WriteLine("========================================================\n");
 
         Assert.NotNull(formattedCode);
-        Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
+        Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
         Assert.Contains("public class MockGeneric<string>", formattedCode);
         Assert.Contains("CONSTANT_VALUE = 42", formattedCode);
         Assert.Contains("static readonly", formattedCode);
@@ -98,11 +102,12 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var classType = typeof(int);
         var assemblyName = "System.Private.CoreLib";
+        var packageName = "TestPackage";
 
-        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName);
+        var formattedCode = _formattingService.FormatClassDefinition(classType, assemblyName, packageName);
 
         Assert.NotNull(formattedCode);
-        Assert.Contains($"/* C# CLASS FROM {assemblyName} */", formattedCode);
+        Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
         Assert.Contains("public struct int", formattedCode);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: CLASS WITH CONSTANTS ==========");

@@ -11,7 +11,7 @@ public class EnumFormattingServiceTests
         var enumType = typeof(TestEnum);
 
         // Act
-        var result = _service.FormatEnumDefinition(enumType);
+        var result = _service.FormatEnumDefinition(enumType, "TestAssembly", "TestPackage");
 
         // Assert
         Assert.Contains("public enum TestEnum", result);
@@ -27,7 +27,7 @@ public class EnumFormattingServiceTests
         var enumType = typeof(TestEnumWithValues);
 
         // Act
-        var result = _service.FormatEnumDefinition(enumType);
+        var result = _service.FormatEnumDefinition(enumType, "TestAssembly", "TestPackage");
 
         // Assert
         Assert.Contains("public enum TestEnumWithValues", result);
@@ -44,7 +44,7 @@ public class EnumFormattingServiceTests
         var enumType = typeof(TestULongEnum);
 
         // Act
-        var result = _service.FormatEnumDefinition(enumType);
+        var result = _service.FormatEnumDefinition(enumType, "TestAssembly", "TestPackage");
 
         // Assert
         Assert.Contains("public enum TestULongEnum : ulong", result);
@@ -59,7 +59,7 @@ public class EnumFormattingServiceTests
         var nonEnumType = typeof(string);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => _service.FormatEnumDefinition(nonEnumType));
+        var ex = Assert.Throws<ArgumentException>(() => _service.FormatEnumDefinition(nonEnumType, "TestAssembly", "TestPackage"));
         Assert.Contains("is not an enum", ex.Message);
     }
 

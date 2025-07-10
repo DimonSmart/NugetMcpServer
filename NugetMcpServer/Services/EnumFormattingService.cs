@@ -5,7 +5,7 @@ namespace NuGetMcpServer.Services;
 
 public class EnumFormattingService
 {
-    public string FormatEnumDefinition(Type enumType, string? assemblyName = null, string? packageName = null)
+    public string FormatEnumDefinition(Type enumType, string assemblyName, string packageName)
     {
         if (!enumType.IsEnum)
         {
@@ -14,13 +14,8 @@ public class EnumFormattingService
 
         var sb = new StringBuilder();
         
-        if (assemblyName != null)
-        {
-            var header = packageName != null 
-                ? $"/* C# ENUM FROM {assemblyName} (Package: {packageName}) */"
-                : $"/* C# ENUM FROM {assemblyName} */";
-            sb.AppendLine(header);
-        }
+        var header = $"/* C# ENUM FROM {assemblyName} (Package: {packageName}) */";
+        sb.AppendLine(header);
         
         var underlyingType = Enum.GetUnderlyingType(enumType);
         var underlyingTypeName = TypeFormattingHelpers.FormatTypeName(underlyingType);
