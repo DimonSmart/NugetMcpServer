@@ -94,27 +94,27 @@ The server uses the .NET Generic Host and includes:
 
 ### TimeTool
 
-- `GetCurrentTime()` - Returns the current server time in ISO 8601 format (YYYY-MM-DDThh:mm:ssZ)
+- `get_current_time()` - Returns the current server time in ISO 8601 format (YYYY-MM-DDThh:mm:ssZ)
 
 
 ### Interface Tools
 
-- `GetInterfaceDefinition(packageId, interfaceName?, version?)` - Gets the C# interface definition from a NuGet package. Parameters: packageId (NuGet package ID), interfaceName (optional, short name without namespace), version (optional, defaults to latest)
-- `ListInterfaces(packageId, version?)` - Lists all public interfaces in a NuGet package. Returns package ID, version, and the list of interfaces
+- `get_interface_definition(packageId, interfaceName?, version?)` - Gets the C# interface definition from a NuGet package. Parameters: packageId (NuGet package ID), interfaceName (optional, short name without namespace), version (optional, defaults to latest)
+- `list_interfaces(packageId, version?)` - Lists all public interfaces in a NuGet package. Returns package ID, version, and the list of interfaces
 
 
 ### Enum Tools
 
-- `GetEnumDefinition(packageId, enumName, version?)` - Gets the C# enum definition from a NuGet package. Parameters: packageId (NuGet package ID), enumName (short name without namespace), version (optional, defaults to latest)
+- `get_enum_definition(packageId, enumName, version?)` - Gets the C# enum definition from a NuGet package. Parameters: packageId (NuGet package ID), enumName (short name without namespace), version (optional, defaults to latest)
 
 ### Class Tools
 
-- `GetClassDefinition(packageId, className, version?)` - Gets the C# class definition from a NuGet package. Parameters: packageId (NuGet package ID), className (short or full name), version (optional, defaults to latest)
-- `ListClasses(packageId, version?)` - Lists all public classes in a NuGet package. Returns package ID, version, and the list of classes
+- `get_class_definition(packageId, className, version?)` - Gets the C# class definition from a NuGet package. Parameters: packageId (NuGet package ID), className (short or full name), version (optional, defaults to latest)
+- `list_classes(packageId, version?)` - Lists all public classes in a NuGet package. Returns package ID, version, and the list of classes
 
 ### Package Search Tools
 
-- `SearchPackages(query, maxResults?, fuzzySearch?)` - Searches for NuGet packages by description or functionality.
+- `search_packages(query, maxResults?, fuzzySearch?)` - Searches for NuGet packages by description or functionality.
   - **Standard search mode (fuzzySearch=false, default)**: Performs direct search for the full query and also searches each comma-separated keyword if provided
   - **Fuzzy search mode (fuzzySearch=true)**: Starts with the standard search and additionally tries each individual word and AI-generated package name alternatives
   - AI analyzes user's functional requirements and generates 3 most likely package names (e.g., "maze generation" → "MazeGenerator MazeBuilder MazeCreator")
@@ -123,11 +123,11 @@ The server uses the .NET Generic Host and includes:
 
 ### Package Information Tools
 
-- `GetPackageInfo(packageId, version?)` - Gets comprehensive information about a NuGet package including metadata, dependencies, and meta-package status. Shows clear warnings for meta-packages and guidance on where to find actual implementations.
+- `get_package_info(packageId, version?)` - Gets comprehensive information about a NuGet package including metadata, dependencies, and meta-package status. Shows clear warnings for meta-packages and guidance on where to find actual implementations.
 
 ### Package Dependencies
 
-- `GetPackageDependencies(packageId, version?)` - Gets the dependencies of a NuGet package to help understand what other packages contain the actual implementations
+- `get_package_dependencies(packageId, version?)` - Gets the dependencies of a NuGet package to help understand what other packages contain the actual implementations
 
 ## MCP Server Response Examples
 

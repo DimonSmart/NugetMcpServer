@@ -25,7 +25,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
     private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
     [Description("Analyzes a NuGet package and returns either class information or meta-package information.")]
-    public Task<string> AnalyzePackage(
+    public Task<string> analyze_package(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
@@ -89,7 +89,22 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
 
         foreach (var assemblyInfo in loadedAssemblies)
         {
-            ProcessAssemblyTypes(assemblyInfo.Types, assemblyInfo.AssemblyName, classResult);
+            var classes = assemblyInfo.Types
+                .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
+                .ToList();
+
+            foreach (var cls in classes)
+            {
+                classResult.Classes.Add(new ClassInfo
+                {
+                    Name = cls.Name,
+                    FullName = cls.FullName ?? string.Empty,
+                    AssemblyName = assemblyInfo.AssemblyName,
+                    IsStatic = cls.IsAbstract && cls.IsSealed,
+                    IsAbstract = cls.IsAbstract && !cls.IsSealed,
+                    IsSealed = cls.IsSealed && !cls.IsAbstract
+                });
+            }
         }
 
         progress.ReportMessage($"Class listing completed - Found {classResult.Classes.Count} classes");
@@ -97,23 +112,4 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         return classResult.Format();
     }
 
-    private void ProcessAssemblyTypes(Type[] types, string assemblyName, ClassListResult result)
-    {
-        var classes = types
-            .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
-            .ToList();
-
-        foreach (var cls in classes)
-        {
-            result.Classes.Add(new ClassInfo
-            {
-                Name = cls.Name,
-                FullName = cls.FullName ?? string.Empty,
-                AssemblyName = assemblyName,
-                IsStatic = cls.IsAbstract && cls.IsSealed,
-                IsAbstract = cls.IsAbstract && !cls.IsSealed,
-                IsSealed = cls.IsSealed && !cls.IsAbstract
-            });
-        }
-    }
 }

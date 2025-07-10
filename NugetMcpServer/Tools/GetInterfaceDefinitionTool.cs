@@ -27,7 +27,7 @@ public class GetInterfaceDefinitionTool(
 {
     [McpServerTool]
     [Description("Extracts and returns the C# interface definition from a specified NuGet package.")]
-    public Task<string> GetInterfaceDefinition(
+    public Task<string> get_interface_definition(
         [Description("NuGet package ID")] string packageId,
         [Description("Interface name (short name like 'IDisposable' or full name like 'System.IDisposable')")] string interfaceName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
@@ -87,81 +87,68 @@ public class GetInterfaceDefinitionTool(
             var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
             if (assemblyInfo != null)
             {
-                var definition = TryGetInterfaceFromAssembly(assemblyInfo, interfaceName, packageId);
-                if (definition != null)
+                try
                 {
-                    progress.ReportMessage($"Interface found: {interfaceName}");
-                    return metaPackageWarning + definition;
+                    var iface = assemblyInfo.Types
+                        .FirstOrDefault(t =>
+                        {
+                            if (!t.IsInterface)
+                            {
+                                return false;
+                            }
+
+                            if (t.Name == interfaceName)
+                            {
+                                return true;
+                            }
+
+                            if (t.FullName == interfaceName)
+                            {
+                                return true;
+                            }
+
+                            if (!t.IsGenericType)
+                            {
+                                return false;
+                            }
+
+                            var backtickIndex = t.Name.IndexOf('`');
+                            if (backtickIndex > 0)
+                            {
+                                var baseName = t.Name.Substring(0, backtickIndex);
+                                if (baseName == interfaceName)
+                                {
+                                    return true;
+                                }
+                            }
+
+                            if (t.FullName != null)
+                            {
+                                var fullBacktickIndex = t.FullName.IndexOf('`');
+                                if (fullBacktickIndex > 0)
+                                {
+                                    var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
+                                    return fullBaseName == interfaceName;
+                                }
+                            }
+
+                            return false;
+                        });
+
+                    if (iface != null)
+                    {
+                        progress.ReportMessage($"Interface found: {interfaceName}");
+                        var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
+                        return metaPackageWarning + formatted;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
                 }
             }
         }
 
         return metaPackageWarning + $"Interface '{interfaceName}' not found in package {packageId}.";
-    }
-    private string? TryGetInterfaceFromAssembly(LoadedAssemblyInfo assemblyInfo, string interfaceName, string packageId)
-    {
-        try
-        {
-            var iface = assemblyInfo.Types
-                .FirstOrDefault(t =>
-                {
-                    if (!t.IsInterface)
-                    {
-                        return false;
-                    }
-
-                    if (t.Name == interfaceName)
-                    {
-                        return true;
-                    }
-
-                    if (t.FullName == interfaceName)
-                    {
-                        return true;
-                    }
-
-                    // For generic types, compare the name part before the backtick
-                    if (!t.IsGenericType)
-                    {
-                        return false;
-                    }
-
-                    {
-                        var backtickIndex = t.Name.IndexOf('`');
-                        if (backtickIndex > 0)
-                        {
-                            var baseName = t.Name.Substring(0, backtickIndex);
-                            if (baseName == interfaceName)
-                            {
-                                return true;
-                            }
-                        }
-
-                        if (t.FullName != null)
-                        {
-                            var fullBacktickIndex = t.FullName.IndexOf('`');
-                            if (fullBacktickIndex > 0)
-                            {
-                                var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
-                                return fullBaseName == interfaceName;
-                            }
-                        }
-                    }
-
-                    return false;
-                });
-
-            if (iface == null)
-            {
-                return null;
-            }
-
-            return formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
-            return null;
-        }
     }
 }

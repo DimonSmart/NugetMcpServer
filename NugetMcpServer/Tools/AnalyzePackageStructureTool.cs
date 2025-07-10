@@ -29,7 +29,7 @@ public class AnalyzePackageStructureTool(
 {
     [McpServerTool]
     [Description("Analyzes NuGet package structure to determine if it's a meta-package and lists its dependencies.")]
-    public Task<string> AnalyzePackageStructure(
+    public Task<string> analyze_package_structure(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)

@@ -24,7 +24,7 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
 {
     [McpServerTool]
     [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
-    public Task<PackageSearchResult> FuzzySearchPackages(
+    public Task<PackageSearchResult> fuzzy_search_packages(
         IMcpServer thisServer,
         [Description("Description of the functionality you're looking for")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,

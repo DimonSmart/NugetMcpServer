@@ -27,7 +27,7 @@ public class GetClassDefinitionTool(
 {
     [McpServerTool]
     [Description("Extracts and returns the C# class definition from a specified NuGet package.")]
-    public Task<string> GetClassDefinition(
+    public Task<string> get_class_definition(
         [Description("NuGet package ID")] string packageId,
         [Description("Class name (short name like 'String' or full name like 'System.String')")] string className,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
@@ -86,11 +86,64 @@ public class GetClassDefinitionTool(
             var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
             if (assemblyInfo != null)
             {
-                var definition = TryGetClassFromAssembly(assemblyInfo, className, packageId);
-                if (definition != null)
+                try
                 {
-                    progress.ReportMessage($"Class found: {className}");
-                    return metaPackageWarning + definition;
+                    var classType = assemblyInfo.Types
+                        .FirstOrDefault(t =>
+                        {
+                            if (!t.IsClass || !t.IsPublic)
+                            {
+                                return false;
+                            }
+
+                            if (t.Name == className)
+                            {
+                                return true;
+                            }
+
+                            if (t.FullName == className)
+                            {
+                                return true;
+                            }
+
+                            if (!t.IsGenericType)
+                            {
+                                return false;
+                            }
+
+                            var backtickIndex = t.Name.IndexOf('`');
+                            if (backtickIndex > 0)
+                            {
+                                var baseName = t.Name.Substring(0, backtickIndex);
+                                if (baseName == className)
+                                {
+                                    return true;
+                                }
+                            }
+
+                            if (t.FullName != null)
+                            {
+                                var fullBacktickIndex = t.FullName.IndexOf('`');
+                                if (fullBacktickIndex > 0)
+                                {
+                                    var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
+                                    return fullBaseName == className;
+                                }
+                            }
+
+                            return false;
+                        });
+
+                    if (classType != null)
+                    {
+                        progress.ReportMessage($"Class found: {className}");
+                        var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId);
+                        return metaPackageWarning + formatted;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
                 }
             }
         }
@@ -98,70 +151,4 @@ public class GetClassDefinitionTool(
         return metaPackageWarning + $"Class '{className}' not found in package {packageId}.";
     }
 
-    private string? TryGetClassFromAssembly(LoadedAssemblyInfo assemblyInfo, string className, string packageId)
-    {
-        try
-        {
-            var classType = assemblyInfo.Types
-                .FirstOrDefault(t =>
-                {
-                    if (!t.IsClass || !t.IsPublic)
-                    {
-                        return false;
-                    }
-
-                    if (t.Name == className)
-                    {
-                        return true;
-                    }
-
-                    if (t.FullName == className)
-                    {
-                        return true;
-                    }
-
-                    // For generic types, compare the name part before the backtick
-                    if (!t.IsGenericType)
-                    {
-                        return false;
-                    }
-
-                    {
-                        var backtickIndex = t.Name.IndexOf('`');
-                        if (backtickIndex > 0)
-                        {
-                            var baseName = t.Name.Substring(0, backtickIndex);
-                            if (baseName == className)
-                            {
-                                return true;
-                            }
-                        }
-
-                        if (t.FullName != null)
-                        {
-                            var fullBacktickIndex = t.FullName.IndexOf('`');
-                            if (fullBacktickIndex > 0)
-                            {
-                                var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
-                                return fullBaseName == className;
-                            }
-                        }
-                    }
-
-                    return false;
-                });
-
-            if (classType == null)
-            {
-                return null;
-            }
-
-            return formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
-            return null;
-        }
-    }
 }

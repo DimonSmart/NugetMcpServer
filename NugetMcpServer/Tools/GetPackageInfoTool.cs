@@ -23,7 +23,7 @@ public class GetPackageInfoTool(
 {
     [McpServerTool]
     [Description("Gets detailed information about a NuGet package including metadata, dependencies, and whether it's a meta-package.")]
-    public Task<string> GetPackageInfo(
+    public Task<string> get_package_info(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)

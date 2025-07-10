@@ -22,7 +22,7 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, PackageSearc
 {
     [McpServerTool]
     [Description("Searches for NuGet packages by query and comma-separated keywords. Provides fast and precise search results.")]
-    public Task<PackageSearchResult> SearchPackages(
+    public Task<PackageSearchResult> search_packages(
         [Description("Description of the functionality you're looking for, or comma-separated keywords for targeted search")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
         IProgress<ProgressNotificationValue>? progress = null,

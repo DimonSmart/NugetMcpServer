@@ -24,26 +24,15 @@ public class GetEnumDefinitionToolTests : TestBase
         _packageService = CreateNuGetPackageService();
     }
 
-    [Fact]
-    public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_PackageIdIsEmpty()
+    [Theory]
+    [InlineData("", "SomeEnum")]
+    [InlineData("SomePackage", "")]
+    public async Task GetEnumDefinition_InvalidArguments_ThrowsArgumentNullException(string packageId, string enumName)
     {
-        // Arrange
         var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, _packageService);
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object, archiveService);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => tool.GetEnumDefinition("", "SomeEnum"));
-    }
-
-    [Fact]
-    public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_EnumNameIsEmpty()
-    {
-        // Arrange
-        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, _packageService);
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object, archiveService);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() => tool.GetEnumDefinition("SomePackage", ""));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => tool.get_enum_definition(packageId, enumName));
     }
 
     // Integration tests for enum lookup with real packages
@@ -58,7 +47,7 @@ public class GetEnumDefinitionToolTests : TestBase
         var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
-        var definition = await tool.GetEnumDefinition(packageId, dataTypeEnumName);
+        var definition = await tool.get_enum_definition(packageId, dataTypeEnumName);
 
         // Assert
         Assert.NotNull(definition);
@@ -78,7 +67,7 @@ public class GetEnumDefinitionToolTests : TestBase
         var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
-        var definition = await tool.GetEnumDefinition(packageId, fullDataTypeEnumName);
+        var definition = await tool.get_enum_definition(packageId, fullDataTypeEnumName);
 
         // Assert
         Assert.NotNull(definition);

@@ -33,7 +33,7 @@ public class GetClassDefinitionToolTests : TestBase
         var pointClassName = "Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.GetClassDefinition(packageId, pointClassName, version);
+        var definition = await _defTool.get_class_definition(packageId, pointClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -52,7 +52,7 @@ public class GetClassDefinitionToolTests : TestBase
         var genericMazeClassName = "Maze";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.GetClassDefinition(packageId, genericMazeClassName, version);
+        var definition = await _defTool.get_class_definition(packageId, genericMazeClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -75,7 +75,7 @@ public class GetClassDefinitionToolTests : TestBase
         var packageId = "DimonSmart.MazeGenerator";
 
         // Step 1: List classes in the package
-        var result = await listTool.ListClasses(packageId);
+        var result = await listTool.list_classes(packageId);
         Assert.NotNull(result);
         Assert.NotEmpty(result.Classes);
 
@@ -83,7 +83,7 @@ public class GetClassDefinitionToolTests : TestBase
         var mazeClass = result.Classes.FirstOrDefault(c => c.Name.StartsWith("Cell"));
         if (mazeClass != null)
         {
-            var definition = await _defTool.GetClassDefinition(
+            var definition = await _defTool.get_class_definition(
                 packageId,
                 mazeClass.Name,
                 result.Version);
@@ -105,7 +105,7 @@ public class GetClassDefinitionToolTests : TestBase
         var fullPointClassName = "DimonSmart.MazeGenerator.Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.GetClassDefinition(packageId, fullPointClassName, version);
+        var definition = await _defTool.get_class_definition(packageId, fullPointClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -126,7 +126,7 @@ public class GetClassDefinitionToolTests : TestBase
         var className = "NonExistentClass";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.GetClassDefinition(packageId, className, version);
+        var definition = await _defTool.get_class_definition(packageId, className, version);
 
         // Assert
         Assert.NotNull(definition);

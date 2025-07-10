@@ -108,7 +108,7 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
         var listTool = new ListInterfacesTool(toolLogger, packageService, archiveProcessingService);
 
         // Call the tool directly to verify the package contains interfaces
-        var result = await listTool.ListInterfaces("DimonSmart.MazeGenerator");
+        var result = await listTool.list_interfaces("DimonSmart.MazeGenerator");
 
         // Make sure we found interfaces
         Assert.NotNull(result);

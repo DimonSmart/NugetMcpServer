@@ -25,7 +25,7 @@ public class GetPackageDependenciesTool(
 {
     [McpServerTool]
     [Description("Gets dependencies of a NuGet package to help understand what other packages contain the actual implementations.")]
-    public Task<string> GetPackageDependencies(
+    public Task<string> get_package_dependencies(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
@@ -94,7 +94,7 @@ public class GetPackageDependenciesTool(
                 result += "\nTo explore the actual implementations, try listing classes/interfaces from these dependencies:\n";
                 foreach (var dep in uniqueDependencies.Take(3))
                 {
-                    result += $"  - NuGet_list_classes(packageId=\"{dep.Id}\")\n";
+                    result += $"  - nuget_list_classes(packageId=\"{dep.Id}\")\n";
                 }
             }
         }
