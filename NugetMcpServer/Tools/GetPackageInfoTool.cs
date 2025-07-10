@@ -51,16 +51,13 @@ public class GetPackageInfoTool(
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        packageId = packageId ?? string.Empty;
-        version = version ?? string.Empty;
-
-        Logger.LogInformation("Getting information for package {PackageId} version {Version}", packageId, version);
+        Logger.LogInformation("Getting information for package {PackageId} version {Version}", packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
         return FormatPackageInfo(packageInfo);
     }

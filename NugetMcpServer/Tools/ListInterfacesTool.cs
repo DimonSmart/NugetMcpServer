@@ -48,24 +48,21 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        packageId = packageId ?? string.Empty;
-        version = version ?? string.Empty;
-
-        Logger.LogInformation("Listing interfaces from package {PackageId} version {Version}", packageId, version);
+        Logger.LogInformation("Listing interfaces from package {PackageId} version {Version}", packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
         var result = new InterfaceListResult
         {
             PackageId = packageId,
-            Version = version,
+            Version = version!,
             Interfaces = new List<InterfaceInfo>()
         };
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
         result.IsMetaPackage = packageInfo.IsMetaPackage;
         result.Dependencies = packageInfo.Dependencies;

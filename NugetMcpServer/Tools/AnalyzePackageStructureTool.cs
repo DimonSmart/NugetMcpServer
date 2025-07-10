@@ -57,67 +57,73 @@ public class AnalyzePackageStructureTool(
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        packageId = packageId ?? string.Empty;
-        version = version ?? string.Empty;
-
         Logger.LogInformation("Analyzing package structure for {PackageId} version {Version}",
             packageId, version);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Analyzing package structure");
 
-        var analysis = AnalyzePackage(packageStream, packageId, version);
+        var analysis = AnalyzePackage(packageStream);
+        analysis.PackageId = packageId;
+        analysis.Version = version!;
 
         progress.ReportMessage("Package analysis completed");
 
         return FormatAnalysisResult(analysis);
     }
 
-    private PackageAnalysisResult AnalyzePackage(Stream packageStream, string packageId, string version)
+    private PackageAnalysisResult AnalyzePackage(Stream packageStream)
     {
-        var result = new PackageAnalysisResult
-        {
-            PackageId = packageId,
-            Version = version
-        };
-
         packageStream.Position = 0;
         using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        // 1. Analyze .nuspec file
-        AnalyzeNuspec(reader, result);
+        var nuspecData = AnalyzeNuspec(reader);
+        var libFiles = AnalyzeLibContent(reader);
 
-        // 2. Analyze lib/ folder content
-        AnalyzeLibContent(reader, result);
-
-        // 3. Determine if it's a meta-package
         packageStream.Position = 0;
-        result.IsMetaPackage = metaPackageDetector.IsMetaPackage(packageStream, packageId);
+        var isMetaPackage = metaPackageDetector.IsMetaPackage(packageStream);
 
-        return result;
+        return new PackageAnalysisResult
+        {
+            Description = nuspecData.Description,
+            HasDependencyPackageType = nuspecData.HasDependencyPackageType,
+            Dependencies = nuspecData.Dependencies,
+            LibFiles = libFiles,
+            IsMetaPackage = isMetaPackage
+        };
     }
 
-    private void AnalyzeNuspec(PackageArchiveReader reader, PackageAnalysisResult result)
+    private (string Description, bool HasDependencyPackageType, List<PackageDependency> Dependencies) AnalyzeNuspec(PackageArchiveReader reader)
     {
         using var nuspecStream = reader.GetNuspec();
         var nuspecReader = new NuspecReader(nuspecStream);
 
-        result.Description = nuspecReader.GetDescription() ?? string.Empty;
+        var description = nuspecReader.GetDescription() ?? string.Empty;
+        var hasDependencyPackageType = HasDependencyPackageType(nuspecReader);
+        var dependencies = ExtractDependencies(nuspecReader);
 
-        // Check for explicit packageType = "Dependency"
+        return (description, hasDependencyPackageType, dependencies);
+    }
+
+    private static bool HasDependencyPackageType(NuspecReader nuspecReader)
+    {
         var packageTypes = nuspecReader.GetPackageTypes();
-        result.HasDependencyPackageType = packageTypes.Any(pt =>
-            string.Equals(pt.Name, "Dependency", StringComparison.OrdinalIgnoreCase));
+        return packageTypes.Any(pt => string.Equals(pt.Name, "Dependency", StringComparison.OrdinalIgnoreCase));
+    }
 
+    private static List<PackageDependency> ExtractDependencies(NuspecReader nuspecReader)
+    {
+        var dependencies = new List<PackageDependency>();
         var dependencyGroups = nuspecReader.GetDependencyGroups();
+
         foreach (var group in dependencyGroups)
         {
             foreach (var dep in group.Packages)
             {
-                result.Dependencies.Add(new PackageDependency
+                dependencies.Add(new PackageDependency
                 {
                     Id = dep.Id,
                     Version = dep.VersionRange?.ToString() ?? string.Empty,
@@ -125,19 +131,19 @@ public class AnalyzePackageStructureTool(
                 });
             }
         }
+
+        return dependencies;
     }
 
-    private static void AnalyzeLibContent(PackageArchiveReader reader, PackageAnalysisResult result)
+    private static List<string> AnalyzeLibContent(PackageArchiveReader reader)
     {
         var files = reader.GetFiles();
-        var libFiles = files
+        return files
             .Where(f => f.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
             .Where(f => !f.EndsWith("/"))
             .Where(f => !f.EndsWith("/_._", StringComparison.OrdinalIgnoreCase))
             .Where(f => !f.EndsWith("\\_._", StringComparison.OrdinalIgnoreCase))
             .ToList();
-
-        result.LibFiles = libFiles;
     }
 
     private string FormatAnalysisResult(PackageAnalysisResult analysis)

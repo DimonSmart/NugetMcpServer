@@ -61,19 +61,16 @@ public class GetEnumDefinitionTool(
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        packageId = packageId ?? string.Empty;
-        version = version ?? string.Empty;
-
-        Logger.LogInformation("Fetching enum {EnumName} from package {PackageId} version {Version}", enumName, packageId, version);
+        Logger.LogInformation("Fetching enum {EnumName} from package {PackageId} version {Version}", enumName, packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version!);
 
         progress.ReportMessage("Scanning assemblies for enum");
 

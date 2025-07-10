@@ -1,10 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -51,24 +49,21 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        packageId = packageId ?? string.Empty;
-        version = version ?? string.Empty;
-
         Logger.LogInformation("Analyzing package {PackageId} version {Version}", packageId, version);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
+        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
         if (packageInfo.IsMetaPackage)
         {
             var metaResult = new MetaPackageResult
             {
                 PackageId = packageId,
-                Version = version,
+                Version = version!,
                 Dependencies = packageInfo.Dependencies,
                 Description = packageInfo.Description ?? string.Empty
             };
@@ -85,7 +80,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         var classResult = new ClassListResult
         {
             PackageId = packageId,
-            Version = version
+            Version = version!
         };
 
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read);
