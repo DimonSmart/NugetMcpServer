@@ -24,26 +24,14 @@ public class FuzzySearchPackagesToolTests : TestBase
         _tool = new FuzzySearchPackagesTool(_toolLogger, searchService);
     }
 
-    [Fact]
-    public async Task FuzzySearchPackages_WithEmptyQuery_ThrowsArgumentException()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FuzzySearchPackages_InvalidQuery_ThrowsArgumentException(string query)
     {
-        // Arrange
-        const string query = "";
-
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _tool.FuzzySearchPackages(null!, query));
-    }
-
-    [Fact]
-    public async Task FuzzySearchPackages_WithWhitespaceQuery_ThrowsArgumentException()
-    {
-        // Arrange
-        const string query = "   ";
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            _tool.FuzzySearchPackages(null!, query));
+            _tool.fuzzy_search_packages(null!, query));
     }
 
     [Fact]
@@ -56,7 +44,7 @@ public class FuzzySearchPackagesToolTests : TestBase
         // We expect this to fail because we don't have a real server
         // but the validation should still work
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _tool.FuzzySearchPackages(null!, query, maxResults));
+            _tool.fuzzy_search_packages(null!, query, maxResults));
     }
 
     [Fact]
@@ -69,6 +57,6 @@ public class FuzzySearchPackagesToolTests : TestBase
 
         // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _tool.FuzzySearchPackages(null!, query, cancellationToken: cts.Token));
+            _tool.fuzzy_search_packages(null!, query, cancellationToken: cts.Token));
     }
 }

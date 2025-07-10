@@ -25,7 +25,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
     private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
     [Description("Lists all public interfaces available in a specified NuGet package.")]
-    public Task<InterfaceListResult> ListInterfaces(
+    public Task<InterfaceListResult> list_interfaces(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
@@ -77,7 +77,24 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
 
         foreach (var assemblyInfo in loadedAssemblies)
         {
-            ProcessAssemblyTypes(assemblyInfo.Types, assemblyInfo.AssemblyName, result);
+            Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.AssemblyName);
+
+            var interfaces = assemblyInfo.Types
+                .Where(t => t.IsInterface && t.IsPublic)
+                .ToList();
+
+            Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.AssemblyName);
+
+            foreach (var iface in interfaces)
+            {
+                Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
+                result.Interfaces.Add(new InterfaceInfo
+                {
+                    Name = iface.Name,
+                    FullName = iface.FullName ?? string.Empty,
+                    AssemblyName = assemblyInfo.AssemblyName
+                });
+            }
         }
 
         progress.ReportMessage($"Interface listing completed - Found {result.Interfaces.Count} interfaces");
@@ -85,25 +102,4 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         return result;
     }
 
-    private void ProcessAssemblyTypes(Type[] types, string assemblyName, InterfaceListResult result)
-    {
-        Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyName);
-
-        var interfaces = types
-            .Where(t => t.IsInterface && t.IsPublic)
-            .ToList();
-
-        Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyName);
-
-        foreach (var iface in interfaces)
-        {
-            Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
-            result.Interfaces.Add(new InterfaceInfo
-            {
-                Name = iface.Name,
-                FullName = iface.FullName ?? string.Empty,
-                AssemblyName = assemblyName
-            });
-        }
-    }
 }

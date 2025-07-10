@@ -104,7 +104,7 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         }
 
         // Act
-        var result = await _listClassesTool.ListClasses(packageId, version);
+        var result = await _listClassesTool.list_classes(packageId, version);
 
         // Assert
         TestOutput.WriteLine($"Package: {packageId} v{version}");
@@ -150,7 +150,7 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         }
 
         // Act
-        var result = await _listInterfacesTool.ListInterfaces(packageId, version);
+        var result = await _listInterfacesTool.list_interfaces(packageId, version);
 
         // Assert
         TestOutput.WriteLine($"Package: {packageId} v{version}");

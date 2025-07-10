@@ -32,7 +32,7 @@ public class SearchPackagesToolTests : TestBase
         const int maxResults = 5;
 
         // Act
-        var result = await _tool.SearchPackages(query, maxResults);
+        var result = await _tool.search_packages(query, maxResults);
 
         // Assert
         Assert.NotNull(result);
@@ -42,26 +42,13 @@ public class SearchPackagesToolTests : TestBase
         Assert.True(result.Packages.Count <= maxResults * 2); // Allow for some flexibility due to multiple searches
     }
 
-    [Fact]
-    public async Task SearchPackages_WithEmptyQuery_ThrowsArgumentException()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SearchPackages_InvalidQuery_ThrowsArgumentException(string query)
     {
-        // Arrange
-        const string query = "";
-
-        // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _tool.SearchPackages(query));
-    }
-
-    [Fact]
-    public async Task SearchPackages_WithWhitespaceQuery_ThrowsArgumentException()
-    {
-        // Arrange
-        const string query = "   ";
-
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            _tool.SearchPackages(query));
+            _tool.search_packages(query));
     }
 
     [Fact]
@@ -72,7 +59,7 @@ public class SearchPackagesToolTests : TestBase
         const int maxResults = 10;
 
         // Act
-        var result = await _tool.SearchPackages(query, maxResults);
+        var result = await _tool.search_packages(query, maxResults);
 
         // Assert
         Assert.NotNull(result);
@@ -89,7 +76,7 @@ public class SearchPackagesToolTests : TestBase
         const int maxResults = 150; // Exceeds limit of 100
 
         // Act
-        var result = await _tool.SearchPackages(query, maxResults);
+        var result = await _tool.search_packages(query, maxResults);
 
         // Assert
         Assert.NotNull(result);
@@ -107,6 +94,6 @@ public class SearchPackagesToolTests : TestBase
 
         // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _tool.SearchPackages(query, cancellationToken: cts.Token));
+            _tool.search_packages(query, cancellationToken: cts.Token));
     }
 }

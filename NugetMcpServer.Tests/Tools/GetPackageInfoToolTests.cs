@@ -27,7 +27,7 @@ public class GetPackageInfoToolTests : TestBase
     [Fact]
     public async Task GetPackageInfo_WithValidPackage_ReturnsFormattedInfo()
     {
-        var result = await _tool.GetPackageInfo("Newtonsoft.Json", "13.0.3");
+        var result = await _tool.get_package_info("Newtonsoft.Json", "13.0.3");
 
         Assert.NotNull(result);
         Assert.Contains("Newtonsoft.Json", result);
@@ -38,7 +38,7 @@ public class GetPackageInfoToolTests : TestBase
     [Fact]
     public async Task GetPackageInfo_WithMetaPackage_ShowsMetaPackageWarning()
     {
-        var result = await _tool.GetPackageInfo("Microsoft.AspNetCore.All", "2.1.0");
+        var result = await _tool.get_package_info("Microsoft.AspNetCore.All", "2.1.0");
 
         Assert.NotNull(result);
         Assert.Contains("Microsoft.AspNetCore.All", result);
@@ -46,22 +46,18 @@ public class GetPackageInfoToolTests : TestBase
         Assert.Contains("Dependencies:", result);
     }
 
-    [Fact]
-    public async Task GetPackageInfo_WithNullPackageId_ThrowsArgumentNullException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task GetPackageInfo_InvalidPackageId_ThrowsArgumentNullException(string? packageId)
     {
-        await Assert.ThrowsAsync<System.ArgumentNullException>(() => _tool.GetPackageInfo(null!));
-    }
-
-    [Fact]
-    public async Task GetPackageInfo_WithEmptyPackageId_ThrowsArgumentNullException()
-    {
-        await Assert.ThrowsAsync<System.ArgumentNullException>(() => _tool.GetPackageInfo(""));
+        await Assert.ThrowsAsync<System.ArgumentNullException>(() => _tool.get_package_info(packageId!));
     }
 
     [Fact]
     public async Task GetPackageInfo_WithoutVersion_UsesLatestVersion()
     {
-        var result = await _tool.GetPackageInfo("Newtonsoft.Json");
+        var result = await _tool.get_package_info("Newtonsoft.Json");
 
         Assert.NotNull(result);
         Assert.Contains("Newtonsoft.Json", result);

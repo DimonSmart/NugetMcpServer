@@ -27,7 +27,7 @@ public class GetEnumDefinitionTool(
 {
     [McpServerTool]
     [Description("Extracts and returns the C# enum definition from a specified NuGet package.")]
-    public Task<string> GetEnumDefinition(
+    public Task<string> get_enum_definition(
         [Description("NuGet package ID")] string packageId,
         [Description("Enum name (short name like 'DayOfWeek' or full name like 'System.DayOfWeek')")] string enumName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
