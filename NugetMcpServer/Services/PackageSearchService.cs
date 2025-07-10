@@ -30,10 +30,10 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
         int maxResults,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) 
+        if (string.IsNullOrWhiteSpace(query))
             throw new ArgumentException("Query cannot be empty", nameof(query));
 
-        if (maxResults <= 0 || maxResults > 100) 
+        if (maxResults <= 0 || maxResults > 100)
             maxResults = 100;
 
         logger.LogInformation("Starting package search for query: {Query}", query);
@@ -68,8 +68,8 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
     }
 
     private async Task<List<SearchResultSet>> SearchKeywordsAsync(
-        IReadOnlyCollection<string> keywords, 
-        int maxResults, 
+        IReadOnlyCollection<string> keywords,
+        int maxResults,
         CancellationToken cancellationToken)
     {
         List<SearchResultSet> results = [];
