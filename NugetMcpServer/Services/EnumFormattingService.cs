@@ -13,10 +13,10 @@ public class EnumFormattingService
         }
 
         var sb = new StringBuilder();
-        
+
         var header = $"/* C# ENUM FROM {assemblyName} (Package: {packageName}) */";
         sb.AppendLine(header);
-        
+
         var underlyingType = Enum.GetUnderlyingType(enumType);
         var underlyingTypeName = TypeFormattingHelpers.FormatTypeName(underlyingType);
 

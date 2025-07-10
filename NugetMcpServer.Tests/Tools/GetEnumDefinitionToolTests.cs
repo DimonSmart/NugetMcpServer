@@ -2,9 +2,8 @@ using Microsoft.Extensions.Logging;
 
 using Moq;
 
-using NuGetMcpServer.Tests.Helpers;
-
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
 using Xunit;

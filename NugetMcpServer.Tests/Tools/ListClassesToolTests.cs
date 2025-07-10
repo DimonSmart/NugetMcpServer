@@ -1,7 +1,6 @@
-using NuGetMcpServer.Tests.Helpers;
-
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
+using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;

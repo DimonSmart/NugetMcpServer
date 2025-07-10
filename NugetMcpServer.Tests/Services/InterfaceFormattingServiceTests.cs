@@ -1,9 +1,8 @@
 using System.Collections;
 using System.Reflection;
 
-using NuGetMcpServer.Tests.Helpers;
-
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tests.Helpers;
 
 using Xunit.Abstractions;
 

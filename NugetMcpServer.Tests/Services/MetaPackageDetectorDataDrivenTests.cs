@@ -1,7 +1,6 @@
-using NuGetMcpServer.Tests.Helpers;
-
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
 using Xunit.Abstractions;

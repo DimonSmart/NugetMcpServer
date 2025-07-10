@@ -3,9 +3,8 @@ using System.Collections.Generic;
 
 using ModelContextProtocol;
 
-using NuGetMcpServer.Tests.Helpers;
-
 using NuGetMcpServer.Extensions;
+using NuGetMcpServer.Tests.Helpers;
 
 using Xunit;
 using Xunit.Abstractions;

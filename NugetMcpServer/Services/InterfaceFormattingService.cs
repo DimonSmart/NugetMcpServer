@@ -10,7 +10,7 @@ public class InterfaceFormattingService
     public string FormatInterfaceDefinition(Type interfaceType, string assemblyName, string packageName)
     {
         var header = $"/* C# INTERFACE FROM {assemblyName} (Package: {packageName}) */";
-            
+
         var sb = new StringBuilder()
             .AppendLine(header);
 
