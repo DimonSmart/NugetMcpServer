@@ -67,7 +67,7 @@ public class GetPackageDependenciesTool(
         var dependencies = PackageService.GetPackageDependencies(packageStream);
 
         var result = $"/* DEPENDENCIES FOR {packageId} v{version} */\n\n";
-        result += $"Title: {packageInfo.Id}\n";
+        result += $"Title: {packageInfo.PackageId}\n";
         result += $"Description: {packageInfo.Description}\n\n";
 
         if (dependencies.Count == 0)

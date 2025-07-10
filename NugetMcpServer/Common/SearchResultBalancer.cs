@@ -21,12 +21,12 @@ public static class SearchResultBalancer
         {
             foreach (var pkg in set.Packages)
             {
-                if (!allPackageKeywords.ContainsKey(pkg.Id))
+                if (!allPackageKeywords.ContainsKey(pkg.PackageId))
                 {
-                    allPackageKeywords[pkg.Id] = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-                    packageInstances[pkg.Id] = pkg; // Store first instance for data copying
+                    allPackageKeywords[pkg.PackageId] = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+                    packageInstances[pkg.PackageId] = pkg; // Store first instance for data copying
                 }
-                allPackageKeywords[pkg.Id].Add(set.Keyword);
+                allPackageKeywords[pkg.PackageId].Add(set.Keyword);
             }
         }
 
@@ -47,18 +47,18 @@ public static class SearchResultBalancer
                 indexes[set] = idx + 1;
                 var pkg = set.Packages[idx];
 
-                if (selectedPackageIds.Add(pkg.Id))
+                if (selectedPackageIds.Add(pkg.PackageId))
                 {
                     var pkgCopy = new Services.PackageInfo
                     {
-                        Id = pkg.Id,
+                        PackageId = pkg.PackageId,
                         Version = pkg.Version,
                         Description = pkg.Description,
                         DownloadCount = pkg.DownloadCount,
                         ProjectUrl = pkg.ProjectUrl,
                         Tags = pkg.Tags,
                         Authors = pkg.Authors,
-                        FoundByKeywords = allPackageKeywords[pkg.Id].ToList()
+                        FoundByKeywords = allPackageKeywords[pkg.PackageId].ToList()
                     };
                     result.Add(pkgCopy);
 

@@ -10,6 +10,7 @@ using ModelContextProtocol.Server;
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 
@@ -64,14 +65,9 @@ public class GetPackageInfoTool(
 
     private static string FormatPackageInfo(PackageInfo packageInfo)
     {
-        var result = $"Package: {packageInfo.Id} v{packageInfo.Version}\n";
+        var result = $"Package: {packageInfo.PackageId} v{packageInfo.Version}\n";
         result += new string('=', result.Length - 1) + "\n\n";
-
-        if (packageInfo.IsMetaPackage)
-        {
-            result += "⚠️  META-PACKAGE\n";
-            result += "This package groups other packages together and may not contain actual implementation code.\n\n";
-        }
+        result += packageInfo.GetMetaPackageWarningIfAny();
 
         if (!string.IsNullOrWhiteSpace(packageInfo.Description))
         {
@@ -98,22 +94,9 @@ public class GetPackageInfoTool(
             result += $"License URL: {packageInfo.LicenseUrl}\n";
         }
 
-        if (packageInfo.Dependencies.Count > 0)
-        {
-            result += "\nDependencies:\n";
-            foreach (var dependency in packageInfo.Dependencies)
-            {
-                result += $"  • {dependency.Id} ({dependency.Version})\n";
-            }
-        }
-        else
+        if (packageInfo.Dependencies.Count == 0)
         {
             result += "\nNo dependencies.\n";
-        }
-
-        if (packageInfo.IsMetaPackage && packageInfo.Dependencies.Count > 0)
-        {
-            result += "\n💡 To see actual classes and interfaces, analyze one of the dependency packages listed above.\n";
         }
 
         return result;

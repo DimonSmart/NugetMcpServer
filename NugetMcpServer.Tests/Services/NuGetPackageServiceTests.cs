@@ -85,7 +85,7 @@ namespace NugetMcpServer.Tests.Services
 
             foreach (var package in results)
             {
-                Assert.NotEmpty(package.Id);
+                Assert.NotEmpty(package.PackageId);
                 Assert.NotEmpty(package.Version);
                 Assert.True(package.DownloadCount >= 0);
             }
@@ -93,7 +93,7 @@ namespace NugetMcpServer.Tests.Services
             TestOutput.WriteLine($"Found {results.Count} packages for query '{query}':");
             foreach (var package in results.Take(3))
             {
-                TestOutput.WriteLine($"- {package.Id} v{package.Version} ({package.DownloadCount:N0} downloads)");
+                TestOutput.WriteLine($"- {package.PackageId} v{package.Version} ({package.DownloadCount:N0} downloads)");
             }
         }
 

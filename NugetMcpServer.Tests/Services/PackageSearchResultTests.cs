@@ -10,7 +10,7 @@ public class PackageSearchResultTests
     {
         var package1 = new PackageInfo
         {
-            Id = "TestPackage1",
+            PackageId = "TestPackage1",
             Version = "1.0.0",
             Description = "Test package description",
             DownloadCount = 1000,
@@ -19,7 +19,7 @@ public class PackageSearchResultTests
 
         var package2 = new PackageInfo
         {
-            Id = "TestPackage2",
+            PackageId = "TestPackage2",
             Version = "2.0.0",
             DownloadCount = 500,
             FoundByKeywords = ["example"]
@@ -45,7 +45,7 @@ public class PackageSearchResultTests
     {
         var package1 = new PackageInfo
         {
-            Id = "LessPopular",
+            PackageId = "LessPopular",
             Version = "1.0.0",
             DownloadCount = 100,
             FoundByKeywords = ["test"]
@@ -53,7 +53,7 @@ public class PackageSearchResultTests
 
         var package2 = new PackageInfo
         {
-            Id = "MorePopular",
+            PackageId = "MorePopular",
             Version = "1.0.0",
             DownloadCount = 1000,
             FoundByKeywords = ["test"]

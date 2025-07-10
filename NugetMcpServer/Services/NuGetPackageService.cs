@@ -148,7 +148,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         {
             PackageInfo packageInfo = new()
             {
-                Id = packageElement.GetProperty("id").GetString() ?? string.Empty,
+                PackageId = packageElement.GetProperty("id").GetString() ?? string.Empty,
                 Version = packageElement.GetProperty("version").GetString() ?? string.Empty,
                 Description = packageElement.TryGetProperty("description", out JsonElement desc) ? desc.GetString() : null,
                 DownloadCount = packageElement.TryGetProperty("totalDownloads", out JsonElement downloads) ? downloads.GetInt64() : 0,
@@ -197,7 +197,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
             return new PackageInfo
             {
-                Id = packageId,
+                PackageId = packageId,
                 Version = version,
                 Description = nuspecReader.GetDescription() ?? string.Empty,
                 Authors = authors,
@@ -213,7 +213,7 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             logger.LogError(ex, "Error getting package info for {PackageId} v{Version}", packageId, version);
             return new PackageInfo
             {
-                Id = packageId,
+                PackageId = packageId,
                 Version = version,
                 Description = "Error retrieving package information",
                 IsMetaPackage = false,

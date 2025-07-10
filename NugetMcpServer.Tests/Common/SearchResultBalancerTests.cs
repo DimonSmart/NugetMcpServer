@@ -5,7 +5,7 @@ namespace NugetMcpServer.Tests.Common;
 
 public class SearchResultBalancerTests
 {
-    private static PackageInfo P(string prefix, int index) => new() { Id = $"{prefix}{index}", Version = "1.0" }; [Fact]
+    private static PackageInfo P(string prefix, int index) => new() { PackageId = $"{prefix}{index}", Version = "1.0" }; [Fact]
     public void Balance_PrefersSmallerSets()
     {
         SearchResultSet set1 = new("a", [P("A", 1), P("A", 2), P("A", 3), P("A", 4), P("A", 5), P("A", 6), P("A", 7), P("A", 8), P("A", 9), P("A", 10)]);
@@ -21,8 +21,8 @@ public class SearchResultBalancerTests
         var result = SearchResultBalancer.Balance([set1, set2, set3], 10);
 
         Assert.Equal(10, result.Count);
-        Assert.Equal(5, result.Count(p => p.Id.StartsWith("A")));
-        Assert.Equal(5, result.Count(p => p.Id.StartsWith("C")));
+        Assert.Equal(5, result.Count(p => p.PackageId.StartsWith("A")));
+        Assert.Equal(5, result.Count(p => p.PackageId.StartsWith("C")));
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class SearchResultBalancerTests
         var result = SearchResultBalancer.Balance([small, large], 10);
 
         Assert.Equal(10, result.Count);
-        Assert.Contains(result, p => p.Id == "S1");
+        Assert.Contains(result, p => p.PackageId == "S1");
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public class SearchResultBalancerTests
         var result = SearchResultBalancer.Balance([set1, set2], 5);
 
         Assert.Equal(2, result.Count);
-        Assert.Contains(result, p => p.Id == "X1");
-        Assert.Contains(result, p => p.Id == "Y1");
+        Assert.Contains(result, p => p.PackageId == "X1");
+        Assert.Contains(result, p => p.PackageId == "Y1");
     }
 
     [Fact]
@@ -66,16 +66,16 @@ public class SearchResultBalancerTests
 
         Assert.Equal(3, result.Count);
 
-        var packageX = result.First(p => p.Id == "X1");
+        var packageX = result.First(p => p.PackageId == "X1");
         Assert.Contains("keyword1", packageX.FoundByKeywords);
         Assert.Contains("keyword2", packageX.FoundByKeywords);
         Assert.Equal(2, packageX.FoundByKeywords.Count);
 
-        var packageY = result.First(p => p.Id == "Y1");
+        var packageY = result.First(p => p.PackageId == "Y1");
         Assert.Contains("keyword1", packageY.FoundByKeywords);
         Assert.Single(packageY.FoundByKeywords);
 
-        var packageZ = result.First(p => p.Id == "Z1");
+        var packageZ = result.First(p => p.PackageId == "Z1");
         Assert.Contains("keyword2", packageZ.FoundByKeywords);
         Assert.Single(packageZ.FoundByKeywords);
     }
@@ -92,7 +92,7 @@ public class SearchResultBalancerTests
 
         Assert.Equal(2, result.Count);
 
-        var packageA = result.First(p => p.Id == "PackageA1");
+        var packageA = result.First(p => p.PackageId == "PackageA1");
         Assert.Contains("json", packageA.FoundByKeywords);
         Assert.Contains("serialize", packageA.FoundByKeywords);
         Assert.Contains("convert", packageA.FoundByKeywords);

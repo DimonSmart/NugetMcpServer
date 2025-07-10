@@ -15,7 +15,7 @@ public static class PackageSearchResultFormatter
 
         foreach (var package in result.Packages.OrderByDescending(p => p.DownloadCount))
         {
-            sb.AppendLine($"## {package.Id} v{package.Version}");
+            sb.AppendLine($"## {package.PackageId} v{package.Version}");
             sb.AppendLine($"**Downloads**: {package.DownloadCount:N0}");
 
             if (!string.IsNullOrEmpty(package.Description))
