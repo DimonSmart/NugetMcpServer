@@ -73,23 +73,7 @@ public class GetEnumDefinitionTool(
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version);
 
-        var metaPackageWarning = string.Empty;
-        if (packageInfo.IsMetaPackage)
-        {
-            metaPackageWarning = $"⚠️  META-PACKAGE: {packageId} v{version}\n";
-            metaPackageWarning += "This package groups other related packages together and may not contain actual implementation code.\n";
-
-            if (packageInfo.Dependencies.Count > 0)
-            {
-                metaPackageWarning += "Dependencies:\n";
-                foreach (var dependency in packageInfo.Dependencies)
-                {
-                    metaPackageWarning += $"  • {dependency.Id} ({dependency.Version})\n";
-                }
-                metaPackageWarning += "💡 To see actual implementations, analyze one of the dependency packages listed above.\n";
-            }
-            metaPackageWarning += "\n" + new string('-', 60) + "\n\n";
-        }
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version);
 
         progress.ReportMessage("Scanning assemblies for enum");
 

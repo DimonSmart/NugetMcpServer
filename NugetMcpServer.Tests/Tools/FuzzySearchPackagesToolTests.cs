@@ -20,7 +20,8 @@ public class FuzzySearchPackagesToolTests : TestBase
         _toolLogger = new TestLogger<FuzzySearchPackagesTool>(TestOutput);
 
         _packageService = CreateNuGetPackageService();
-        _tool = new FuzzySearchPackagesTool(_toolLogger, _packageService);
+        var searchService = new PackageSearchService(new TestLogger<PackageSearchService>(TestOutput), _packageService);
+        _tool = new FuzzySearchPackagesTool(_toolLogger, searchService);
     }
 
     [Fact]

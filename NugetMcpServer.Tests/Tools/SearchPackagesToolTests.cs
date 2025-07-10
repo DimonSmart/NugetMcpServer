@@ -20,7 +20,8 @@ public class SearchPackagesToolTests : TestBase
         _toolLogger = new TestLogger<SearchPackagesTool>(TestOutput);
 
         _packageService = CreateNuGetPackageService();
-        _tool = new SearchPackagesTool(_toolLogger, _packageService);
+        var searchService = new PackageSearchService(new TestLogger<PackageSearchService>(TestOutput), _packageService);
+        _tool = new SearchPackagesTool(_toolLogger, searchService);
     }
 
     [Fact]

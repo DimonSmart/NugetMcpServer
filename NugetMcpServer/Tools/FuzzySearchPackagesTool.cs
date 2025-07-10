@@ -20,20 +20,8 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, NuGetPackageService packageService) : McpToolBase<FuzzySearchPackagesTool>(logger, packageService)
+public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, PackageSearchService searchService) : McpToolBase<FuzzySearchPackagesTool>(logger, null!)
 {
-    private sealed class SearchContext
-    {
-        public HashSet<string> Keywords { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public List<SearchResultSet> Sets { get; } = [];
-
-        public void Add(string keyword, IEnumerable<PackageInfo> packages)
-        {
-            Keywords.Add(keyword);
-            Sets.Add(new SearchResultSet(keyword, packages.ToList()));
-        }
-    }
-
     [McpServerTool]
     [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
     public Task<PackageSearchResult> FuzzySearchPackages(
@@ -62,39 +50,16 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Nu
         if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
         ArgumentNullException.ThrowIfNull(thisServer);
 
-        if (maxResults <= 0 || maxResults > 100) maxResults = 100;
-
         Logger.LogInformation("Starting fuzzy package search for query: {Query}", query);
 
-        var ctx = new SearchContext();
-
-        // Direct search as baseline
-        ctx.Add(query, await PackageService.SearchPackagesAsync(query, maxResults));
         progress.ReportMessage("Direct search");
 
         // AI suggestions - filtered by stop words and duplicates
         var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
-        var filteredAi = aiKeywords
-            .Where(k => !StopWords.Words.Contains(k, StringComparer.OrdinalIgnoreCase))
-            .Where(k => !ctx.Keywords.Contains(k))
-            .ToList();
-
-        if (filteredAi.Any())
-        {
-            ctx.Keywords.UnionWith(filteredAi);
-            var aiResults = await SearchKeywordsAsync(filteredAi, maxResults, cancellationToken);
-            ctx.Sets.AddRange(aiResults);
-        }
 
         progress.ReportMessage("AI search");
-        var finalResults = SearchResultBalancer.Balance(ctx.Sets, maxResults);
 
-        return new PackageSearchResult
-        {
-            Query = query,
-            TotalCount = finalResults.Count,
-            Packages = finalResults
-        };
+        return await searchService.SearchWithKeywordsAsync(query, aiKeywords, maxResults, cancellationToken);
     }
 
     private async Task<IReadOnlyCollection<string>> AIGeneratePackageNamesAsync(
@@ -139,26 +104,5 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Nu
             .Take(packageCount)
             .ToList()
             .AsReadOnly();
-    }
-
-    private async Task<List<SearchResultSet>> SearchKeywordsAsync(IReadOnlyCollection<string> keywords, int maxResults, CancellationToken cancellationToken)
-    {
-        List<SearchResultSet> results = [];
-
-        foreach (string keyword in keywords)
-        {
-            try
-            {
-                var packages = await PackageService.SearchPackagesAsync(keyword, maxResults);
-                results.Add(new SearchResultSet(keyword, packages.ToList()));
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to search packages for keyword: {Keyword}", keyword);
-                results.Add(new SearchResultSet(keyword, []));
-            }
-        }
-
-        return results;
     }
 }

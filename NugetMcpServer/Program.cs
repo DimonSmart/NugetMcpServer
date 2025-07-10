@@ -37,6 +37,7 @@ internal class Program
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton<MetaPackageDetector>();
         builder.Services.AddSingleton<NuGetPackageService>();
+        builder.Services.AddSingleton<PackageSearchService>();
         builder.Services.AddSingleton<InterfaceFormattingService>();
         builder.Services.AddSingleton<EnumFormattingService>();
         builder.Services.AddSingleton<ClassFormattingService>();
