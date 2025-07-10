@@ -10,10 +10,14 @@ public class ClassFormattingService
 {
     // Builds a string representation of a class, including its properties, 
     // methods, constants, delegates, and other public members
-    public string FormatClassDefinition(Type classType, string assemblyName)
+    public string FormatClassDefinition(Type classType, string assemblyName, string? packageName = null)
     {
+        var header = packageName != null 
+            ? $"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */"
+            : $"/* C# CLASS FROM {assemblyName} */";
+            
         var sb = new StringBuilder()
-            .AppendLine($"/* C# CLASS FROM {assemblyName} */");
+            .AppendLine(header);
 
         sb.Append("public ");
 

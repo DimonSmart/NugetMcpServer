@@ -15,6 +15,7 @@ namespace NuGetMcpServer.Tests.Tools;
 public class GetEnumDefinitionToolTests : TestBase
 {
     private readonly Mock<ILogger<GetEnumDefinitionTool>> _loggerMock = new();
+    private readonly Mock<ILogger<ArchiveProcessingService>> _archiveLoggerMock = new();
     private readonly NuGetPackageService _packageService;
     private readonly Mock<EnumFormattingService> _formattingServiceMock = new();
 
@@ -27,7 +28,8 @@ public class GetEnumDefinitionToolTests : TestBase
     public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_PackageIdIsEmpty()
     {
         // Arrange
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object);
+        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, _packageService);
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object, archiveService);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => tool.GetEnumDefinition("", "SomeEnum"));
@@ -37,7 +39,8 @@ public class GetEnumDefinitionToolTests : TestBase
     public async Task GetEnumDefinition_Should_ThrowArgumentNullException_When_EnumNameIsEmpty()
     {
         // Arrange
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object);
+        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, _packageService);
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object, archiveService);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => tool.GetEnumDefinition("SomePackage", ""));
@@ -52,7 +55,8 @@ public class GetEnumDefinitionToolTests : TestBase
 
         var packageService = CreateNuGetPackageService();
         var formattingService = new EnumFormattingService();
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
+        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
         var definition = await tool.GetEnumDefinition(packageId, dataTypeEnumName);
 
@@ -71,7 +75,8 @@ public class GetEnumDefinitionToolTests : TestBase
 
         var packageService = CreateNuGetPackageService();
         var formattingService = new EnumFormattingService();
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService);
+        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
         var definition = await tool.GetEnumDefinition(packageId, fullDataTypeEnumName);
 

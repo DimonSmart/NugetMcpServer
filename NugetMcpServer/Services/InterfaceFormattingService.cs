@@ -7,10 +7,14 @@ namespace NuGetMcpServer.Services;
 
 public class InterfaceFormattingService
 {
-    public string FormatInterfaceDefinition(Type interfaceType, string assemblyName)
+    public string FormatInterfaceDefinition(Type interfaceType, string assemblyName, string? packageName = null)
     {
+        var header = packageName != null 
+            ? $"/* C# INTERFACE FROM {assemblyName} (Package: {packageName}) */"
+            : $"/* C# INTERFACE FROM {assemblyName} */";
+            
         var sb = new StringBuilder()
-            .AppendLine($"/* C# INTERFACE FROM {assemblyName} */");
+            .AppendLine(header);
 
         sb.Append($"public interface {TypeFormattingHelpers.FormatTypeName(interfaceType)}");
 

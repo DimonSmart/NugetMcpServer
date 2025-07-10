@@ -22,7 +22,8 @@ namespace NuGetMcpServer.Tools;
 public class GetClassDefinitionTool(
     ILogger<GetClassDefinitionTool> logger,
     NuGetPackageService packageService,
-    ClassFormattingService formattingService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
+    ClassFormattingService formattingService,
+    ArchiveProcessingService archiveService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
     [Description("Extracts and returns the C# class definition from a specified NuGet package.")]
@@ -78,32 +79,30 @@ public class GetClassDefinitionTool(
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        // We need to inject the ArchiveProcessingService for this to work properly
-        // For now, use the old approach but with a cleaner method
-        var dllFiles = FilterUniqueAssemblies(packageReader);
+        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
 
         foreach (var filePath in dllFiles)
         {
-            var definition = await TryGetClassFromFile(packageReader, filePath, className);
-            if (definition != null)
+            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
+            if (assemblyInfo != null)
             {
-                progress.ReportMessage($"Class found: {className}");
-                return metaPackageWarning + definition;
+                var definition = TryGetClassFromAssembly(assemblyInfo, className, packageId);
+                if (definition != null)
+                {
+                    progress.ReportMessage($"Class found: {className}");
+                    return metaPackageWarning + definition;
+                }
             }
         }
 
         return metaPackageWarning + $"Class '{className}' not found in package {packageId}.";
     }
 
-    private async Task<string?> TryGetClassFromFile(PackageArchiveReader packageReader, string filePath, string className)
+    private string? TryGetClassFromAssembly(LoadedAssemblyInfo assemblyInfo, string className, string packageId)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
-
-            if (assembly == null) return null;
-
-            var classType = types
+            var classType = assemblyInfo.Types
                 .FirstOrDefault(t =>
                 {
                     if (!t.IsClass || !t.IsPublic)
@@ -157,11 +156,11 @@ public class GetClassDefinitionTool(
                 return null;
             }
 
-            return formattingService.FormatClassDefinition(classType, System.IO.Path.GetFileName(filePath));
+            return formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId);
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
+            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             return null;
         }
     }

@@ -22,7 +22,8 @@ public class GetClassDefinitionToolTests : TestBase
 
         _packageService = CreateNuGetPackageService();
         _formattingService = new ClassFormattingService();
-        _defTool = new GetClassDefinitionTool(_defToolLogger, _packageService, _formattingService);
+        var archiveService = new ArchiveProcessingService(new TestLogger<ArchiveProcessingService>(TestOutput), _packageService);
+        _defTool = new GetClassDefinitionTool(_defToolLogger, _packageService, _formattingService, archiveService);
     }
 
     [Fact]

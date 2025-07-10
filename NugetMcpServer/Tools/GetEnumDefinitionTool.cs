@@ -22,7 +22,8 @@ namespace NuGetMcpServer.Tools;
 public class GetEnumDefinitionTool(
     ILogger<GetEnumDefinitionTool> logger,
     NuGetPackageService packageService,
-    EnumFormattingService formattingService) : McpToolBase<GetEnumDefinitionTool>(logger, packageService)
+    EnumFormattingService formattingService,
+    ArchiveProcessingService archiveService) : McpToolBase<GetEnumDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
     [Description("Extracts and returns the C# enum definition from a specified NuGet package.")]
@@ -75,30 +76,30 @@ public class GetEnumDefinitionTool(
         progress.ReportMessage("Scanning assemblies for enum");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = FilterUniqueAssemblies(packageReader);
+        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
 
         foreach (var filePath in dllFiles)
         {
-            var definition = await TryGetEnumFromFile(packageReader, filePath, enumName);
-            if (definition != null)
+            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
+            if (assemblyInfo != null)
             {
-                progress.ReportMessage($"Enum found: {enumName}");
-                return metaPackageWarning + definition;
+                var definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
+                if (definition != null)
+                {
+                    progress.ReportMessage($"Enum found: {enumName}");
+                    return metaPackageWarning + definition;
+                }
             }
         }
 
         return metaPackageWarning + $"Enum '{enumName}' not found in package {packageId}.";
     }
 
-    private async Task<string?> TryGetEnumFromFile(PackageArchiveReader packageReader, string filePath, string enumName)
+    private string? TryGetEnumFromAssembly(LoadedAssemblyInfo assemblyInfo, string enumName, string packageId)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
-
-            if (assembly == null) return null;
-
-            var enumType = types
+            var enumType = assemblyInfo.Types
                 .FirstOrDefault(t => t.IsEnum && (t.Name == enumName || t.FullName == enumName));
 
             if (enumType == null)
@@ -106,12 +107,11 @@ public class GetEnumDefinitionTool(
                 return null;
             }
 
-            var assemblyName = System.IO.Path.GetFileName(filePath);
-            return $"/* C# ENUM FROM {assemblyName} */\r\n" + formattingService.FormatEnumDefinition(enumType);
+            return formattingService.FormatEnumDefinition(enumType, assemblyInfo.AssemblyName, packageId);
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
+            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             return null;
         }
     }

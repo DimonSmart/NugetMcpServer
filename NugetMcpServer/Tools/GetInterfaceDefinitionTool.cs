@@ -22,7 +22,8 @@ namespace NuGetMcpServer.Tools;
 public class GetInterfaceDefinitionTool(
     ILogger<GetInterfaceDefinitionTool> logger,
     NuGetPackageService packageService,
-    InterfaceFormattingService formattingService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
+    InterfaceFormattingService formattingService,
+    ArchiveProcessingService archiveService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
     [Description("Extracts and returns the C# interface definition from a specified NuGet package.")]
@@ -77,33 +78,31 @@ public class GetInterfaceDefinitionTool(
         progress.ReportMessage("Scanning assemblies for interface");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = FilterUniqueAssemblies(packageReader);
-        var processedDlls = 0;
+        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
 
         foreach (var filePath in dllFiles)
         {
             progress.ReportMessage($"Scanning {System.IO.Path.GetFileName(filePath)}: {filePath}");
 
-            var definition = await TryGetInterfaceFromFile(packageReader, filePath, interfaceName);
-            if (definition != null)
+            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
+            if (assemblyInfo != null)
             {
-                progress.ReportMessage($"Interface found: {interfaceName}");
-                return metaPackageWarning + definition;
+                var definition = TryGetInterfaceFromAssembly(assemblyInfo, interfaceName, packageId);
+                if (definition != null)
+                {
+                    progress.ReportMessage($"Interface found: {interfaceName}");
+                    return metaPackageWarning + definition;
+                }
             }
-            processedDlls++;
         }
 
         return metaPackageWarning + $"Interface '{interfaceName}' not found in package {packageId}.";
     }
-    private async Task<string?> TryGetInterfaceFromFile(PackageArchiveReader packageReader, string filePath, string interfaceName)
+    private string? TryGetInterfaceFromAssembly(LoadedAssemblyInfo assemblyInfo, string interfaceName, string packageId)
     {
         try
         {
-            var (assembly, types) = await LoadAssemblyFromFileAsync(packageReader, filePath);
-
-            if (assembly == null) return null;
-
-            var iface = types
+            var iface = assemblyInfo.Types
                 .FirstOrDefault(t =>
                 {
                     if (!t.IsInterface)
@@ -157,11 +156,11 @@ public class GetInterfaceDefinitionTool(
                 return null;
             }
 
-            return formattingService.FormatInterfaceDefinition(iface, System.IO.Path.GetFileName(filePath));
+            return formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Error processing package file {FilePath}", filePath);
+            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             return null;
         }
     }

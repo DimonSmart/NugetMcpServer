@@ -22,7 +22,8 @@ namespace NuGetMcpServer.Tests.Tools
 
             _packageService = CreateNuGetPackageService();
             _formattingService = new InterfaceFormattingService();
-            _defTool = new GetInterfaceDefinitionTool(_defToolLogger, _packageService, _formattingService);
+            var archiveService = new ArchiveProcessingService(new TestLogger<ArchiveProcessingService>(TestOutput), _packageService);
+            _defTool = new GetInterfaceDefinitionTool(_defToolLogger, _packageService, _formattingService, archiveService);
         }
 
         [Fact]
