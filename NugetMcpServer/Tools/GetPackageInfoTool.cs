@@ -102,6 +102,7 @@ public class GetPackageInfoTool(
         {
             var orderedVersions = versions.Reverse();
             result += $"\nRecent versions: {string.Join(", ", orderedVersions)}\n";
+
         }
 
         if (packageInfo.Dependencies.Count == 0)
