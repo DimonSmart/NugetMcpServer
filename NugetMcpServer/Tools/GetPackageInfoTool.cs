@@ -106,6 +106,21 @@ public class GetPackageInfoTool(
         {
             result += "\nNo dependencies.\n";
         }
+        else
+        {
+            result += "\nDependencies:\n";
+
+            var uniqueDeps = packageInfo.Dependencies
+                .GroupBy(d => d.Id)
+                .Select(g => g.First())
+                .OrderBy(d => d.Id)
+                .ToList();
+
+            foreach (var dep in uniqueDeps)
+            {
+                result += $"  - {dep.Id} ({dep.Version})\n";
+            }
+        }
 
         return result;
     }
