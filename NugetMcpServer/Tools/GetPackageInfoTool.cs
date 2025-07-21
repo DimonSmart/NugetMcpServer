@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -99,7 +100,8 @@ public class GetPackageInfoTool(
 
         if (versions.Count > 0)
         {
-            result += $"\nRecent versions: {string.Join(", ", versions)}\n";
+            var orderedVersions = versions.Reverse();
+            result += $"\nRecent versions: {string.Join(", ", orderedVersions)}\n";
         }
 
         if (packageInfo.Dependencies.Count == 0)
