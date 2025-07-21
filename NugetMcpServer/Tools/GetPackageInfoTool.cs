@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 
@@ -60,10 +61,12 @@ public class GetPackageInfoTool(
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
-        return FormatPackageInfo(packageInfo);
+        var versions = await PackageService.GetLatestVersions(packageId);
+
+        return FormatPackageInfo(packageInfo, versions);
     }
 
-    private static string FormatPackageInfo(PackageInfo packageInfo)
+    private static string FormatPackageInfo(PackageInfo packageInfo, IReadOnlyList<string> versions)
     {
         var result = $"Package: {packageInfo.PackageId} v{packageInfo.Version}\n";
         result += new string('=', result.Length - 1) + "\n\n";
@@ -92,6 +95,11 @@ public class GetPackageInfoTool(
         if (!string.IsNullOrWhiteSpace(packageInfo.LicenseUrl))
         {
             result += $"License URL: {packageInfo.LicenseUrl}\n";
+        }
+
+        if (versions.Count > 0)
+        {
+            result += $"\nRecent versions: {string.Join(", ", versions)}\n";
         }
 
         if (packageInfo.Dependencies.Count == 0)

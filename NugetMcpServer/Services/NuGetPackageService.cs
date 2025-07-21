@@ -21,8 +21,14 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
     public async Task<string> GetLatestVersion(string packageId)
     {
+        IReadOnlyList<string> versions = await GetPackageVersions(packageId);
+        return versions.Last();
+    }
+
+    public async Task<IReadOnlyList<string>> GetPackageVersions(string packageId)
+    {
         string indexUrl = $"https://api.NuGet.org/v3-flatcontainer/{packageId.ToLower()}/index.json";
-        logger.LogInformation("Fetching latest version for package {PackageId} from {Url}", packageId, indexUrl);
+        logger.LogInformation("Fetching versions for package {PackageId} from {Url}", packageId, indexUrl);
         string json = await httpClient.GetStringAsync(indexUrl);
         using JsonDocument doc = JsonDocument.Parse(json);
 
@@ -38,7 +44,13 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
             }
         }
 
-        return versions.Last();
+        return versions;
+    }
+
+    public async Task<IReadOnlyList<string>> GetLatestVersions(string packageId, int count = 20)
+    {
+        IReadOnlyList<string> versions = await GetPackageVersions(packageId);
+        return versions.TakeLast(count).ToList();
     }
 
     public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier? progress = null)
