@@ -126,10 +126,6 @@ The server uses the .NET Generic Host and includes:
 
 - `get_package_info(packageId, version?)` - Gets comprehensive information about a NuGet package including metadata, dependencies, and meta-package status. Shows clear warnings for meta-packages and guidance on where to find actual implementations.
 
-### Package Dependencies
-
-- `get_package_dependencies(packageId, version?)` - Gets the dependencies of a NuGet package to help understand what other packages contain the actual implementations
-
 ## MCP Server Response Examples
 
 Here are examples of server responses from the MCP tools using DimonSmart.MazeGenerator as a sample package:

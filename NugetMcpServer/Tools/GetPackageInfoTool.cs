@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -99,12 +100,29 @@ public class GetPackageInfoTool(
 
         if (versions.Count > 0)
         {
-            result += $"\nRecent versions: {string.Join(", ", versions)}\n";
+            var orderedVersions = versions.Reverse();
+            result += $"\nRecent versions: {string.Join(", ", orderedVersions)}\n";
+
         }
 
         if (packageInfo.Dependencies.Count == 0)
         {
             result += "\nNo dependencies.\n";
+        }
+        else
+        {
+            result += "\nDependencies:\n";
+
+            var uniqueDeps = packageInfo.Dependencies
+                .GroupBy(d => d.Id)
+                .Select(g => g.First())
+                .OrderBy(d => d.Id)
+                .ToList();
+
+            foreach (var dep in uniqueDeps)
+            {
+                result += $"  - {dep.Id} ({dep.Version})\n";
+            }
         }
 
         return result;
