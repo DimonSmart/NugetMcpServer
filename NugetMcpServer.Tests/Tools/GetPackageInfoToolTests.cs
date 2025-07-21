@@ -61,4 +61,12 @@ public class GetPackageInfoToolTests : TestBase
         Assert.NotNull(result);
         Assert.Contains("Newtonsoft.Json", result);
     }
+
+    [Fact]
+    public async Task GetPackageInfo_IncludesVersionHistory()
+    {
+        var result = await _tool.get_package_info("Newtonsoft.Json", "13.0.3");
+
+        Assert.Contains("Recent versions:", result);
+    }
 }
