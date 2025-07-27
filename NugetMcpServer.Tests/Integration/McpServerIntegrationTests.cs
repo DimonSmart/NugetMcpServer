@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 
 using NuGetMcpServer.Services;
@@ -37,9 +38,9 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
         var serverDirectory = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
             "..", "..", "..",
-            "..", "NuGetMcpServer", "bin", "Debug", "net9.0", "win-x64");
+            "..", "NugetMcpServer", "bin", "Debug", "net9.0", "win-x64");
 
-        var serverExecutablePath = Path.Combine(serverDirectory, "NuGetMcpServer.exe");
+        var serverExecutablePath = Path.Combine(serverDirectory, "NugetMcpServer.exe");
 
         // Ensure the path exists
         if (!File.Exists(serverExecutablePath))
@@ -85,6 +86,12 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
     [Fact]
     public async Task CanExecuteMcpServerAndCheckForInterfaces()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            TestOutput.WriteLine("Skipping integration test on non-Windows platform");
+            return;
+        }
+
         // Start NuGet MCP server process - this verifies the server can start
         var serverProcess = await StartMcpServerProcess();
         _serverProcess = serverProcess;

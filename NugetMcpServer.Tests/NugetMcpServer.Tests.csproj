@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NuGetMcpServer\NuGetMcpServer.csproj" />
+    <ProjectReference Include="..\NugetMcpServer\NugetMcpServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
