@@ -26,7 +26,11 @@ public class ClassFormattingService
         else if (classType.IsSealed && !classType.IsValueType)
             sb.Append("sealed ");
 
-        string typeKeyword = classType.IsValueType ? "struct" : "class";
+        string typeKeyword;
+        if (TypeFormattingHelpers.IsRecordType(classType))
+            typeKeyword = classType.IsValueType ? "record struct" : "record";
+        else
+            typeKeyword = classType.IsValueType ? "struct" : "class";
         sb.Append($"{typeKeyword} {TypeFormattingHelpers.FormatTypeName(classType)}");
 
         var baseTypeInfo = GetBaseTypeInfo(classType);

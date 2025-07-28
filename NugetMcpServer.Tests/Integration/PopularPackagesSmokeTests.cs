@@ -1,10 +1,9 @@
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using NuGet.Packaging;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 
-using Xunit;
 using Xunit.Abstractions;
 
 namespace NuGetMcpServer.Tests.Integration;
