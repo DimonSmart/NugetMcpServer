@@ -3,6 +3,8 @@ using System.Reflection.PortableExecutable;
 using NuGet.Packaging;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
+using NuGetMcpServer.Tools;
+using Xunit;
 
 using Xunit.Abstractions;
 
@@ -54,6 +56,16 @@ public class PopularPackagesSmokeTests : TestBase
             "Microsoft.Extensions.Http"
         };
 
+        var archiveService = CreateArchiveProcessingService();
+        var listClassesTool = new ListClassesTool(new TestLogger<ListClassesTool>(TestOutput), _packageService, archiveService);
+        var classDefTool = new GetClassDefinitionTool(new TestLogger<GetClassDefinitionTool>(TestOutput), _packageService, new ClassFormattingService(), archiveService);
+        var listInterfacesTool = new ListInterfacesTool(new TestLogger<ListInterfacesTool>(TestOutput), _packageService, archiveService);
+        var interfaceDefTool = new GetInterfaceDefinitionTool(new TestLogger<GetInterfaceDefinitionTool>(TestOutput), _packageService, new InterfaceFormattingService(), archiveService);
+        var listStructsTool = new ListStructsTool(new TestLogger<ListStructsTool>(TestOutput), _packageService, archiveService);
+        var structDefTool = new GetStructDefinitionTool(new TestLogger<GetStructDefinitionTool>(TestOutput), _packageService, new ClassFormattingService(), archiveService);
+        var listRecordsTool = new ListRecordsTool(new TestLogger<ListRecordsTool>(TestOutput), _packageService, archiveService);
+        var recordDefTool = new GetRecordDefinitionTool(new TestLogger<GetRecordDefinitionTool>(TestOutput), _packageService, new ClassFormattingService(), archiveService);
+
         foreach (var packageId in packages)
         {
             var version = await _packageService.GetLatestVersion(packageId);
@@ -79,6 +91,34 @@ public class PopularPackagesSmokeTests : TestBase
             }
 
             TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
+
+            var classResult = await listClassesTool.list_classes(packageId, version);
+            foreach (var cls in classResult.Classes)
+            {
+                var def = await classDefTool.get_class_definition(packageId, cls.FullName, version);
+                Assert.False(string.IsNullOrWhiteSpace(def));
+            }
+
+            var interfaceResult = await listInterfacesTool.list_interfaces(packageId, version);
+            foreach (var iface in interfaceResult.Interfaces)
+            {
+                var def = await interfaceDefTool.get_interface_definition(packageId, iface.FullName, version);
+                Assert.False(string.IsNullOrWhiteSpace(def));
+            }
+
+            var structResult = await listStructsTool.list_structs(packageId, version);
+            foreach (var st in structResult.Structs)
+            {
+                var def = await structDefTool.get_struct_definition(packageId, st.FullName, version);
+                Assert.False(string.IsNullOrWhiteSpace(def));
+            }
+
+            var recordResult = await listRecordsTool.list_records(packageId, version);
+            foreach (var rec in recordResult.Records)
+            {
+                var def = await recordDefTool.get_record_definition(packageId, rec.FullName, version);
+                Assert.False(string.IsNullOrWhiteSpace(def));
+            }
         }
     }
 
