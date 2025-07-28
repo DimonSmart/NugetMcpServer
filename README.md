@@ -14,7 +14,7 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 
 ## Features
 
-- Real-time extraction of interfaces and enums from NuGet packages
+- Real-time extraction of interfaces, enums, structs and records from NuGet packages
 - **Smart package search with AI-enhanced keyword generation**
 - **Two-phase search: direct search + AI fallback for better results**
 - **Comma-separated keyword search for fast targeted results with balanced distribution**
@@ -112,6 +112,16 @@ The server uses the .NET Generic Host and includes:
 
 - `get_class_definition(packageId, className, version?)` - Gets the C# class definition from a NuGet package. Parameters: packageId (NuGet package ID), className (short or full name), version (optional, defaults to latest)
 - `list_classes(packageId, version?)` - Lists all public classes in a NuGet package. Returns package ID, version, and the list of classes
+
+### Struct Tools
+
+- `get_struct_definition(packageId, structName, version?)` - Gets the C# struct definition from a NuGet package. Parameters: packageId, structName, version (optional)
+- `list_structs(packageId, version?)` - Lists all public structs in a NuGet package. Returns package ID, version, and the list of structs
+
+### Record Tools
+
+- `get_record_definition(packageId, recordName, version?)` - Gets the C# record definition from a NuGet package. Parameters: packageId, recordName, version (optional)
+- `list_records(packageId, version?)` - Lists all public records in a NuGet package. Returns package ID, version, and the list of records
 
 ### Package Search Tools
 
@@ -274,7 +284,7 @@ You can use this MCP server with different development tools and AI assistants:
 - **GitHub Copilot**: Use as an MCP server to get accurate package information
 - **Other MCP Clients**: Any tool that supports the Model Context Protocol
 
-By using this server, developers and AI systems get real-time, accurate information about NuGet package interfaces and enums. This reduces the chance of outdated or wrong API suggestions.
+By using this server, developers and AI systems get real-time, accurate information about NuGet package interfaces, enums, structs, and records. This reduces the chance of outdated or wrong API suggestions.
 
 ## Benefits for AI Development
 

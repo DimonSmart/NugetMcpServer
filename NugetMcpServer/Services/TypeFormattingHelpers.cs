@@ -12,6 +12,16 @@ public static class TypeFormattingHelpers
 {
     public static string FormatTypeName(Type type) => type.FormatCSharpTypeName();
 
+    public static bool IsRecordType(Type type)
+    {
+        var equalityContract = type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance);
+        var printMembers = type.GetMethod("PrintMembers", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (printMembers == null)
+            return false;
+
+        return equalityContract != null || type.IsValueType;
+    }
+
     // Builds the 'where T : [constraints]' string for generic type parameters
     public static string GetGenericConstraints(Type type)
     {

@@ -113,4 +113,23 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
         TestOutput.WriteLine(formattedCode);
         TestOutput.WriteLine("====================================================\n");
     }
+
+    public record TestRecord(int Value);
+    public record struct TestRecordStruct(int Value);
+
+    [Fact]
+    public void FormatClassDefinition_WithRecordClass_ReturnsRecordKeyword()
+    {
+        var type = typeof(TestRecord);
+        var formatted = _formattingService.FormatClassDefinition(type, "TestAsm", "TestPackage");
+        Assert.Contains("public record TestRecord", formatted);
+    }
+
+    [Fact]
+    public void FormatClassDefinition_WithRecordStruct_ReturnsRecordStructKeyword()
+    {
+        var type = typeof(TestRecordStruct);
+        var formatted = _formattingService.FormatClassDefinition(type, "TestAsm", "TestPackage");
+        Assert.Contains("public record struct TestRecordStruct", formatted);
+    }
 }

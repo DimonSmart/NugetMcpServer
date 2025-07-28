@@ -36,7 +36,7 @@ public class GetClassDefinitionToolTests : TestBase
 
         // Assert
         Assert.NotNull(definition);
-        Assert.Contains("class", definition);
+        Assert.True(definition.Contains("class") || definition.Contains("record"));
         Assert.Contains("Point", definition);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: Point CLASS DEFINITION ==========");
@@ -55,7 +55,7 @@ public class GetClassDefinitionToolTests : TestBase
 
         // Assert
         Assert.NotNull(definition);
-        Assert.Contains("class", definition);
+        Assert.True(definition.Contains("class") || definition.Contains("record"));
         Assert.DoesNotContain("not found in package", definition);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: Maze CLASS DEFINITION ==========");
@@ -88,7 +88,7 @@ public class GetClassDefinitionToolTests : TestBase
                 result.Version);
 
             // Assert
-            Assert.Contains("class", definition);
+            Assert.True(definition.Contains("class") || definition.Contains("record"));
             Assert.Contains("Cell", definition);
 
             TestOutput.WriteLine("\n========== TEST OUTPUT: RESULT OF GetClassDefinition ==========");
@@ -108,7 +108,7 @@ public class GetClassDefinitionToolTests : TestBase
 
         // Assert
         Assert.NotNull(definition);
-        Assert.Contains("class", definition);
+        Assert.True(definition.Contains("class") || definition.Contains("record"));
         Assert.Contains("Point", definition);
         Assert.DoesNotContain("not found in package", definition);
 
