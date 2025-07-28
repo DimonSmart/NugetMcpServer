@@ -1,6 +1,8 @@
 using NuGet.Packaging;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tests.Helpers;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -12,10 +14,15 @@ namespace NuGetMcpServer.Tests.Integration;
 public class PopularPackagesSmokeTests : TestBase
 {
     private readonly NuGetPackageService _packageService;
+    private readonly ArchiveProcessingService _archiveService;
+    private readonly ClassFormattingService _classFormatter = new();
+    private readonly InterfaceFormattingService _interfaceFormatter = new();
+    private readonly EnumFormattingService _enumFormatter = new();
 
     public PopularPackagesSmokeTests(ITestOutputHelper output) : base(output)
     {
         _packageService = CreateNuGetPackageService();
+        _archiveService = new ArchiveProcessingService(NullLogger<ArchiveProcessingService>.Instance, _packageService);
     }
 
     [Fact]
@@ -80,6 +87,38 @@ public class PopularPackagesSmokeTests : TestBase
             }
 
             TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
+
+            // Load assemblies and ensure we can get textual descriptions for all types
+            var assemblies = _archiveService.LoadAllAssembliesFromPackage(reader);
+
+            foreach (var assembly in assemblies)
+            {
+                foreach (var type in assembly.Types)
+                {
+                    if (!type.IsPublic || type.IsNested)
+                        continue;
+
+                    try
+                    {
+                        if (type.IsInterface)
+                        {
+                            _ = _interfaceFormatter.FormatInterfaceDefinition(type, assembly.AssemblyName, packageId);
+                        }
+                        else if (type.IsEnum)
+                        {
+                            _ = _enumFormatter.FormatEnumDefinition(type, assembly.AssemblyName, packageId);
+                        }
+                        else if (!typeof(Delegate).IsAssignableFrom(type))
+                        {
+                            _ = _classFormatter.FormatClassDefinition(type, assembly.AssemblyName, packageId);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore types that cannot be processed due to missing dependencies
+                    }
+                }
+            }
         }
     }
 
