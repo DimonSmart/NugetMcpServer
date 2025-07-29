@@ -77,7 +77,7 @@ public class GetRecordDefinitionTool(
                 if (recordType != null)
                 {
                     progress.ReportMessage($"Record found: {recordName}");
-                    var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.AssemblyName, packageId);
+                    var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
             }

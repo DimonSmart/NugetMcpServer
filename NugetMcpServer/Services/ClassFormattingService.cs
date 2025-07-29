@@ -3,14 +3,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Mono.Cecil;
 
 namespace NuGetMcpServer.Services;
 
 public class ClassFormattingService
 {
-    // Builds a string representation of a class, including its properties, 
+    // Builds a string representation of a class, including its properties,
     // methods, constants, delegates, and other public members
-    public string FormatClassDefinition(Type classType, string assemblyName, string packageName)
+    public string FormatClassDefinition(Type classType, string assemblyName, string packageName, byte[]? assemblyBytes = null)
+    {
+        try
+        {
+            return FormatClassDefinitionReflection(classType, assemblyName, packageName);
+        }
+        catch (Exception) when (assemblyBytes != null)
+        {
+            return FormatClassDefinitionMetadata(assemblyBytes, classType.FullName ?? classType.Name, assemblyName, packageName);
+        }
+    }
+
+    private static string FormatClassDefinitionReflection(Type classType, string assemblyName, string packageName)
     {
         var header = $"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */";
 
@@ -203,5 +216,110 @@ public class ClassFormattingService
             uint ui => $"{ui}U",
             _ => value.ToString() ?? "null"
         };
+    }
+
+    private static string FormatClassDefinitionMetadata(byte[] assemblyBytes, string fullName, string assemblyName, string packageName)
+    {
+        var asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(new System.IO.MemoryStream(assemblyBytes));
+        var typeDef = asm.MainModule.GetType(fullName.Replace('+', '/')) ?? asm.MainModule.Types.FirstOrDefault(t => t.FullName == fullName.Replace('+', '/'));
+        if (typeDef == null)
+            return $"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */\n// Type '{fullName}' not found";
+
+        var sb = new StringBuilder().AppendLine($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */");
+
+        sb.Append("public ");
+        if (typeDef.IsAbstract && typeDef.IsSealed)
+            sb.Append("static ");
+        else if (typeDef.IsAbstract && !typeDef.IsInterface)
+            sb.Append("abstract ");
+        else if (typeDef.IsSealed && !typeDef.IsValueType)
+            sb.Append("sealed ");
+
+        string typeKeyword = IsRecordType(typeDef) ? (typeDef.IsValueType ? "record struct" : "record") : (typeDef.IsValueType ? "struct" : "class");
+        sb.Append($"{typeKeyword} {FormatTypeName(typeDef)}");
+
+        var baseTypes = new List<string>();
+        if (typeDef.BaseType != null && typeDef.BaseType.FullName != "System.Object")
+            baseTypes.Add(FormatTypeName(typeDef.BaseType));
+        foreach (var iface in typeDef.Interfaces.Select(i => i.InterfaceType))
+            baseTypes.Add(FormatTypeName(iface));
+        if (baseTypes.Count > 0)
+            sb.Append($" : {string.Join(", ", baseTypes)}");
+
+        sb.AppendLine().AppendLine("{");
+
+        foreach (var field in typeDef.Fields.Where(f => f.IsPublic && f.HasConstant))
+        {
+            sb.AppendLine($"    public const {FormatTypeName(field.FieldType)} {field.Name} = {field.Constant};");
+        }
+
+        foreach (var field in typeDef.Fields.Where(f => f.IsPublic && f.IsInitOnly && !f.IsLiteral))
+        {
+            var modifier = field.IsStatic ? "static readonly" : "readonly";
+            sb.AppendLine($"    public {modifier} {FormatTypeName(field.FieldType)} {field.Name};");
+        }
+
+        foreach (var prop in typeDef.Properties.Where(p => p.GetMethod?.IsPublic == true || p.SetMethod?.IsPublic == true))
+        {
+            sb.Append($"    public {FormatTypeName(prop.PropertyType)} {prop.Name} {{ ");
+            if (prop.GetMethod?.IsPublic == true) sb.Append("get; ");
+            if (prop.SetMethod?.IsPublic == true) sb.Append("set; ");
+            sb.AppendLine("}");
+        }
+
+        foreach (var method in typeDef.Methods.Where(m => m.IsPublic && !m.IsSpecialName))
+        {
+            var parameters = string.Join(", ", method.Parameters.Select(p => $"{FormatTypeName(p.ParameterType)} {p.Name}"));
+            sb.AppendLine($"    public {FormatTypeName(method.ReturnType)} {method.Name}({parameters});");
+        }
+
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    private static bool IsRecordType(Mono.Cecil.TypeDefinition typeDef)
+    {
+        var printMembers = typeDef.Methods.FirstOrDefault(m => m.Name == "PrintMembers" && !m.IsPublic && !m.IsStatic);
+        if (printMembers == null)
+            return false;
+        return typeDef.Properties.Any(p => p.Name == "EqualityContract") || typeDef.IsValueType;
+    }
+
+    private static string FormatTypeName(Mono.Cecil.TypeReference type)
+    {
+        if (type is Mono.Cecil.GenericInstanceType git)
+        {
+            var name = git.ElementType.Name.Split('`')[0];
+            var args = string.Join(", ", git.GenericArguments.Select(FormatTypeName));
+            return $"{name}<{args}>";
+        }
+
+        if (type.IsGenericParameter)
+            return type.Name;
+
+        var primitive = type.FullName switch
+        {
+            "System.Int32" => "int",
+            "System.String" => "string",
+            "System.Boolean" => "bool",
+            "System.Double" => "double",
+            "System.Single" => "float",
+            "System.Int64" => "long",
+            "System.Int16" => "short",
+            "System.Byte" => "byte",
+            "System.Char" => "char",
+            "System.Object" => "object",
+            "System.Decimal" => "decimal",
+            "System.Void" => "void",
+            "System.UInt64" => "ulong",
+            "System.UInt32" => "uint",
+            "System.UInt16" => "ushort",
+            "System.SByte" => "sbyte",
+            _ => null
+        };
+        if (primitive != null)
+            return primitive;
+
+        return type.Name.Split('`')[0];
     }
 }
