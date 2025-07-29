@@ -6,29 +6,29 @@ namespace NuGetMcpServer.Extensions
 {
     public static class TypeFormattingExtensions
     {
-        private static readonly Dictionary<Type, string> PrimitiveTypeMap = new()
+        private static readonly Dictionary<string, string> PrimitiveTypeMap = new()
         {
-            { typeof(int), "int" },
-            { typeof(string), "string" },
-            { typeof(bool), "bool" },
-            { typeof(double), "double" },
-            { typeof(float), "float" },
-            { typeof(long), "long" },
-            { typeof(short), "short" },
-            { typeof(byte), "byte" },
-            { typeof(char), "char" },
-            { typeof(object), "object" },
-            { typeof(decimal), "decimal" },
-            { typeof(void), "void" },
-            { typeof(ulong), "ulong" },
-            { typeof(uint), "uint" },
-            { typeof(ushort), "ushort" },
-            { typeof(sbyte), "sbyte" }
+            { typeof(int).FullName!, "int" },
+            { typeof(string).FullName!, "string" },
+            { typeof(bool).FullName!, "bool" },
+            { typeof(double).FullName!, "double" },
+            { typeof(float).FullName!, "float" },
+            { typeof(long).FullName!, "long" },
+            { typeof(short).FullName!, "short" },
+            { typeof(byte).FullName!, "byte" },
+            { typeof(char).FullName!, "char" },
+            { typeof(object).FullName!, "object" },
+            { typeof(decimal).FullName!, "decimal" },
+            { typeof(void).FullName!, "void" },
+            { typeof(ulong).FullName!, "ulong" },
+            { typeof(uint).FullName!, "uint" },
+            { typeof(ushort).FullName!, "ushort" },
+            { typeof(sbyte).FullName!, "sbyte" }
         };
 
         public static string FormatCSharpTypeName(this Type type)
         {
-            if (PrimitiveTypeMap.TryGetValue(type, out var mappedName))
+            if (PrimitiveTypeMap.TryGetValue(type.FullName ?? type.Name, out var mappedName))
             {
                 return mappedName;
             }

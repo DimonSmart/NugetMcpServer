@@ -22,8 +22,8 @@
         <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.7" />
         <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.2" />
         <PackageReference Include="NuGet.Packaging" Version="6.14.0" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.0-preview.6.25358.103" />
         <PackageReference Include="System.Text.Json" Version="9.0.5" />
-        <PackageReference Include="Mono.Cecil" Version="0.11.4" />
     </ItemGroup>
 
 </Project>
