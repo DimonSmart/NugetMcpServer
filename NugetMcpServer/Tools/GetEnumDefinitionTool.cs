@@ -76,19 +76,15 @@ public class GetEnumDefinitionTool(
         progress.ReportMessage("Scanning assemblies for enum");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var loadedAssemblies = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var filePath in dllFiles)
+        foreach (var assemblyInfo in loadedAssemblies)
         {
-            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            var definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
+            if (definition != null)
             {
-                var definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
-                if (definition != null)
-                {
-                    progress.ReportMessage($"Enum found: {enumName}");
-                    return metaPackageWarning + definition;
-                }
+                progress.ReportMessage($"Enum found: {enumName}");
+                return metaPackageWarning + definition;
             }
         }
 
