@@ -3,14 +3,55 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.IO;
 
 namespace NuGetMcpServer.Services;
 
 public class ClassFormattingService
 {
-    // Builds a string representation of a class, including its properties, 
-    // methods, constants, delegates, and other public members
-    public string FormatClassDefinition(Type classType, string assemblyName, string packageName)
+    // Builds a string representation of a class using metadata-only reflection
+    // to avoid requiring all referenced assemblies to be present.
+    public string FormatClassDefinition(Type classType, string assemblyName, string packageName, byte[]? assemblyBytes = null)
+    {
+        if (assemblyBytes == null)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(classType.Assembly.Location))
+                {
+                    assemblyBytes = File.ReadAllBytes(classType.Assembly.Location);
+                }
+            }
+            catch
+            {
+                // ignore and fall back to using the loaded type
+            }
+        }
+
+        if (assemblyBytes != null)
+        {
+            try
+            {
+                var corePath = typeof(object).Assembly.Location;
+                var resolver = new PathAssemblyResolver(new[] { corePath });
+                using var mlc = new MetadataLoadContext(resolver, typeof(object).Assembly.GetName().Name!);
+                var asm = mlc.LoadFromByteArray(assemblyBytes);
+                var metaType = asm.GetType(classType.FullName ?? classType.Name);
+                if (metaType != null)
+                {
+                    return FormatClassDefinitionInternal(metaType, assemblyName, packageName);
+                }
+            }
+            catch
+            {
+                // fall back to using the provided Type instance
+            }
+        }
+
+        return FormatClassDefinitionInternal(classType, assemblyName, packageName);
+    }
+
+    private static string FormatClassDefinitionInternal(Type classType, string assemblyName, string packageName)
     {
         var header = $"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */";
 
@@ -204,4 +245,5 @@ public class ClassFormattingService
             _ => value.ToString() ?? "null"
         };
     }
+
 }

@@ -20,6 +20,7 @@ public record LoadedAssemblyInfo
     public Type[] Types { get; init; } = [];
     public string AssemblyName { get; init; } = string.Empty;
     public string FilePath { get; init; } = string.Empty;
+    public byte[] AssemblyBytes { get; init; } = Array.Empty<byte>();
 }
 
 public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, NuGetPackageService packageService)
@@ -53,7 +54,8 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
                 Assembly = assembly,
                 Types = types,
                 AssemblyName = assemblyName,
-                FilePath = filePath
+                FilePath = filePath,
+                AssemblyBytes = assemblyData
             };
         }
         catch (Exception ex)
@@ -89,7 +91,8 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
                 Assembly = assembly,
                 Types = types,
                 AssemblyName = assemblyName,
-                FilePath = filePath
+                FilePath = filePath,
+                AssemblyBytes = assemblyData
             };
         }
         catch (Exception ex)
