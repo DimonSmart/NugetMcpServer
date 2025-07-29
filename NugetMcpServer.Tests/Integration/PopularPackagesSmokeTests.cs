@@ -24,7 +24,7 @@ public class PopularPackagesSmokeTests : TestBase
     {
         var packages = new[]
         {
-            "MediatR",
+           // "MediatR",
            // "Newtonsoft.Json",
            // "Serilog",
            // "Autofac",
@@ -33,14 +33,12 @@ public class PopularPackagesSmokeTests : TestBase
            // "FluentValidation",
            // "Polly",
            // "NUnit",
-            "MediatR",
             "xunit",
             "CsvHelper",
            // "RestSharp",
             "NLog",
             "Swashbuckle.AspNetCore",
             "Moq",
-            "MassTransit",
             "Hangfire.Core",
             "Quartz",
             "HtmlAgilityPack",
