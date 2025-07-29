@@ -26,23 +26,23 @@ public class GetClassDefinitionTool(
     ArchiveProcessingService archiveService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
-    [Description("Extracts and returns the C# class definition from a specified NuGet package.")]
-    public Task<string> get_class_definition(
+    [Description("Extracts and returns the C# class or record definition from a specified NuGet package.")]
+    public Task<string> get_class_or_record_definition(
         [Description("NuGet package ID")] string packageId,
-        [Description("Class name (short name like 'String' or full name like 'System.String')")] string className,
+        [Description("Class or record name (short like 'Point' or full like 'System.Point')")] string typeName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetClassDefinitionCore(packageId, className, version, progressNotifier),
+            () => GetClassOrRecordDefinitionCore(packageId, typeName, version, progressNotifier),
             Logger,
-            "Error fetching class definition");
+            "Error fetching class or record definition");
     }
 
-    private async Task<string> GetClassDefinitionCore(
+    private async Task<string> GetClassOrRecordDefinitionCore(
         string packageId,
-        string className,
+        string typeName,
         string? version,
         ProgressNotifier progress)
     {
@@ -51,9 +51,9 @@ public class GetClassDefinitionTool(
             throw new ArgumentNullException(nameof(packageId));
         }
 
-        if (string.IsNullOrWhiteSpace(className))
+        if (string.IsNullOrWhiteSpace(typeName))
         {
-            throw new ArgumentNullException(nameof(className));
+            throw new ArgumentNullException(nameof(typeName));
         }
 
         progress.ReportMessage("Resolving package version");
@@ -63,8 +63,8 @@ public class GetClassDefinitionTool(
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        Logger.LogInformation("Fetching class {ClassName} from package {PackageId} version {Version}",
-            className, packageId, version!);
+        Logger.LogInformation("Fetching class or record {ClassName} from package {PackageId} version {Version}",
+            typeName, packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
@@ -75,7 +75,7 @@ public class GetClassDefinitionTool(
 
         var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version!);
 
-        progress.ReportMessage("Scanning assemblies for class");
+        progress.ReportMessage("Scanning assemblies for class/record");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
@@ -96,12 +96,12 @@ public class GetClassDefinitionTool(
                                 return false;
                             }
 
-                            if (t.Name == className)
+                            if (t.Name == typeName)
                             {
                                 return true;
                             }
 
-                            if (t.FullName == className)
+                            if (t.FullName == typeName)
                             {
                                 return true;
                             }
@@ -115,7 +115,7 @@ public class GetClassDefinitionTool(
                             if (backtickIndex > 0)
                             {
                                 var baseName = t.Name.Substring(0, backtickIndex);
-                                if (baseName == className)
+                                if (baseName == typeName)
                                 {
                                     return true;
                                 }
@@ -127,7 +127,7 @@ public class GetClassDefinitionTool(
                                 if (fullBacktickIndex > 0)
                                 {
                                     var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
-                                    return fullBaseName == className;
+                                    return fullBaseName == typeName;
                                 }
                             }
 
@@ -136,7 +136,7 @@ public class GetClassDefinitionTool(
 
                     if (classType != null)
                     {
-                        progress.ReportMessage($"Class found: {className}");
+                        progress.ReportMessage($"Class or record found: {typeName}");
                         var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId);
                         return metaPackageWarning + formatted;
                     }
@@ -148,7 +148,7 @@ public class GetClassDefinitionTool(
             }
         }
 
-        return metaPackageWarning + $"Class '{className}' not found in package {packageId}.";
+        return metaPackageWarning + $"Class or record '{typeName}' not found in package {packageId}.";
     }
 
 }
