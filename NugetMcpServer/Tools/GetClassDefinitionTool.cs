@@ -137,7 +137,7 @@ public class GetClassDefinitionTool(
                     if (classType != null)
                     {
                         progress.ReportMessage($"Class or record found: {typeName}");
-                        var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId);
+                        var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
                         return metaPackageWarning + formatted;
                     }
                 }

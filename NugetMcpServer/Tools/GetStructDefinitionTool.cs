@@ -79,7 +79,7 @@ public class GetStructDefinitionTool(
                     if (structType != null)
                     {
                         progress.ReportMessage($"Struct found: {structName}");
-                        var formatted = formattingService.FormatClassDefinition(structType, assemblyInfo.AssemblyName, packageId);
+                        var formatted = formattingService.FormatClassDefinition(structType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
                         return metaPackageWarning + formatted;
                     }
                 }
