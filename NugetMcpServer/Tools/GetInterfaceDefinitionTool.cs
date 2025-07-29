@@ -8,8 +8,6 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
-using NuGet.Packaging;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -56,33 +54,18 @@ public class GetInterfaceDefinitionTool(
             throw new ArgumentNullException(nameof(interfaceName));
         }
 
-        progress.ReportMessage("Resolving package version");
+        var (loaded, packageInfo, resolvedVersion) =
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
-        if (version.IsNullOrEmptyOrNullString())
-        {
-            version = await PackageService.GetLatestVersion(packageId);
-        }
+        Logger.LogInformation(
+            "Fetching interface {InterfaceName} from package {PackageId} version {Version}",
+            interfaceName, packageId, resolvedVersion);
 
-        Logger.LogInformation("Fetching interface {InterfaceName} from package {PackageId} version {Version}",
-            interfaceName, packageId, version!);
-
-        progress.ReportMessage($"Downloading package {packageId} v{version}");
-
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
-
-        progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
-
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version!);
-
-        progress.ReportMessage("Scanning assemblies for interface");
-
-        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
         foreach (var assemblyInfo in loaded.Assemblies)
         {
-            progress.ReportMessage($"Scanning {assemblyInfo.AssemblyName}: {assemblyInfo.FilePath}");
+            progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
 
             try
             {
@@ -135,13 +118,13 @@ public class GetInterfaceDefinitionTool(
                 if (iface != null)
                 {
                     progress.ReportMessage($"Interface found: {interfaceName}");
-                    var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
+                    var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.FileName, packageId);
                     return metaPackageWarning + formatted;
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
             }
         }
 
