@@ -8,8 +8,6 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
-using NuGet.Packaging;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -58,32 +56,20 @@ public class GetClassDefinitionTool(
 
         progress.ReportMessage("Resolving package version");
 
-        if (version.IsNullOrEmptyOrNullString())
-        {
-            version = await PackageService.GetLatestVersion(packageId);
-        }
+        var (loaded, packageInfo, resolvedVersion) =
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
-        Logger.LogInformation("Fetching class or record {ClassName} from package {PackageId} version {Version}",
-            typeName, packageId, version!);
+        Logger.LogInformation(
+            "Fetching class or record {ClassName} from package {PackageId} version {Version}",
+            typeName, packageId, resolvedVersion);
 
-        progress.ReportMessage($"Downloading package {packageId} v{version}");
-
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
-
-        progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
-
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version!);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
         progress.ReportMessage("Scanning assemblies for class/record");
 
-        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-
-        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
-
         foreach (var assemblyInfo in loaded.Assemblies)
         {
-            progress.ReportMessage($"Scanning {assemblyInfo.AssemblyName}: {assemblyInfo.FilePath}");
+            progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
             try
             {
                 var classType = assemblyInfo.Types
@@ -135,13 +121,13 @@ public class GetClassDefinitionTool(
                 if (classType != null)
                 {
                     progress.ReportMessage($"Class or record found: {typeName}");
-                    var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
+                    var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
             }
         }
 
