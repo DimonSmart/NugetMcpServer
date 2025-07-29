@@ -67,9 +67,9 @@ public class GetRecordDefinitionTool(
 
         packageStream.Position = 0;
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var assemblies = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
+        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var assemblyInfo in assemblies)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
             try
             {
