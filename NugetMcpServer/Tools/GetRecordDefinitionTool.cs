@@ -65,28 +65,25 @@ public class GetRecordDefinitionTool(
 
         progress.ReportMessage("Scanning assemblies for record");
 
+        packageStream.Position = 0;
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var assemblies = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var filePath in dllFiles)
+        foreach (var assemblyInfo in assemblies)
         {
-            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            try
             {
-                try
+                var recordType = assemblyInfo.Types.FirstOrDefault(t => TypeFormattingHelpers.IsRecordType(t) && (t.Name == recordName || t.FullName == recordName || GenericMatch(t, recordName)));
+                if (recordType != null)
                 {
-                    var recordType = assemblyInfo.Types.FirstOrDefault(t => TypeFormattingHelpers.IsRecordType(t) && (t.Name == recordName || t.FullName == recordName || GenericMatch(t, recordName)));
-                    if (recordType != null)
-                    {
-                        progress.ReportMessage($"Record found: {recordName}");
-                        var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.AssemblyName, packageId);
-                        return metaPackageWarning + formatted;
-                    }
+                    progress.ReportMessage($"Record found: {recordName}");
+                    var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.AssemblyName, packageId);
+                    return metaPackageWarning + formatted;
                 }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
-                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             }
         }
 
