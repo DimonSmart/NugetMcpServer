@@ -85,9 +85,9 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         };
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var loadedAssemblies = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
+        var loaded = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
-        foreach (var assemblyInfo in loadedAssemblies)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
             var classes = assemblyInfo.Types
                 .Where(t => t.IsClass && t.IsPublic && !t.IsNested)

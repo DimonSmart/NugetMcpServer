@@ -78,18 +78,15 @@ public class GetInterfaceDefinitionTool(
         progress.ReportMessage("Scanning assemblies for interface");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var filePath in dllFiles)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
-            progress.ReportMessage($"Scanning {System.IO.Path.GetFileName(filePath)}: {filePath}");
+            progress.ReportMessage($"Scanning {assemblyInfo.AssemblyName}: {assemblyInfo.FilePath}");
 
-            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            try
             {
-                try
-                {
-                    var iface = assemblyInfo.Types
+                var iface = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
                             if (!t.IsInterface)
@@ -135,17 +132,16 @@ public class GetInterfaceDefinitionTool(
                             return false;
                         });
 
-                    if (iface != null)
-                    {
-                        progress.ReportMessage($"Interface found: {interfaceName}");
-                        var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
-                        return metaPackageWarning + formatted;
-                    }
-                }
-                catch (Exception ex)
+                if (iface != null)
                 {
-                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
+                    progress.ReportMessage($"Interface found: {interfaceName}");
+                    var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.AssemblyName, packageId);
+                    return metaPackageWarning + formatted;
                 }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             }
         }
 

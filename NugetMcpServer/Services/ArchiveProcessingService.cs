@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -23,84 +24,24 @@ public record LoadedAssemblyInfo
     public byte[] AssemblyBytes { get; init; } = Array.Empty<byte>();
 }
 
+/// <summary>
+/// Represents all assemblies loaded from a NuGet package along with the
+/// <see cref="AssemblyLoadContext"/> that keeps them alive.
+/// </summary>
+public sealed record LoadedPackageAssemblies
+{
+    /// <summary>The context used to resolve assemblies.</summary>
+    public InMemoryAssemblyLoadContext LoadContext { get; init; } = null!;
+
+    /// <summary>Information for each successfully loaded assembly.</summary>
+    public List<LoadedAssemblyInfo> Assemblies { get; init; } = [];
+}
+
 public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, NuGetPackageService packageService)
 {
     private readonly ILogger<ArchiveProcessingService> _logger = logger;
     private readonly NuGetPackageService _packageService = packageService;
 
-    /// <summary>
-    /// Loads assembly and types from a package file. Returns null if assembly cannot be loaded.
-    /// </summary>
-    /// <param name="packageReader">The PackageArchiveReader to read files from</param>
-    /// <param name="filePath">Path to the assembly file within the package</param>
-    /// <returns>LoadedAssemblyInfo with assembly, types and metadata, or null if loading fails</returns>
-    public LoadedAssemblyInfo? LoadAssemblyFromPackageFile(PackageArchiveReader packageReader, string filePath)
-    {
-        try
-        {
-            using var fileStream = packageReader.GetStream(filePath);
-            using var ms = new MemoryStream();
-            fileStream.CopyTo(ms);
-
-            var assemblyData = ms.ToArray();
-            var (assembly, types) = _packageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
-
-            if (assembly == null)
-                return null;
-
-            var assemblyName = Path.GetFileName(filePath);
-            return new LoadedAssemblyInfo
-            {
-                Assembly = assembly,
-                Types = types,
-                AssemblyName = assemblyName,
-                FilePath = filePath,
-                AssemblyBytes = assemblyData
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Error loading assembly from package file {FilePath}", filePath);
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Asynchronously loads assembly and types from a package file. Returns null if assembly cannot be loaded.
-    /// </summary>
-    /// <param name="packageReader">The PackageArchiveReader to read files from</param>
-    /// <param name="filePath">Path to the assembly file within the package</param>
-    /// <returns>LoadedAssemblyInfo with assembly, types and metadata, or null if loading fails</returns>
-    public async Task<LoadedAssemblyInfo?> LoadAssemblyFromPackageFileAsync(PackageArchiveReader packageReader, string filePath)
-    {
-        try
-        {
-            using var fileStream = packageReader.GetStream(filePath);
-            using var ms = new MemoryStream();
-            await fileStream.CopyToAsync(ms);
-
-            var assemblyData = ms.ToArray();
-            var (assembly, types) = _packageService.LoadAssemblyFromMemoryWithTypes(assemblyData);
-
-            if (assembly == null)
-                return null;
-
-            var assemblyName = Path.GetFileName(filePath);
-            return new LoadedAssemblyInfo
-            {
-                Assembly = assembly,
-                Types = types,
-                AssemblyName = assemblyName,
-                FilePath = filePath,
-                AssemblyBytes = assemblyData
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Error loading assembly from package file {FilePath}", filePath);
-            return null;
-        }
-    }
 
     /// <summary>
     /// Gets a filtered list of unique DLL files from the package, avoiding duplicates from different target frameworks.
@@ -230,43 +171,93 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
     /// Loads all assemblies from unique DLL files in the package.
     /// </summary>
     /// <param name="packageReader">The PackageArchiveReader to read files from</param>
-    /// <returns>List of LoadedAssemblyInfo for all successfully loaded assemblies</returns>
-    public List<LoadedAssemblyInfo> LoadAllAssembliesFromPackage(PackageArchiveReader packageReader)
+    /// <returns>Container with loaded assemblies and the context used to load them</returns>
+    public LoadedPackageAssemblies LoadAllAssembliesFromPackage(PackageArchiveReader packageReader)
     {
         var dllFiles = GetUniqueAssemblyFiles(packageReader);
-        var result = new List<LoadedAssemblyInfo>();
+        var assemblies = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        var fileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var filePath in dllFiles)
         {
-            var assemblyInfo = LoadAssemblyFromPackageFile(packageReader, filePath);
-            if (assemblyInfo != null)
+            using var stream = packageReader.GetStream(filePath);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var name = Path.GetFileNameWithoutExtension(filePath);
+            assemblies[name] = ms.ToArray();
+            fileMap[name] = filePath;
+        }
+
+        var loadContext = new InMemoryAssemblyLoadContext(assemblies);
+        var result = new List<LoadedAssemblyInfo>();
+
+        foreach (var (name, bytes) in assemblies)
+        {
+            var (assembly, types) = _packageService.LoadAssemblyFromMemoryWithTypes(bytes, loadContext);
+            if (assembly != null)
             {
-                result.Add(assemblyInfo);
+                result.Add(new LoadedAssemblyInfo
+                {
+                    Assembly = assembly,
+                    Types = types,
+                    AssemblyName = name + ".dll",
+                    FilePath = fileMap[name],
+                    AssemblyBytes = bytes
+                });
             }
         }
 
-        return result;
+        return new LoadedPackageAssemblies
+        {
+            LoadContext = loadContext,
+            Assemblies = result
+        };
     }
 
     /// <summary>
     /// Asynchronously loads all assemblies from unique DLL files in the package.
     /// </summary>
     /// <param name="packageReader">The PackageArchiveReader to read files from</param>
-    /// <returns>List of LoadedAssemblyInfo for all successfully loaded assemblies</returns>
-    public async Task<List<LoadedAssemblyInfo>> LoadAllAssembliesFromPackageAsync(PackageArchiveReader packageReader)
+    /// <returns>Container with loaded assemblies and the context used to load them</returns>
+    public async Task<LoadedPackageAssemblies> LoadAllAssembliesFromPackageAsync(PackageArchiveReader packageReader)
     {
         var dllFiles = GetUniqueAssemblyFiles(packageReader);
-        var result = new List<LoadedAssemblyInfo>();
+        var assemblies = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        var fileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var filePath in dllFiles)
         {
-            var assemblyInfo = await LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            using var stream = packageReader.GetStream(filePath);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var name = Path.GetFileNameWithoutExtension(filePath);
+            assemblies[name] = ms.ToArray();
+            fileMap[name] = filePath;
+        }
+
+        var loadContext = new InMemoryAssemblyLoadContext(assemblies);
+        var result = new List<LoadedAssemblyInfo>();
+
+        foreach (var (name, bytes) in assemblies)
+        {
+            var (assembly, types) = _packageService.LoadAssemblyFromMemoryWithTypes(bytes, loadContext);
+            if (assembly != null)
             {
-                result.Add(assemblyInfo);
+                result.Add(new LoadedAssemblyInfo
+                {
+                    Assembly = assembly,
+                    Types = types,
+                    AssemblyName = name + ".dll",
+                    FilePath = fileMap[name],
+                    AssemblyBytes = bytes
+                });
             }
         }
 
-        return result;
+        return new LoadedPackageAssemblies
+        {
+            LoadContext = loadContext,
+            Assemblies = result
+        };
     }
 }
