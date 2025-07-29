@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using NuGet.Packaging;
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -47,27 +46,16 @@ public class GetRecordDefinitionTool(
         if (string.IsNullOrWhiteSpace(recordName))
             throw new ArgumentNullException(nameof(recordName));
 
-        progress.ReportMessage("Resolving package version");
+        var (loaded, packageInfo, resolvedVersion) =
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
-        if (version.IsNullOrEmptyOrNullString())
-            version = await PackageService.GetLatestVersion(packageId);
+        Logger.LogInformation(
+            "Fetching record {RecordName} from package {PackageId} version {Version}",
+            recordName, packageId, resolvedVersion);
 
-        Logger.LogInformation("Fetching record {RecordName} from package {PackageId} version {Version}", recordName, packageId, version!);
-
-        progress.ReportMessage($"Downloading package {packageId} v{version}");
-
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
-
-        progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
-
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, version!);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
         progress.ReportMessage("Scanning assemblies for record");
-
-        packageStream.Position = 0;
-        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
         foreach (var assemblyInfo in loaded.Assemblies)
         {
@@ -77,13 +65,13 @@ public class GetRecordDefinitionTool(
                 if (recordType != null)
                 {
                     progress.ReportMessage($"Record found: {recordName}");
-                    var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
+                    var formatted = formattingService.FormatClassDefinition(recordType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
             }
         }
 

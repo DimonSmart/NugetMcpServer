@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 using NuGet.Packaging;
+using NuGetMcpServer.Extensions;
 
 namespace NuGetMcpServer.Services;
 
@@ -19,8 +20,10 @@ public record LoadedAssemblyInfo
 {
     public Assembly Assembly { get; init; } = null!;
     public Type[] Types { get; init; } = [];
-    public string AssemblyName { get; init; } = string.Empty;
-    public string FilePath { get; init; } = string.Empty;
+    /// <summary>File name of the DLL inside the package.</summary>
+    public string FileName { get; init; } = string.Empty;
+    /// <summary>Relative path of the DLL inside the NuGet package.</summary>
+    public string PackagePath { get; init; } = string.Empty;
     public byte[] AssemblyBytes { get; init; } = Array.Empty<byte>();
 }
 
@@ -31,7 +34,7 @@ public record LoadedAssemblyInfo
 public sealed record LoadedPackageAssemblies
 {
     /// <summary>The context used to resolve assemblies.</summary>
-    public InMemoryAssemblyLoadContext LoadContext { get; init; } = null!;
+    public AssemblyLoadContext AssemblyLoadContext { get; init; } = null!;
 
     /// <summary>Information for each successfully loaded assembly.</summary>
     public List<LoadedAssemblyInfo> Assemblies { get; init; } = [];
@@ -200,8 +203,8 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
                 {
                     Assembly = assembly,
                     Types = types,
-                    AssemblyName = name + ".dll",
-                    FilePath = fileMap[name],
+                    FileName = name + ".dll",
+                    PackagePath = fileMap[name],
                     AssemblyBytes = bytes
                 });
             }
@@ -209,7 +212,7 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
 
         return new LoadedPackageAssemblies
         {
-            LoadContext = loadContext,
+            AssemblyLoadContext = loadContext,
             Assemblies = result
         };
     }
@@ -247,8 +250,8 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
                 {
                     Assembly = assembly,
                     Types = types,
-                    AssemblyName = name + ".dll",
-                    FilePath = fileMap[name],
+                    FileName = name + ".dll",
+                    PackagePath = fileMap[name],
                     AssemblyBytes = bytes
                 });
             }
@@ -256,8 +259,45 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
 
         return new LoadedPackageAssemblies
         {
-            LoadContext = loadContext,
+            AssemblyLoadContext = loadContext,
             Assemblies = result
         };
+    }
+
+    /// <summary>
+    /// Resolves version, downloads the package and loads all assemblies.
+    /// Also returns parsed package information.
+    /// </summary>
+    /// <param name="packageId">NuGet package ID</param>
+    /// <param name="version">Optional package version</param>
+    /// <param name="progress">Progress reporter</param>
+    /// <returns>Tuple of loaded assemblies, package info and resolved version</returns>
+    public async Task<(LoadedPackageAssemblies Assemblies, PackageInfo PackageInfo, string Version)>
+        LoadPackageAssembliesAsync(string packageId, string? version, IProgressNotifier progress)
+    {
+        if (string.IsNullOrWhiteSpace(packageId))
+            throw new ArgumentNullException(nameof(packageId));
+
+        progress.ReportMessage("Resolving package version");
+
+        if (version.IsNullOrEmptyOrNullString())
+        {
+            version = await _packageService.GetLatestVersion(packageId);
+        }
+
+        _logger.LogInformation("Loading assemblies from package {PackageId} version {Version}",
+            packageId, version);
+
+        progress.ReportMessage($"Downloading package {packageId} v{version}");
+        using var packageStream = await _packageService.DownloadPackageAsync(packageId, version!, progress);
+
+        progress.ReportMessage("Extracting package information");
+        var packageInfo = _packageService.GetPackageInfoAsync(packageStream, packageId, version!);
+
+        progress.ReportMessage("Loading assemblies");
+        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var assemblies = await LoadAllAssembliesFromPackageAsync(packageReader);
+
+        return (assemblies, packageInfo, version!);
     }
 }

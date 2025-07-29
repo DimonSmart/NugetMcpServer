@@ -9,8 +9,6 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
-using NuGet.Packaging;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -42,48 +40,35 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        progress.ReportMessage("Resolving package version");
+        var (loaded, packageInfo, resolvedVersion) =
+            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
 
-        if (version.IsNullOrEmptyOrNullString())
-        {
-            version = await PackageService.GetLatestVersion(packageId);
-        }
-
-        Logger.LogInformation("Listing interfaces from package {PackageId} version {Version}", packageId, version!);
-
-        progress.ReportMessage($"Downloading package {packageId} v{version}");
+        Logger.LogInformation(
+            "Listing interfaces from package {PackageId} version {Version}",
+            packageId, resolvedVersion);
 
         var result = new InterfaceListResult
         {
             PackageId = packageId,
-            Version = version!,
+            Version = resolvedVersion,
             Interfaces = new List<InterfaceInfo>()
         };
-
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
-
-        progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
         result.IsMetaPackage = packageInfo.IsMetaPackage;
         result.Dependencies = packageInfo.Dependencies;
         result.Description = packageInfo.Description ?? string.Empty;
 
         progress.ReportMessage("Scanning assemblies for interfaces");
-        packageStream.Position = 0;
-        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-
-        var loaded = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
         foreach (var assemblyInfo in loaded.Assemblies)
         {
-            Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.AssemblyName);
+            Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.FileName);
 
             var interfaces = assemblyInfo.Types
                 .Where(t => t.IsInterface && t.IsPublic)
                 .ToList();
 
-            Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.AssemblyName);
+            Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.FileName);
 
             foreach (var iface in interfaces)
             {
@@ -92,7 +77,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
                 {
                     Name = iface.Name,
                     FullName = iface.FullName ?? string.Empty,
-                    AssemblyName = assemblyInfo.AssemblyName
+                    AssemblyName = assemblyInfo.FileName
                 });
             }
         }

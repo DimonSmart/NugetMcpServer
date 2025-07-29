@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using NuGet.Packaging;
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -37,36 +36,24 @@ public class ListStructsTool(ILogger<ListStructsTool> logger, NuGetPackageServic
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        progress.ReportMessage("Resolving package version");
+        var (loaded, packageInfo, resolvedVersion) =
+            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
 
-        if (version.IsNullOrEmptyOrNullString())
-            version = await PackageService.GetLatestVersion(packageId);
-
-        Logger.LogInformation("Listing structs from package {PackageId} version {Version}", packageId, version!);
-
-        progress.ReportMessage($"Downloading package {packageId} v{version}");
+        Logger.LogInformation(
+            "Listing structs from package {PackageId} version {Version}", packageId, resolvedVersion);
 
         var result = new StructListResult
         {
             PackageId = packageId,
-            Version = version!,
+            Version = resolvedVersion,
             Structs = []
         };
-
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
-
-        progress.ReportMessage("Extracting package information");
-        var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
 
         result.IsMetaPackage = packageInfo.IsMetaPackage;
         result.Dependencies = packageInfo.Dependencies;
         result.Description = packageInfo.Description ?? string.Empty;
 
         progress.ReportMessage("Scanning assemblies for structs");
-        packageStream.Position = 0;
-        using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-
-        var loaded = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
         foreach (var assemblyInfo in loaded.Assemblies)
         {
@@ -80,7 +67,7 @@ public class ListStructsTool(ILogger<ListStructsTool> logger, NuGetPackageServic
                 {
                     Name = st.Name,
                     FullName = st.FullName ?? string.Empty,
-                    AssemblyName = assemblyInfo.AssemblyName
+                    AssemblyName = assemblyInfo.FileName
                 });
             }
         }
