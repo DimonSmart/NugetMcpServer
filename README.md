@@ -110,8 +110,8 @@ The server uses the .NET Generic Host and includes:
 
 ### Class Tools
 
-- `get_class_definition(packageId, className, version?)` - Gets the C# class definition from a NuGet package. Parameters: packageId (NuGet package ID), className (short or full name), version (optional, defaults to latest)
-- `list_classes(packageId, version?)` - Lists all public classes in a NuGet package. Returns package ID, version, and the list of classes
+- `get_class_or_record_definition(packageId, typeName, version?)` - Gets the C# class or record definition from a NuGet package. Parameters: packageId (NuGet package ID), typeName (short or full name), version (optional, defaults to latest)
+- `list_classes_and_records(packageId, version?)` - Lists all public classes and records in a NuGet package. Returns package ID, version, and the list of classes/records
 
 ### Struct Tools
 

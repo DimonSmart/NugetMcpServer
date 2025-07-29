@@ -93,10 +93,10 @@ public class PopularPackagesSmokeTests : TestBase
 
             TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
 
-            var classResult = await listClassesTool.list_classes(packageId, version);
+            var classResult = await listClassesTool.list_classes_and_records(packageId, version);
             foreach (var cls in classResult.Classes)
             {
-                var def = await classDefTool.get_class_definition(packageId, cls.FullName, version);
+                var def = await classDefTool.get_class_or_record_definition(packageId, cls.FullName, version);
                 Assert.False(string.IsNullOrWhiteSpace(def));
             }
 

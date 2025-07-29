@@ -31,7 +31,7 @@ public class ListClassesToolTests : TestBase
         // Test with a known package
         var packageId = "DimonSmart.MazeGenerator";
 
-        var result = await _listTool.list_classes(packageId);
+        var result = await _listTool.list_classes_and_records(packageId);
 
         Assert.NotNull(result);
         Assert.Equal(packageId, result.PackageId);
@@ -54,7 +54,7 @@ public class ListClassesToolTests : TestBase
         var packageId = "DimonSmart.MazeGenerator";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var result = await _listTool.list_classes(packageId, version);
+        var result = await _listTool.list_classes_and_records(packageId, version);
 
         // Assert
         Assert.NotNull(result);
@@ -70,7 +70,7 @@ public class ListClassesToolTests : TestBase
     {
         // Test that the result contains modifier information
         var packageId = "DimonSmart.MazeGenerator";
-        var result = await _listTool.list_classes(packageId);
+        var result = await _listTool.list_classes_and_records(packageId);
 
         // Assert
         Assert.NotNull(result);
