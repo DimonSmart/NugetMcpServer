@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -67,11 +68,13 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
         return new MemoryStream(response);
     }
 
-    public (Assembly? assembly, Type[] types) LoadAssemblyFromMemoryWithTypes(byte[] assemblyData)
+    public (Assembly? assembly, Type[] types) LoadAssemblyFromMemoryWithTypes(byte[] assemblyData, AssemblyLoadContext? loadContext = null)
     {
         try
         {
-            var assembly = Assembly.Load(assemblyData);
+            var assembly = loadContext == null
+                ? Assembly.Load(assemblyData)
+                : loadContext.LoadFromStream(new MemoryStream(assemblyData));
 
             try
             {
@@ -95,11 +98,13 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     }
 
 
-    public Assembly? LoadAssemblyFromMemory(byte[] assemblyData)
+    public Assembly? LoadAssemblyFromMemory(byte[] assemblyData, AssemblyLoadContext? loadContext = null)
     {
         try
         {
-            return Assembly.Load(assemblyData);
+            return loadContext == null
+                ? Assembly.Load(assemblyData)
+                : loadContext.LoadFromStream(new MemoryStream(assemblyData));
         }
         catch (Exception ex)
         {

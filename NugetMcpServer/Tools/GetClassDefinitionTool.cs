@@ -79,16 +79,14 @@ public class GetClassDefinitionTool(
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var filePath in dllFiles)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
-            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            progress.ReportMessage($"Scanning {assemblyInfo.AssemblyName}: {assemblyInfo.FilePath}");
+            try
             {
-                try
-                {
-                    var classType = assemblyInfo.Types
+                var classType = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
                             if (!t.IsClass || !t.IsPublic)
@@ -134,17 +132,16 @@ public class GetClassDefinitionTool(
                             return false;
                         });
 
-                    if (classType != null)
-                    {
-                        progress.ReportMessage($"Class or record found: {typeName}");
-                        var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
-                        return metaPackageWarning + formatted;
-                    }
-                }
-                catch (Exception ex)
+                if (classType != null)
                 {
-                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
+                    progress.ReportMessage($"Class or record found: {typeName}");
+                    var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
+                    return metaPackageWarning + formatted;
                 }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             }
         }
 

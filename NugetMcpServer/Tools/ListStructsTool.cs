@@ -66,9 +66,9 @@ public class ListStructsTool(ILogger<ListStructsTool> logger, NuGetPackageServic
         packageStream.Position = 0;
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        var loadedAssemblies = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
+        var loaded = _archiveProcessingService.LoadAllAssembliesFromPackage(packageReader);
 
-        foreach (var assemblyInfo in loadedAssemblies)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
             var structs = assemblyInfo.Types
                 .Where(t => t.IsValueType && !t.IsEnum && t.IsPublic && !t.IsNested)

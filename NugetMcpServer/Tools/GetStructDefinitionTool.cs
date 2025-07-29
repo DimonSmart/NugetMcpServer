@@ -66,27 +66,24 @@ public class GetStructDefinitionTool(
         progress.ReportMessage("Scanning assemblies for struct");
 
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(packageReader);
+        var loaded = await archiveService.LoadAllAssembliesFromPackageAsync(packageReader);
 
-        foreach (var filePath in dllFiles)
+        foreach (var assemblyInfo in loaded.Assemblies)
         {
-            var assemblyInfo = await archiveService.LoadAssemblyFromPackageFileAsync(packageReader, filePath);
-            if (assemblyInfo != null)
+            progress.ReportMessage($"Scanning {assemblyInfo.AssemblyName}: {assemblyInfo.FilePath}");
+            try
             {
-                try
+                var structType = assemblyInfo.Types.FirstOrDefault(t => t.IsValueType && !t.IsEnum && (t.Name == structName || t.FullName == structName || GenericMatch(t, structName)));
+                if (structType != null)
                 {
-                    var structType = assemblyInfo.Types.FirstOrDefault(t => t.IsValueType && !t.IsEnum && (t.Name == structName || t.FullName == structName || GenericMatch(t, structName)));
-                    if (structType != null)
-                    {
-                        progress.ReportMessage($"Struct found: {structName}");
-                        var formatted = formattingService.FormatClassDefinition(structType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
-                        return metaPackageWarning + formatted;
-                    }
+                    progress.ReportMessage($"Struct found: {structName}");
+                    var formatted = formattingService.FormatClassDefinition(structType, assemblyInfo.AssemblyName, packageId, assemblyInfo.AssemblyBytes);
+                    return metaPackageWarning + formatted;
                 }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
-                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.AssemblyName);
             }
         }
 
