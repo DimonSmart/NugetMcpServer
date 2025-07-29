@@ -23,8 +23,8 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
 {
     private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
     [McpServerTool]
-    [Description("Lists all public classes available in a specified NuGet package.")]
-    public Task<ClassListResult> list_classes(
+    [Description("Lists all public classes and records available in a specified NuGet package.")]
+    public Task<ClassListResult> list_classes_and_records(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
@@ -34,7 +34,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         return ExecuteWithLoggingAsync(
             () => ListClassesCore(packageId, version, progressNotifier),
             Logger,
-            "Error listing classes");
+            "Error listing classes and records");
     }
 
 
@@ -50,7 +50,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
             version = await PackageService.GetLatestVersion(packageId);
         }
 
-        Logger.LogInformation("Listing classes from package {PackageId} version {Version}",
+        Logger.LogInformation("Listing classes and records from package {PackageId} version {Version}",
             packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
@@ -71,7 +71,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         result.Dependencies = packageInfo.Dependencies;
         result.Description = packageInfo.Description ?? string.Empty;
 
-        progress.ReportMessage("Scanning assemblies for classes");
+        progress.ReportMessage("Scanning assemblies for classes/records");
         packageStream.Position = 0;
         using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
@@ -97,7 +97,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
             }
         }
 
-        progress.ReportMessage($"Class listing completed - Found {result.Classes.Count} classes");
+        progress.ReportMessage($"Class listing completed - Found {result.Classes.Count} classes/records");
 
         return result;
     }

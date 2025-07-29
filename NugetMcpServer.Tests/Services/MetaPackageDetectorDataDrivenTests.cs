@@ -103,7 +103,7 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         }
 
         // Act
-        var result = await _listClassesTool.list_classes(packageId, version);
+        var result = await _listClassesTool.list_classes_and_records(packageId, version);
 
         // Assert
         TestOutput.WriteLine($"Package: {packageId} v{version}");
