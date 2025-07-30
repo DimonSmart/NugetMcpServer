@@ -14,8 +14,8 @@ public static class TypeFormattingHelpers
 
     public static bool IsRecordType(Type type)
     {
-        var equalityContract = type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance);
-        var printMembers = type.GetMethod("PrintMembers", BindingFlags.NonPublic | BindingFlags.Instance);
+        PropertyInfo? equalityContract = type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance);
+        MethodInfo? printMembers = type.GetMethod("PrintMembers", BindingFlags.NonPublic | BindingFlags.Instance);
         if (printMembers == null)
             return false;
 
@@ -28,16 +28,16 @@ public static class TypeFormattingHelpers
         if (!type.IsGenericType)
             return string.Empty;
 
-        var constraints = new StringBuilder();
-        var genericArgs = type.GetGenericArguments();
+        StringBuilder constraints = new StringBuilder();
+        Type[] genericArgs = type.GetGenericArguments();
 
-        foreach (var arg in genericArgs)
+        foreach (Type arg in genericArgs)
         {
             // We can only check GenericParameterAttributes for generic parameters,
             // not for concrete type arguments like in IMyClass<string>
             if (arg.IsGenericParameter)
             {
-                var argConstraints = new List<string>();
+                List<string> argConstraints = new List<string>();
 
                 // Reference type constraint
                 if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.ReferenceTypeConstraint))
@@ -50,10 +50,12 @@ public static class TypeFormattingHelpers
                 // Constructor constraint
                 if (arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.DefaultConstructorConstraint) &&
                     !arg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.NotNullableValueTypeConstraint))
+                {
                     argConstraints.Add("new()");
+                }
 
                 // Interface constraints
-                foreach (var constraint in arg.GetGenericParameterConstraints())
+                foreach (Type constraint in arg.GetGenericParameterConstraints())
                 {
                     if (constraint != typeof(ValueType)) // Skip ValueType for struct constraint
                         argConstraints.Add(FormatTypeName(constraint));
@@ -68,8 +70,8 @@ public static class TypeFormattingHelpers
     }    // Gets all properties that are not indexers
     public static IEnumerable<PropertyInfo> GetRegularProperties(Type type)
     {
-        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        foreach (var property in properties)
+        PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+        foreach (PropertyInfo property in properties)
         {
             bool isIndexer;
             try
@@ -90,8 +92,8 @@ public static class TypeFormattingHelpers
     // Gets all indexer properties
     public static IEnumerable<PropertyInfo> GetIndexerProperties(Type type)
     {
-        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        foreach (var property in properties)
+        PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+        foreach (PropertyInfo property in properties)
         {
             bool isIndexer;
             try
@@ -128,7 +130,7 @@ public static class TypeFormattingHelpers
     {
         if (method.Name.StartsWith("get_") || method.Name.StartsWith("set_"))
         {
-            var propertyName = method.Name.Substring(4); // Skip get_ or set_
+            string propertyName = method.Name.Substring(4); // Skip get_ or set_
             return processedProperties.Contains(propertyName);
         }
         return false;
@@ -140,29 +142,15 @@ public static class TypeFormattingHelpers
         return method.Name.StartsWith("add_") || method.Name.StartsWith("remove_");
     }
 
-    public static string GetMethodModifiers(MethodInfo method)
-    {
-        var modifiers = new List<string>();
-
-        if (method.IsStatic)
-            modifiers.Add("static");
-        else if (method.IsVirtual && !method.IsAbstract)
-            modifiers.Add("virtual");
-        else if (method.IsAbstract)
-            modifiers.Add("abstract");
-
-        return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : "";
-    }
-
     /// <summary>
     /// Formats property modifiers (static, virtual, abstract, etc.)
     /// </summary>
     public static string GetPropertyModifiers(PropertyInfo property)
     {
-        var modifiers = new List<string>();
+        List<string> modifiers = new List<string>();
 
-        var getter = property.GetGetMethod();
-        var setter = property.GetSetMethod();
+        MethodInfo? getter = property.GetGetMethod();
+        MethodInfo? setter = property.GetSetMethod();
 
         if (getter?.IsStatic == true || setter?.IsStatic == true)
             modifiers.Add("static");
@@ -175,12 +163,12 @@ public static class TypeFormattingHelpers
 
     public static string FormatPropertyDefinition(PropertyInfo property, bool isInterface = false)
     {
-        var sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
 
         if (!isInterface)
         {
             sb.Append("public ");
-            var modifiers = GetPropertyModifiers(property);
+            string modifiers = GetPropertyModifiers(property);
             sb.Append(modifiers);
         }
 
@@ -194,18 +182,20 @@ public static class TypeFormattingHelpers
 
         sb.Append("}");
         return sb.ToString();
-    }    // Formats an indexer definition for both interfaces and classes
+    }
+
+    // Formats an indexer definition for both interfaces and classes
     public static string FormatIndexerDefinition(PropertyInfo indexer, bool isInterface = false)
     {
-        var parameters = indexer.GetIndexParameters();
-        var paramList = string.Join(", ", parameters.Select(p => $"{FormatTypeName(p.ParameterType)} {p.Name}"));
+        ParameterInfo[] parameters = indexer.GetIndexParameters();
+        string paramList = string.Join(", ", parameters.Select(p => $"{FormatTypeName(p.ParameterType)} {p.Name}"));
 
         var sb = new StringBuilder();
 
         if (!isInterface)
         {
             sb.Append("public ");
-            var modifiers = GetPropertyModifiers(indexer);
+            string modifiers = GetPropertyModifiers(indexer);
             sb.Append(modifiers);
         }
 

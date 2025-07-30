@@ -1,5 +1,3 @@
-using NuGetMcpServer.Extensions;
-
 namespace NuGetMcpServer.Services;
 
 public class ClassInfo

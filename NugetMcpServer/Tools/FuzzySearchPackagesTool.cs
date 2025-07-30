@@ -4,13 +4,10 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -32,7 +29,7 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
             () => FuzzySearchPackagesCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
@@ -55,7 +52,7 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
         progress.ReportMessage("Direct search");
 
         // AI suggestions - filtered by stop words and duplicates
-        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
 
         progress.ReportMessage("AI search");
 
@@ -68,7 +65,7 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
         int packageCount,
         CancellationToken cancellationToken)
     {
-        var allResults = new List<string>();
+        List<string> allResults = new List<string>();
 
         try
         {
@@ -86,7 +83,7 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
                 .AsSamplingChatClient()
                 .GetResponseAsync(messages, options, cancellationToken);
 
-            var names = response.ToString()
+            IEnumerable<string> names = response.ToString()
                 .Split(["\r", "\n", ","], StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrWhiteSpace(s))
