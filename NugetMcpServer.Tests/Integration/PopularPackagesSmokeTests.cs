@@ -151,15 +151,7 @@ public class PopularPackagesSmokeTests : TestBase
 
             var attrs = typeDef.Attributes;
 
-            bool isNested = (attrs & System.Reflection.TypeAttributes.NestedFamANDAssem) != 0 ||
-                            (attrs & System.Reflection.TypeAttributes.NestedAssembly) != 0 ||
-                            (attrs & System.Reflection.TypeAttributes.NestedPrivate) != 0 ||
-                            (attrs & System.Reflection.TypeAttributes.NestedFamily) != 0 ||
-                            (attrs & System.Reflection.TypeAttributes.NestedFamORAssem) != 0 ||
-                            (attrs & System.Reflection.TypeAttributes.NestedPublic) != 0;
 
-            if (isNested)
-                continue;
 
             bool isInterface = (attrs & System.Reflection.TypeAttributes.Interface) != 0;
 
