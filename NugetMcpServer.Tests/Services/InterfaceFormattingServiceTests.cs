@@ -51,7 +51,7 @@ public class InterfaceFormattingServiceTests : TestBase
 
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# INTERFACE FROM {assemblyName} (Package: {packageName}) */", formattedCode);
-        Assert.Contains("public interface IMockGeneric<string>", formattedCode);
+        Assert.Contains("public interface InterfaceFormattingServiceTests.IMockGeneric<string>", formattedCode);
         Assert.Contains("string GetValue()", formattedCode);
         Assert.Contains("void SetValue(string value)", formattedCode);
     }
@@ -70,7 +70,7 @@ public class InterfaceFormattingServiceTests : TestBase
         TestOutput.WriteLine("=====================================================\n");
 
         Assert.NotNull(formattedCode);
-        Assert.Contains("public interface IMockGeneric<int>", formattedCode);
+        Assert.Contains("public interface InterfaceFormattingServiceTests.IMockGeneric<int>", formattedCode);
         Assert.Contains("int GetValue()", formattedCode);
         Assert.Contains("void SetValue(int value)", formattedCode);
     }
