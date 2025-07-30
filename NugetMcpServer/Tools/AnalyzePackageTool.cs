@@ -72,7 +72,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         foreach (var assemblyInfo in loaded.Assemblies)
         {
             var classes = assemblyInfo.Types
-                .Where(t => t.IsClass && t.IsPublic)
+                .Where(t => t.IsClass && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             foreach (var cls in classes)
