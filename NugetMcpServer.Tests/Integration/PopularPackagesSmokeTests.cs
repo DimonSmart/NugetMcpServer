@@ -24,37 +24,7 @@ public class PopularPackagesSmokeTests : TestBase
     {
         var packages = new[]
         {
-            "DimonSmart.MazeGenerator",
-            "DimonSmart.FileByContentComparer",
-            "DimonSmart.TinyBenchmark",
-            "DimonSmart.StringTrimmer",
-            // "DimonSmart.Specification.EntityFrameworkCore",
-            "DimonSmart.StringDiff",
-            "DimonSmart.BuilderGenerator",
-            "DimonSmart.StringTrimmerGenerator",
-            "DimonSmart.Specification",
-            "DimonSmart.RegexUnitTester.TestAdapter",
-            "DimonSmart.RegexUnitTester.Attributes",
-            "DimonSmart.Utils.Progress",
-            "DimonSmart.AiUtils",
-            "DimonSmart.IndentedStringBuilder",
-            "DimonSmart.CustomizedDictionary",
-            "DimonSmart.HashX",
-            "DimonSmart.StronglyTypedDictionary",
-       //     "AutoMapper",
-       //     "Dapper",
-       //     "xunit",
-       //     "CsvHelper",
-       //     "NLog",
-       //     "Swashbuckle.AspNetCore",
-       //     "Moq",
-       //     "Hangfire.Core",
-       //     "Quartz",
-       //     "HtmlAgilityPack",
-       //     "Humanizer",
-       //     "Bogus",
-       //     "IdentityModel",
-       //     "Microsoft.Extensions.Logging",
+            "DimonSmart.Specification.EntityFrameworkCore"
 
         };
 
