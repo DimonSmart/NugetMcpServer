@@ -20,8 +20,10 @@ public class PopularPackagesSmokeTests : TestBase
     {
         _packageService = CreateNuGetPackageService();
     }
+
     public static TheoryData<string> PopularPackages => new()
     {
+        // DimonSmart packages
         "DimonSmart.MazeGenerator",
         "DimonSmart.FileByContentComparer",
         "DimonSmart.TinyBenchmark",
@@ -38,6 +40,28 @@ public class PopularPackagesSmokeTests : TestBase
         "DimonSmart.CustomizedDictionary",
         "DimonSmart.HashX",
         "DimonSmart.StronglyTypedDictionary",
+
+        // Top 20 popular NuGet packages by downloads
+        "Newtonsoft.Json",
+        "Microsoft.Extensions.DependencyInjection",
+        "Microsoft.Extensions.Logging",
+        "System.Text.Json",
+        "Microsoft.Bcl.AsyncInterfaces",
+        "Azure.Core",
+        "System.Drawing.Common",
+        "Microsoft.Win32.SystemEvents",
+        "Serilog",
+        "Microsoft.Identity.Client",
+        "Microsoft.EntityFrameworkCore",
+        "System.Windows.Extensions",
+        "Microsoft.IdentityModel.Abstractions",
+        "Microsoft.Extensions.Http",
+        "AWSSDK.Core",
+        "System.Security.Cryptography.Pkcs",
+        "System.Diagnostics.EventLog",
+        "Castle.Core",
+        "Azure.Identity",
+        "System.Threading.Channels",
     };
 
     [Theory]
