@@ -53,7 +53,6 @@ public class PackageResultBaseTests
 
         Assert.Contains("META-PACKAGE: SomeMetaPackage v1.0.0", formatted);
         Assert.Contains("SomePackage.Core", formatted);
-        Assert.Contains("This meta-package also contains the following classes", formatted);
         Assert.Contains("MetaClass", formatted);
         Assert.DoesNotContain("To see actual classes and interfaces, please analyze one of the dependency packages", formatted);
     }
@@ -71,7 +70,6 @@ public class PackageResultBaseTests
 
         var formatted = result.Format();
 
-        Assert.Contains("Classes from Newtonsoft.Json v13.0.3", formatted);
         Assert.Contains("No public classes found in this package", formatted);
         Assert.DoesNotContain("META-PACKAGE", formatted);
     }

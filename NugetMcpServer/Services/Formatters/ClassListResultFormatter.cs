@@ -19,47 +19,29 @@ public static class ClassListResultFormatter
             return sb.ToString();
         }
 
-        if (!result.IsMetaPackage)
-        {
-            sb.AppendLine($"Classes from {result.PackageId} v{result.Version}");
-            sb.AppendLine(new string('=', $"Classes from {result.PackageId} v{result.Version}".Length));
-            sb.AppendLine();
-        }
-
-        if (result.Classes.Count == 0)
+        if (!result.IsMetaPackage && result.Classes.Count == 0)
         {
             sb.AppendLine("No public classes found in this package.");
             return sb.ToString();
         }
 
-        if (result.IsMetaPackage && result.Classes.Count > 0)
+        var prefix = result.PackageId + ".";
+
+        foreach (var cls in result.Classes.OrderBy(c => c.FullName))
         {
-            sb.AppendLine("This meta-package also contains the following classes:");
-            sb.AppendLine();
-        }
+            var formattedName = cls.FullName.FormatGenericTypeName();
+            if (formattedName.StartsWith(prefix))
+                formattedName = formattedName.Substring(prefix.Length);
 
-        var groupedClasses = result.Classes
-            .GroupBy(c => c.AssemblyName)
-            .OrderBy(g => g.Key);
+            sb.Append("public ");
+            if (cls.IsStatic)
+                sb.Append("static ");
+            else if (cls.IsAbstract)
+                sb.Append("abstract ");
+            else if (cls.IsSealed)
+                sb.Append("sealed ");
 
-        foreach (var group in groupedClasses)
-        {
-            sb.AppendLine($"## {group.Key}");
-
-            foreach (var cls in group.OrderBy(c => c.FullName))
-            {
-                var formattedName = cls.FullName.FormatGenericTypeName();
-                var modifiers = new List<string>();
-
-                if (cls.IsStatic) modifiers.Add("static");
-                if (cls.IsAbstract) modifiers.Add("abstract");
-                if (cls.IsSealed) modifiers.Add("sealed");
-
-                var modifierString = modifiers.Count > 0 ? $" ({string.Join(", ", modifiers)})" : "";
-                sb.AppendLine($"- {formattedName}{modifierString}");
-            }
-
-            sb.AppendLine();
+            sb.AppendLine($"class {formattedName}");
         }
 
         return sb.ToString();
