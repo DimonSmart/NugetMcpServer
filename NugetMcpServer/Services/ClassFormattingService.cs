@@ -113,6 +113,12 @@ public class ClassFormattingService
 
         AddNestedDelegates(sb, classType);
 
+        if (sb.Length >= Environment.NewLine.Length &&
+            sb.ToString(sb.Length - Environment.NewLine.Length, Environment.NewLine.Length) == Environment.NewLine)
+        {
+            sb.Length -= Environment.NewLine.Length;
+        }
+
         sb.AppendLine("}");
         return sb.ToString();
     }
