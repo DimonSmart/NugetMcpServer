@@ -11,87 +11,90 @@ namespace NuGetMcpServer.Tests.Integration;
 
 public class PopularPackagesSmokeTests : TestBase
 {
-    private readonly NuGetPackageService _packageService;
-
     public PopularPackagesSmokeTests(ITestOutputHelper output) : base(output)
     {
-        _packageService = CreateNuGetPackageService();
     }
 
-    [Fact]
-    public async Task LoadPopularPackages_NoErrors()
+    public static TheoryData<string> PopularPackages => new()
     {
-        var packages = new[]
+        "Newtonsoft.Json",
+        "Serilog",
+        "Autofac",
+        "AutoMapper",
+        "Dapper",
+        "FluentValidation",
+        "Polly",
+        "NUnit",
+        "MediatR",
+        "xunit",
+        "CsvHelper",
+        "RestSharp",
+        "NLog",
+        "Swashbuckle.AspNetCore",
+        "Moq",
+        "MassTransit",
+        "Hangfire.Core",
+        "Quartz",
+        "HtmlAgilityPack",
+        "Humanizer",
+        "Bogus",
+        "IdentityModel",
+        "Azure.Core",
+        "MongoDB.Driver",
+        "Grpc.Net.Client",
+        "Microsoft.Extensions.Logging",
+        "Microsoft.EntityFrameworkCore",
+        "System.Text.Json",
+        "Microsoft.Extensions.Configuration",
+        "Microsoft.Extensions.Http"
+    };
+
+    [Theory]
+    [MemberData(nameof(PopularPackages))]
+    public async Task LoadPopularPackages_NoErrors(string packageId)
+    {
+        var packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
+        var packageService = new NuGetPackageService(packageLogger, HttpClient, CreateMetaPackageDetector());
+
+        var version = await packageService.GetLatestVersion(packageId);
+        await using var stream = await packageService.DownloadPackageAsync(packageId, version);
+        using var reader = new PackageArchiveReader(stream, leaveStreamOpen: true);
+
+        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(reader);
+
+        var classNames = new List<string>();
+        var interfaceNames = new List<string>();
+        var enumNames = new List<string>();
+
+        foreach (var file in dllFiles)
         {
-            "Newtonsoft.Json",
-            "Serilog",
-            "Autofac",
-            "AutoMapper",
-            "Dapper",
-            "FluentValidation",
-            "Polly",
-            "NUnit",
-            "MediatR",
-            "xunit",
-            "CsvHelper",
-            "RestSharp",
-            "NLog",
-            "Swashbuckle.AspNetCore",
-            "Moq",
-            "MassTransit",
-            "Hangfire.Core",
-            "Quartz",
-            "HtmlAgilityPack",
-            "Humanizer",
-            "Bogus",
-            "IdentityModel",
-            "Azure.Core",
-            "MongoDB.Driver",
-            "Grpc.Net.Client",
-            "Microsoft.Extensions.Logging",
-            "Microsoft.EntityFrameworkCore",
-            "System.Text.Json",
-            "Microsoft.Extensions.Configuration",
-            "Microsoft.Extensions.Http"
-        };
+            using var dllStream = reader.GetStream(file);
+            using var msDll = new MemoryStream();
+            dllStream.CopyTo(msDll);
 
-        foreach (var packageId in packages)
-        {
-            var version = await _packageService.GetLatestVersion(packageId);
-            await using var stream = await _packageService.DownloadPackageAsync(packageId, version);
-            using var reader = new PackageArchiveReader(stream, leaveStreamOpen: true);
-
-            var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(reader);
-
-            int classCount = 0;
-            int interfaceCount = 0;
-            int enumCount = 0;
-
-            foreach (var file in dllFiles)
-            {
-                using var dllStream = reader.GetStream(file);
-                using var msDll = new MemoryStream();
-                dllStream.CopyTo(msDll);
-
-                var (c, i, e) = CountTypes(msDll.ToArray());
-                classCount += c;
-                interfaceCount += i;
-                enumCount += e;
-            }
-
-            TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
+            var (classes, interfaces, enums) = GetTypeNames(msDll.ToArray());
+            classNames.AddRange(classes);
+            interfaceNames.AddRange(interfaces);
+            enumNames.AddRange(enums);
         }
+
+        TestOutput.WriteLine($"{packageId} v{version}");
+        TestOutput.WriteLine($"Classes ({classNames.Count}): {string.Join(", ", classNames)}");
+        TestOutput.WriteLine($"Interfaces ({interfaceNames.Count}): {string.Join(", ", interfaceNames)}");
+        TestOutput.WriteLine($"Enums ({enumNames.Count}): {string.Join(", ", enumNames)}");
+
+        Assert.DoesNotContain(packageLogger.Entries, e => e.Exception != null);
     }
 
-    private static (int classes, int interfaces, int enums) CountTypes(byte[] assemblyData)
+    private static (List<string> classes, List<string> interfaces, List<string> enums) GetTypeNames(byte[] assemblyData)
     {
         using var ms = new MemoryStream(assemblyData);
         using var peReader = new PEReader(ms);
         var reader = peReader.GetMetadataReader();
 
-        int classCount = 0;
-        int interfaceCount = 0;
-        int enumCount = 0;
+        var classes = new List<string>();
+        var interfaces = new List<string>();
+        var enums = new List<string>();
 
         foreach (var handle in reader.TypeDefinitions)
         {
@@ -134,14 +137,18 @@ public class PopularPackagesSmokeTests : TestBase
                     isEnum = true;
             }
 
+            var name = reader.GetString(typeDef.Name);
+            var ns = reader.GetString(typeDef.Namespace);
+            var fullName = string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+
             if (isInterface)
-                interfaceCount++;
+                interfaces.Add(fullName);
             else if (isEnum)
-                enumCount++;
+                enums.Add(fullName);
             else
-                classCount++;
+                classes.Add(fullName);
         }
 
-        return (classCount, interfaceCount, enumCount);
+        return (classes, interfaces, enums);
     }
 }

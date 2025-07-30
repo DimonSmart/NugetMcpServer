@@ -9,6 +9,9 @@ public class TestLogger<T>(ITestOutputHelper output) : ILogger<T>
 {
     private readonly ITestOutputHelper _output = output;
 
+    public record LogEntry(LogLevel Level, string Message, Exception? Exception);
+    public List<LogEntry> Entries { get; } = new();
+
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull
     {
         return null;
@@ -21,7 +24,10 @@ public class TestLogger<T>(ITestOutputHelper output) : ILogger<T>
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        _output.WriteLine($"[{logLevel}] {formatter(state, exception)}");
+        var message = formatter(state, exception);
+        Entries.Add(new LogEntry(logLevel, message, exception));
+
+        _output.WriteLine($"[{logLevel}] {message}");
 
         if (exception != null)
         {
