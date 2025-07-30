@@ -90,38 +90,46 @@ public class PopularPackagesSmokeTests : TestBase
         TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
 
         var classResult = await listClassesTool.list_classes_and_records(packageId, version);
+        TestOutput.WriteLine("list_classes_and_records =>");
         TestOutput.WriteLine(classResult.Format());
         foreach (var cls in classResult.Classes)
         {
             var def = await classDefTool.get_class_or_record_definition(packageId, cls.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine($"get_class_or_record_definition({cls.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
         var interfaceResult = await listInterfacesTool.list_interfaces(packageId, version);
+        TestOutput.WriteLine("list_interfaces =>");
         TestOutput.WriteLine(interfaceResult.Format());
         foreach (var iface in interfaceResult.Interfaces)
         {
             var def = await interfaceDefTool.get_interface_definition(packageId, iface.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine($"get_interface_definition({iface.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
         var structResult = await listStructsTool.list_structs(packageId, version);
+        TestOutput.WriteLine("list_structs =>");
         TestOutput.WriteLine(structResult.Format());
         foreach (var st in structResult.Structs)
         {
             var def = await structDefTool.get_struct_definition(packageId, st.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine($"get_struct_definition({st.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
         var recordResult = await listRecordsTool.list_records(packageId, version);
+        TestOutput.WriteLine("list_records =>");
         TestOutput.WriteLine(recordResult.Format());
         foreach (var rec in recordResult.Records)
         {
             var def = await recordDefTool.get_record_definition(packageId, rec.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine($"get_record_definition({rec.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
