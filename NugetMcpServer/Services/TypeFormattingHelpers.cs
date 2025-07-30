@@ -69,14 +69,44 @@ public static class TypeFormattingHelpers
     public static IEnumerable<PropertyInfo> GetRegularProperties(Type type)
     {
         var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        return properties.Where(p => p.GetIndexParameters().Length == 0);
+        foreach (var property in properties)
+        {
+            bool isIndexer;
+            try
+            {
+                isIndexer = property.GetIndexParameters().Length > 0;
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip property if index parameters can't be resolved
+                continue;
+            }
+
+            if (!isIndexer)
+                yield return property;
+        }
     }
 
     // Gets all indexer properties
     public static IEnumerable<PropertyInfo> GetIndexerProperties(Type type)
     {
         var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        return properties.Where(p => p.GetIndexParameters().Length > 0);
+        foreach (var property in properties)
+        {
+            bool isIndexer;
+            try
+            {
+                isIndexer = property.GetIndexParameters().Length > 0;
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip property if index parameters can't be resolved
+                continue;
+            }
+
+            if (isIndexer)
+                yield return property;
+        }
     }
 
     // Gets all public fields that are constants

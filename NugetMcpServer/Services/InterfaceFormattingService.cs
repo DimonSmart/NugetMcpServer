@@ -18,9 +18,16 @@ public class InterfaceFormattingService
 
         if (interfaceType.IsGenericType)
         {
-            var constraints = TypeFormattingHelpers.GetGenericConstraints(interfaceType);
-            if (!string.IsNullOrEmpty(constraints))
-                sb.Append(constraints);
+            try
+            {
+                var constraints = TypeFormattingHelpers.GetGenericConstraints(interfaceType);
+                if (!string.IsNullOrEmpty(constraints))
+                    sb.Append(constraints);
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip generic constraints if referenced assemblies are missing
+            }
         }
         sb.AppendLine().AppendLine("{");
 
@@ -29,15 +36,29 @@ public class InterfaceFormattingService
 
         foreach (var prop in properties)
         {
-            processedProperties.Add(prop.Name);
-            sb.AppendLine($"    {TypeFormattingHelpers.FormatPropertyDefinition(prop, isInterface: true)}");
+            try
+            {
+                processedProperties.Add(prop.Name);
+                sb.AppendLine($"    {TypeFormattingHelpers.FormatPropertyDefinition(prop, isInterface: true)}");
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip properties that reference missing assemblies
+            }
         }
 
         var indexers = TypeFormattingHelpers.GetIndexerProperties(interfaceType);
         foreach (var indexer in indexers)
         {
-            processedProperties.Add(indexer.Name);
-            sb.AppendLine($"    {TypeFormattingHelpers.FormatIndexerDefinition(indexer, isInterface: true)}");
+            try
+            {
+                processedProperties.Add(indexer.Name);
+                sb.AppendLine($"    {TypeFormattingHelpers.FormatIndexerDefinition(indexer, isInterface: true)}");
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip indexers that reference missing assemblies
+            }
         }
 
         foreach (var method in interfaceType.GetMethods())
@@ -45,10 +66,17 @@ public class InterfaceFormattingService
             if (TypeFormattingHelpers.IsPropertyAccessor(method, processedProperties))
                 continue;
 
-            var parameters = string.Join(", ",
-                method.GetParameters().Select(p => $"{TypeFormattingHelpers.FormatTypeName(p.ParameterType)} {p.Name}"));
+            try
+            {
+                var parameters = string.Join(", ",
+                    method.GetParameters().Select(p => $"{TypeFormattingHelpers.FormatTypeName(p.ParameterType)} {p.Name}"));
 
-            sb.AppendLine($"    {TypeFormattingHelpers.FormatTypeName(method.ReturnType)} {method.Name}({parameters});");
+                sb.AppendLine($"    {TypeFormattingHelpers.FormatTypeName(method.ReturnType)} {method.Name}({parameters});");
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Skip methods that reference missing assemblies
+            }
         }
         sb.AppendLine("}");
         return sb.ToString();
