@@ -2,6 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Collections.Immutable;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.IO;
 
@@ -39,7 +43,14 @@ public class ClassFormattingService
                 var metaType = asm.GetType(classType.FullName ?? classType.Name);
                 if (metaType != null)
                 {
-                    return FormatClassDefinitionInternal(metaType, assemblyName, packageName);
+                    try
+                    {
+                        return FormatClassDefinitionInternal(metaType, assemblyName, packageName, assemblyBytes);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        // Missing referenced assembly - fall back to loaded type
+                    }
                 }
             }
             catch
@@ -48,10 +59,10 @@ public class ClassFormattingService
             }
         }
 
-        return FormatClassDefinitionInternal(classType, assemblyName, packageName);
+        return FormatClassDefinitionInternal(classType, assemblyName, packageName, assemblyBytes);
     }
 
-    private static string FormatClassDefinitionInternal(Type classType, string assemblyName, string packageName)
+    private static string FormatClassDefinitionInternal(Type classType, string assemblyName, string packageName, byte[]? assemblyBytes)
     {
         var header = $"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */";
 
@@ -98,7 +109,7 @@ public class ClassFormattingService
 
         AddEvents(sb, classType);
 
-        AddMethods(sb, classType, processedProperties);
+        AddMethods(sb, classType, processedProperties, assemblyBytes);
 
         AddNestedDelegates(sb, classType);
 
@@ -170,7 +181,7 @@ public class ClassFormattingService
             sb.AppendLine();
     }
 
-    private static void AddMethods(StringBuilder sb, Type classType, HashSet<string> processedProperties)
+    private static void AddMethods(StringBuilder sb, Type classType, HashSet<string> processedProperties, byte[]? assemblyBytes)
     {
         var methods = classType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
             .Where(m => !TypeFormattingHelpers.IsPropertyAccessor(m, processedProperties) &&
@@ -180,15 +191,165 @@ public class ClassFormattingService
 
         foreach (var method in methods)
         {
-            var parameters = string.Join(", ",
-                method.GetParameters().Select(p => $"{TypeFormattingHelpers.FormatTypeName(p.ParameterType)} {p.Name}"));
-
-            var modifiers = TypeFormattingHelpers.GetMethodModifiers(method);
-            sb.AppendLine($"    public {modifiers}{TypeFormattingHelpers.FormatTypeName(method.ReturnType)} {method.Name}({parameters});");
+            var signature = FormatMethod(method, assemblyBytes);
+            sb.AppendLine($"    {signature}");
         }
 
         if (methods.Any())
             sb.AppendLine();
+    }
+
+    private static string FormatMethod(MethodInfo method, byte[]? assemblyBytes)
+    {
+        assemblyBytes ??= TryReadAssemblyBytes(method.Module.FullyQualifiedName);
+        if (assemblyBytes == null || !TryFormatMethodFromMetadata(method, assemblyBytes, out var signature))
+            throw new InvalidOperationException($"Unable to format method {method.Name} using metadata");
+
+        return signature;
+    }
+
+    private static byte[]? TryReadAssemblyBytes(string? path)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                return File.ReadAllBytes(path);
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return null;
+    }
+
+    private static bool TryFormatMethodFromMetadata(MethodInfo method, byte[] assemblyBytes, out string signature)
+    {
+        signature = string.Empty;
+
+        try
+        {
+            using var ms = new MemoryStream(assemblyBytes);
+            using var peReader = new PEReader(ms);
+            var reader = peReader.GetMetadataReader();
+
+            var handle = MetadataTokens.MethodDefinitionHandle(method.MetadataToken);
+            var methodDef = reader.GetMethodDefinition(handle);
+
+            var provider = new MetadataTypeNameProvider(reader);
+            object? context = null;
+            if (method.DeclaringType?.IsGenericType == true && !method.DeclaringType.IsGenericTypeDefinition)
+            {
+                context = method.DeclaringType.GetGenericArguments();
+            }
+            var sig = methodDef.DecodeSignature(provider, context);
+
+            var returnType = sig.ReturnType;
+
+            var paramHandles = methodDef.GetParameters();
+            var paramTypes = sig.ParameterTypes.ToArray();
+            var paramNames = new List<string>();
+            foreach (var ph in paramHandles)
+            {
+                var param = reader.GetParameter(ph);
+                if (param.SequenceNumber == 0)
+                    continue; // skip return
+                paramNames.Add(reader.GetString(param.Name));
+            }
+
+            var parameters = new List<string>();
+            for (int i = 0; i < paramNames.Count && i < paramTypes.Length; i++)
+            {
+                parameters.Add($"{paramTypes[i]} {paramNames[i]}");
+            }
+
+            var modifiers = GetMethodModifiersFromAttributes(methodDef.Attributes);
+            signature = $"public {modifiers}{returnType} {reader.GetString(methodDef.Name)}({string.Join(", ", parameters)});";
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string GetMethodModifiersFromAttributes(MethodAttributes attributes)
+    {
+        var modifiers = new List<string>();
+        if (attributes.HasFlag(MethodAttributes.Static))
+            modifiers.Add("static");
+        else if (attributes.HasFlag(MethodAttributes.Virtual) && !attributes.HasFlag(MethodAttributes.Abstract))
+            modifiers.Add("virtual");
+        else if (attributes.HasFlag(MethodAttributes.Abstract))
+            modifiers.Add("abstract");
+
+        return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : string.Empty;
+    }
+
+    private sealed class MetadataTypeNameProvider : ISignatureTypeProvider<string, object?>
+    {
+        private readonly MetadataReader _reader;
+
+        public MetadataTypeNameProvider(MetadataReader reader)
+        {
+            _reader = reader;
+        }
+
+        public string GetArrayType(string elementType, ArrayShape shape) => elementType + "[]";
+        public string GetByReferenceType(string elementType) => elementType + "&";
+        public string GetFunctionPointerType(MethodSignature<string> signature) => "nint";
+        public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) => $"{genericType}<{string.Join(", ", typeArguments)}>";
+        public string GetGenericMethodParameter(object? genericContext, int index) => $"T{index}";
+        public string GetGenericTypeParameter(object? genericContext, int index)
+        {
+            if (genericContext is Type[] args && index < args.Length)
+                return TypeFormattingHelpers.FormatTypeName(args[index]);
+            return $"T{index}";
+        }
+        public string GetModifiedType(string modifierType, string unmodifiedType, bool isRequired) => unmodifiedType;
+        public string GetPinnedType(string elementType) => elementType;
+        public string GetPointerType(string elementType) => elementType + "*";
+        public string GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
+        {
+            PrimitiveTypeCode.Boolean => "bool",
+            PrimitiveTypeCode.Byte => "byte",
+            PrimitiveTypeCode.Char => "char",
+            PrimitiveTypeCode.Double => "double",
+            PrimitiveTypeCode.Int16 => "short",
+            PrimitiveTypeCode.Int32 => "int",
+            PrimitiveTypeCode.Int64 => "long",
+            PrimitiveTypeCode.IntPtr => "nint",
+            PrimitiveTypeCode.Object => "object",
+            PrimitiveTypeCode.SByte => "sbyte",
+            PrimitiveTypeCode.Single => "float",
+            PrimitiveTypeCode.String => "string",
+            PrimitiveTypeCode.UInt16 => "ushort",
+            PrimitiveTypeCode.UInt32 => "uint",
+            PrimitiveTypeCode.UInt64 => "ulong",
+            PrimitiveTypeCode.UIntPtr => "nuint",
+            PrimitiveTypeCode.Void => "void",
+            _ => typeCode.ToString().ToLowerInvariant()
+        };
+        public string GetSZArrayType(string elementType) => elementType + "[]";
+        public string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
+        {
+            var def = reader.GetTypeDefinition(handle);
+            var name = reader.GetString(def.Name);
+            var ns = reader.GetString(def.Namespace);
+            return string.IsNullOrEmpty(ns) ? name : ns + "." + name;
+        }
+        public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
+        {
+            var tr = reader.GetTypeReference(handle);
+            var name = reader.GetString(tr.Name);
+            var ns = reader.GetString(tr.Namespace);
+            return string.IsNullOrEmpty(ns) ? name : ns + "." + name;
+        }
+        public string GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
+        {
+            var ts = reader.GetTypeSpecification(handle);
+            return ts.DecodeSignature(this, genericContext);
+        }
     }
 
     private static void AddNestedDelegates(StringBuilder sb, Type classType)
