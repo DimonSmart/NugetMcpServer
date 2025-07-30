@@ -1,18 +1,14 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.IO;
-
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
-
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 
 namespace NuGetMcpServer.Tools;
@@ -32,7 +28,7 @@ public class GetClassDefinitionTool(
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
             () => GetClassOrRecordDefinitionCore(packageId, typeName, version, progressNotifier),
             Logger,
@@ -57,23 +53,23 @@ public class GetClassDefinitionTool(
 
         progress.ReportMessage("Resolving package version");
 
-        var (loaded, packageInfo, resolvedVersion) =
+        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
             await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation(
             "Fetching class or record {ClassName} from package {PackageId} version {Version}",
             typeName, packageId, resolvedVersion);
 
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
         progress.ReportMessage("Scanning assemblies for class/record");
 
-        foreach (var assemblyInfo in loaded.Assemblies)
+        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
             try
             {
-                var classType = assemblyInfo.Types
+                Type? classType = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
                             if (!t.IsClass || !(t.IsPublic || t.IsNestedPublic))
@@ -96,10 +92,10 @@ public class GetClassDefinitionTool(
                                 return false;
                             }
 
-                            var backtickIndex = t.Name.IndexOf('`');
+                            int backtickIndex = t.Name.IndexOf('`');
                             if (backtickIndex > 0)
                             {
-                                var baseName = t.Name.Substring(0, backtickIndex);
+                                string baseName = t.Name.Substring(0, backtickIndex);
                                 if (baseName == typeName)
                                 {
                                     return true;
@@ -108,10 +104,10 @@ public class GetClassDefinitionTool(
 
                             if (t.FullName != null)
                             {
-                                var fullBacktickIndex = t.FullName.IndexOf('`');
+                                int fullBacktickIndex = t.FullName.IndexOf('`');
                                 if (fullBacktickIndex > 0)
                                 {
-                                    var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
+                                    string fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
                                     return fullBaseName == typeName;
                                 }
                             }
@@ -122,7 +118,7 @@ public class GetClassDefinitionTool(
                 if (classType != null)
                 {
                     progress.ReportMessage($"Class or record found: {typeName}");
-                    var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
+                    string formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
             }

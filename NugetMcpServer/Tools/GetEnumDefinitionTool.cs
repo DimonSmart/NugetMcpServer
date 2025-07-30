@@ -2,16 +2,12 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
-
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 
 namespace NuGetMcpServer.Tools;
@@ -31,7 +27,7 @@ public class GetEnumDefinitionTool(
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
             () => GetEnumDefinitionCore(packageId, enumName, version, progressNotifier),
             Logger,
@@ -55,21 +51,21 @@ public class GetEnumDefinitionTool(
 
         progress.ReportMessage("Resolving package version");
 
-        var (loaded, packageInfo, resolvedVersion) =
+        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
             await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation(
             "Fetching enum {EnumName} from package {PackageId} version {Version}",
             enumName, packageId, resolvedVersion);
 
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
         progress.ReportMessage("Scanning assemblies for enum");
 
-        foreach (var assemblyInfo in loaded.Assemblies)
+        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
-            var definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
+            string? definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
             if (definition != null)
             {
                 progress.ReportMessage($"Enum found: {enumName}");
@@ -84,15 +80,10 @@ public class GetEnumDefinitionTool(
     {
         try
         {
-            var enumType = assemblyInfo.Types
+            Type? enumType = assemblyInfo.Types
                 .FirstOrDefault(t => t.IsEnum && (t.Name == enumName || t.FullName == enumName));
 
-            if (enumType == null)
-            {
-                return null;
-            }
-
-            return formattingService.FormatEnumDefinition(enumType, assemblyInfo.FileName, packageId);
+            return enumType == null ? null : formattingService.FormatEnumDefinition(enumType, assemblyInfo.FileName, packageId);
         }
         catch (Exception ex)
         {

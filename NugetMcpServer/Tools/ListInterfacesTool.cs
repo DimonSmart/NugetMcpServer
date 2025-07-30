@@ -28,7 +28,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new(progress);
         return ExecuteWithLoggingAsync(
             () => ListInterfacesCore(packageId, version, progressNotifier),
             Logger,
@@ -40,14 +40,14 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        var (loaded, packageInfo, resolvedVersion) =
+        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
             await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation(
             "Listing interfaces from package {PackageId} version {Version}",
             packageId, resolvedVersion);
 
-        var result = new InterfaceListResult
+        InterfaceListResult result = new()
         {
             PackageId = packageId,
             Version = resolvedVersion,
@@ -60,17 +60,17 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
 
         progress.ReportMessage("Scanning assemblies for interfaces");
 
-        foreach (var assemblyInfo in loaded.Assemblies)
+        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
             Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.FileName);
 
-            var interfaces = assemblyInfo.Types
+            List<Type> interfaces = assemblyInfo.Types
                 .Where(t => t.IsInterface && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.FileName);
 
-            foreach (var iface in interfaces)
+            foreach (Type? iface in interfaces)
             {
                 Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
                 result.Interfaces.Add(new InterfaceInfo

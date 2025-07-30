@@ -4,14 +4,10 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
 using NuGet.Packaging;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Models;
@@ -34,7 +30,7 @@ public class AnalyzePackageStructureTool(
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
             () => AnalyzePackageStructureCore(packageId, version, progressNotifier),
             Logger,
@@ -63,11 +59,11 @@ public class AnalyzePackageStructureTool(
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
 
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
+        using MemoryStream packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
 
         progress.ReportMessage("Analyzing package structure");
 
-        var analysis = AnalyzePackage(packageStream);
+        PackageAnalysisResult analysis = AnalyzePackage(packageStream);
         analysis.PackageId = packageId;
         analysis.Version = version!;
 
@@ -79,13 +75,13 @@ public class AnalyzePackageStructureTool(
     private PackageAnalysisResult AnalyzePackage(Stream packageStream)
     {
         packageStream.Position = 0;
-        using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        using PackageArchiveReader reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
 
-        var nuspecData = AnalyzeNuspec(reader);
-        var libFiles = AnalyzeLibContent(reader);
+        (string Description, bool HasDependencyPackageType, List<PackageDependency> Dependencies) nuspecData = AnalyzeNuspec(reader);
+        List<string> libFiles = AnalyzeLibContent(reader);
 
         packageStream.Position = 0;
-        var isMetaPackage = metaPackageDetector.IsMetaPackage(packageStream);
+        bool isMetaPackage = metaPackageDetector.IsMetaPackage(packageStream);
 
         return new PackageAnalysisResult
         {
@@ -120,9 +116,9 @@ public class AnalyzePackageStructureTool(
         var dependencies = new List<PackageDependency>();
         var dependencyGroups = nuspecReader.GetDependencyGroups();
 
-        foreach (var group in dependencyGroups)
+        foreach (PackageDependencyGroup? group in dependencyGroups)
         {
-            foreach (var dep in group.Packages)
+            foreach (NuGet.Packaging.Core.PackageDependency? dep in group.Packages)
             {
                 dependencies.Add(new PackageDependency
                 {
@@ -138,7 +134,7 @@ public class AnalyzePackageStructureTool(
 
     private static List<string> AnalyzeLibContent(PackageArchiveReader reader)
     {
-        var files = reader.GetFiles();
+        IEnumerable<string> files = reader.GetFiles();
         return files
             .Where(f => f.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
             .Where(f => !f.EndsWith("/"))
@@ -157,19 +153,19 @@ public class AnalyzePackageStructureTool(
 
     private string FormatMetaPackageResult(PackageAnalysisResult analysis)
     {
-        var result = $"PACKAGE_TYPE: META_PACKAGE\n";
+        string result = $"PACKAGE_TYPE: META_PACKAGE\n";
         result += $"PACKAGE_ID: {analysis.PackageId}\n";
         result += $"VERSION: {analysis.Version}\n";
         result += $"DESCRIPTION: {analysis.Description}\n\n";
 
         result += "DEPENDENCIES:\n";
-        var uniqueDeps = analysis.Dependencies
+        List<PackageDependency> uniqueDeps = analysis.Dependencies
             .GroupBy(d => d.Id)
             .Select(g => g.First())
             .OrderBy(d => d.Id)
             .ToList();
 
-        foreach (var dep in uniqueDeps)
+        foreach (PackageDependency? dep in uniqueDeps)
         {
             result += $"  {dep.Id}|{dep.Version}|{dep.TargetFramework}\n";
         }
@@ -181,7 +177,7 @@ public class AnalyzePackageStructureTool(
 
     private string FormatRegularPackageResult(PackageAnalysisResult analysis)
     {
-        var result = $"PACKAGE_TYPE: REGULAR_PACKAGE\n";
+        string result = $"PACKAGE_TYPE: REGULAR_PACKAGE\n";
         result += $"PACKAGE_ID: {analysis.PackageId}\n";
         result += $"VERSION: {analysis.Version}\n";
         result += $"DESCRIPTION: {analysis.Description}\n\n";
@@ -190,7 +186,7 @@ public class AnalyzePackageStructureTool(
         if (analysis.LibFiles.Any())
         {
             result += "LIB_FILES:\n";
-            foreach (var file in analysis.LibFiles.Take(10))
+            foreach (string? file in analysis.LibFiles.Take(10))
             {
                 result += $"  {file}\n";
             }
@@ -201,14 +197,14 @@ public class AnalyzePackageStructureTool(
             result += $"\nDEPENDENCIES_COUNT: {analysis.Dependencies.Count}\n";
             result += "DEPENDENCIES:\n";
 
-            var uniqueDeps = analysis.Dependencies
+            List<PackageDependency> uniqueDeps = analysis.Dependencies
                 .GroupBy(d => d.Id)
                 .Select(g => g.First())
                 .OrderBy(d => d.Id)
                 .Take(100)
                 .ToList();
 
-            foreach (var dep in uniqueDeps)
+            foreach (PackageDependency? dep in uniqueDeps)
             {
                 result += $"  - {dep.Id} ({dep.Version})\n";
             }
@@ -226,21 +222,22 @@ public class AnalyzePackageStructureTool(
 
     private string GenerateSmartRecommendations(PackageAnalysisResult analysis)
     {
-        var recommendations = new List<string>();
-
-        recommendations.Add("This package contains actual implementations. Use class/interface listing tools.");
+        var recommendations = new List<string>
+        {
+            "This package contains actual implementations. Use class/interface listing tools."
+        };
 
         if (!analysis.Dependencies.Any())
         {
             return string.Join(" ", recommendations);
         }
 
-        var packageNameParts = analysis.PackageId.Split('.');
+        string[] packageNameParts = analysis.PackageId.Split('.');
         if (packageNameParts.Length >= 2)
         {
-            var packagePrefix = string.Join(".", packageNameParts.Take(2));
+            string packagePrefix = string.Join(".", packageNameParts.Take(2));
 
-            var relatedDependencies = analysis.Dependencies
+            List<string> relatedDependencies = analysis.Dependencies
                 .Where(d => d.Id.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase) &&
                            !string.Equals(d.Id, analysis.PackageId, StringComparison.OrdinalIgnoreCase))
                 .Select(d => d.Id)

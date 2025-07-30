@@ -169,53 +169,7 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
 
         return 10; // Low priority for completely unknown frameworks
     }
-
-    /// <summary>
-    /// Loads all assemblies from unique DLL files in the package.
-    /// </summary>
-    /// <param name="packageReader">The PackageArchiveReader to read files from</param>
-    /// <returns>Container with loaded assemblies and the context used to load them</returns>
-    public LoadedPackageAssemblies LoadAllAssembliesFromPackage(PackageArchiveReader packageReader)
-    {
-        var dllFiles = GetUniqueAssemblyFiles(packageReader);
-        var assemblies = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        var fileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var filePath in dllFiles)
-        {
-            using var stream = packageReader.GetStream(filePath);
-            using var ms = new MemoryStream();
-            stream.CopyTo(ms);
-            var name = Path.GetFileNameWithoutExtension(filePath);
-            assemblies[name] = ms.ToArray();
-            fileMap[name] = filePath;
-        }
-
-        var loadContext = new InMemoryAssemblyLoadContext(assemblies);
-        var result = new List<LoadedAssemblyInfo>();
-
-        foreach (var (name, bytes) in assemblies)
-        {
-            var (assembly, types) = _packageService.LoadAssemblyFromMemoryWithTypes(bytes, loadContext);
-            if (assembly != null)
-            {
-                result.Add(new LoadedAssemblyInfo
-                {
-                    Assembly = assembly,
-                    Types = types,
-                    FileName = name + ".dll",
-                    PackagePath = fileMap[name],
-                    AssemblyBytes = bytes
-                });
-            }
-        }
-
-        return new LoadedPackageAssemblies
-        {
-            AssemblyLoadContext = loadContext,
-            Assemblies = result
-        };
-    }
+   
 
     /// <summary>
     /// Asynchronously loads all assemblies from unique DLL files in the package.

@@ -2,12 +2,9 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
@@ -28,7 +25,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
-        using var progressNotifier = new ProgressNotifier(progress);
+        using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
             () => AnalyzePackageCore(packageId, version, progressNotifier),
@@ -41,7 +38,7 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        var (loaded, packageInfo, resolvedVersion) =
+        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
             await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation("Analyzing package {PackageId} version {Version}", packageId, resolvedVersion);
@@ -63,19 +60,19 @@ public class AnalyzePackageTool(ILogger<AnalyzePackageTool> logger, NuGetPackage
 
         progress.ReportMessage("Scanning assemblies for classes");
 
-        var classResult = new ClassListResult
+        ClassListResult classResult = new ClassListResult
         {
             PackageId = packageId,
             Version = resolvedVersion
         };
 
-        foreach (var assemblyInfo in loaded.Assemblies)
+        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
-            var classes = assemblyInfo.Types
+            System.Collections.Generic.List<Type> classes = assemblyInfo.Types
                 .Where(t => t.IsClass && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
-            foreach (var cls in classes)
+            foreach (Type? cls in classes)
             {
                 classResult.Classes.Add(new ClassInfo
                 {
