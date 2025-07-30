@@ -66,18 +66,40 @@ namespace NuGetMcpServer.Extensions
         }
         public static string FormatGenericTypeName(this string typeName)
         {
-            var tickIndex = typeName.IndexOf('`');
-            if (tickIndex <= 0)
+            // Handle nested types denoted by '+' by formatting each segment independently
+            var segments = typeName.Split('+');
+            var formattedSegments = new List<string>(segments.Length);
+
+            foreach (var segment in segments)
             {
-                return typeName.Replace('+', '.');
+                var tickIndex = segment.IndexOf('`');
+                if (tickIndex <= 0)
+                {
+                    formattedSegments.Add(segment);
+                    continue;
+                }
+
+                var baseName = segment.Substring(0, tickIndex);
+
+                // Generic arity may be followed by additional characters when dealing with nested types
+                var digits = new string(segment
+                    .Skip(tickIndex + 1)
+                    .TakeWhile(char.IsDigit)
+                    .ToArray());
+
+                if (!int.TryParse(digits, out var numGenericArgs))
+                {
+                    formattedSegments.Add(segment);
+                    continue;
+                }
+
+                var genericArgs = string.Join(", ", Enumerable.Range(0, numGenericArgs)
+                    .Select(GetGenericParamName));
+
+                formattedSegments.Add($"{baseName}<{genericArgs}>");
             }
 
-            var baseName = typeName.Substring(0, tickIndex).Replace('+', '.');
-            var numGenericArgs = int.Parse(typeName.Substring(tickIndex + 1));
-
-            var genericArgs = string.Join(", ", Enumerable.Range(0, numGenericArgs).Select(GetGenericParamName));
-
-            return $"{baseName}<{genericArgs}>";
+            return string.Join('.', formattedSegments);
         }
 
         public static string FormatFullGenericTypeName(this string fullTypeName)
