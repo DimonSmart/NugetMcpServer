@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
 
 using Microsoft.Extensions.Logging;
 
@@ -124,6 +125,10 @@ public class GetClassDefinitionTool(
                     var formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
+            }
+            catch (FileNotFoundException)
+            {
+                // Missing referenced assembly - skip logging
             }
             catch (Exception ex)
             {

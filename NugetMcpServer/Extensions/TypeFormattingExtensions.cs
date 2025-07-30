@@ -46,15 +46,23 @@ namespace NuGetMcpServer.Extensions
                 return name;
             }
 
-            var resultName = GetNestedName(type);
-
-            if (type.IsGenericType)
+            try
             {
-                var genericArgs = type.GetGenericArguments();
-                resultName += $"<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
-            }
+                var resultName = GetNestedName(type);
 
-            return resultName;
+                if (type.IsGenericType)
+                {
+                    var genericArgs = type.GetGenericArguments();
+                    resultName += $"<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
+                }
+
+                return resultName;
+            }
+            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
+            {
+                // Fall back to using the raw name when dependencies are missing
+                return (type.FullName ?? type.Name).FormatFullGenericTypeName();
+            }
         }
         public static string FormatGenericTypeName(this string typeName)
         {
