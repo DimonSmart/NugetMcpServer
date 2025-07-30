@@ -29,35 +29,42 @@ namespace NuGetMcpServer.Extensions
         public static string FormatCSharpTypeName(this Type type)
         {
             if (PrimitiveTypeMap.TryGetValue(type.FullName ?? type.Name, out var mappedName))
-            {
                 return mappedName;
+
+            if (type.IsGenericParameter)
+                return type.Name;
+
+            static string GetNestedName(Type t)
+            {
+                var name = t.Name;
+                var tickIndex = name.IndexOf('`');
+                if (tickIndex > 0)
+                    name = name.Substring(0, tickIndex);
+                name = name.Replace('+', '.');
+                if (t.IsNested && t.DeclaringType != null)
+                    return $"{GetNestedName(t.DeclaringType)}.{name}";
+                return name;
             }
+
+            var resultName = GetNestedName(type);
 
             if (type.IsGenericType)
             {
-                var genericTypeName = type.Name;
-                var tickIndex = genericTypeName.IndexOf('`');
-
-                if (tickIndex > 0)
-                {
-                    genericTypeName = genericTypeName.Substring(0, tickIndex);
-                }
-
                 var genericArgs = type.GetGenericArguments();
-                return $"{genericTypeName}<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
+                resultName += $"<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
             }
 
-            return type.Name;
+            return resultName;
         }
         public static string FormatGenericTypeName(this string typeName)
         {
             var tickIndex = typeName.IndexOf('`');
             if (tickIndex <= 0)
             {
-                return typeName;
+                return typeName.Replace('+', '.');
             }
 
-            var baseName = typeName.Substring(0, tickIndex);
+            var baseName = typeName.Substring(0, tickIndex).Replace('+', '.');
             var numGenericArgs = int.Parse(typeName.Substring(tickIndex + 1));
 
             var genericArgs = string.Join(", ", Enumerable.Range(0, numGenericArgs).Select(GetGenericParamName));

@@ -89,7 +89,7 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
 
         Assert.NotNull(formattedCode);
         Assert.Contains($"/* C# CLASS FROM {assemblyName} (Package: {packageName}) */", formattedCode);
-        Assert.Contains("public class MockGeneric<string>", formattedCode);
+        Assert.Contains("public class ClassFormattingServiceTests.MockGeneric<string>", formattedCode);
         Assert.Contains("CONSTANT_VALUE = 42", formattedCode);
         Assert.Contains("static readonly", formattedCode);
         Assert.Contains("string GetValue()", formattedCode);
@@ -122,7 +122,7 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var type = typeof(TestRecord);
         var formatted = _formattingService.FormatClassDefinition(type, "TestAsm", "TestPackage");
-        Assert.Contains("public record TestRecord", formatted);
+        Assert.Contains("public record ClassFormattingServiceTests.TestRecord", formatted);
     }
 
     [Fact]
@@ -130,6 +130,6 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
     {
         var type = typeof(TestRecordStruct);
         var formatted = _formattingService.FormatClassDefinition(type, "TestAsm", "TestPackage");
-        Assert.Contains("public record struct TestRecordStruct", formatted);
+        Assert.Contains("public record struct ClassFormattingServiceTests.TestRecordStruct", formatted);
     }
 }

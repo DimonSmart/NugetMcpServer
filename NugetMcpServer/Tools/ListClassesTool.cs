@@ -64,7 +64,7 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         foreach (var assemblyInfo in loaded.Assemblies)
         {
             var classes = assemblyInfo.Types
-                .Where(t => t.IsClass && t.IsPublic && !t.IsNested)
+                .Where(t => t.IsClass && t.IsPublic)
                 .ToList();
 
             foreach (var cls in classes)
