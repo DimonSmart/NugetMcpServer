@@ -75,7 +75,7 @@ public class GetClassDefinitionTool(
                 var classType = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
-                            if (!t.IsClass || !t.IsPublic)
+                            if (!t.IsClass || !(t.IsPublic || t.IsNestedPublic))
                             {
                                 return false;
                             }

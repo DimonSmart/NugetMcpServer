@@ -65,7 +65,7 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
             Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.FileName);
 
             var interfaces = assemblyInfo.Types
-                .Where(t => t.IsInterface && t.IsPublic)
+                .Where(t => t.IsInterface && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.FileName);
