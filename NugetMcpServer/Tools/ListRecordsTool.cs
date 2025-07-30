@@ -58,7 +58,7 @@ public class ListRecordsTool(ILogger<ListRecordsTool> logger, NuGetPackageServic
         foreach (var assemblyInfo in loaded.Assemblies)
         {
             var records = assemblyInfo.Types
-                .Where(t => TypeFormattingHelpers.IsRecordType(t) && t.IsPublic)
+                .Where(t => TypeFormattingHelpers.IsRecordType(t) && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             foreach (var rec in records)

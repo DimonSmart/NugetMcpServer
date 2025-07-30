@@ -58,7 +58,7 @@ public class ListStructsTool(ILogger<ListStructsTool> logger, NuGetPackageServic
         foreach (var assemblyInfo in loaded.Assemblies)
         {
             var structs = assemblyInfo.Types
-                .Where(t => t.IsValueType && !t.IsEnum && t.IsPublic)
+                .Where(t => t.IsValueType && !t.IsEnum && (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             foreach (var st in structs)
