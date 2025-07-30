@@ -135,4 +135,18 @@ public class GetClassDefinitionToolTests : TestBase
         TestOutput.WriteLine(definition);
         TestOutput.WriteLine("==================================================\n");
     }
+
+    [Fact]
+    public async Task GetClassDefinition_ReturnsDefinition_ForNestedClass()
+    {
+        var packageId = "DimonSmart.AiUtils";
+        var nestedClassName = "DimonSmart.AiUtils.ThinkTagParser+ThinkAnswer";
+        var version = await _packageService.GetLatestVersion(packageId);
+
+        var definition = await _defTool.get_class_definition(packageId, nestedClassName, version);
+
+        Assert.NotNull(definition);
+        Assert.Contains("ThinkAnswer", definition);
+        Assert.DoesNotContain("not found in package", definition);
+    }
 }

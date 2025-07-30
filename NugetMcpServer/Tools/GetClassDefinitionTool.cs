@@ -91,7 +91,7 @@ public class GetClassDefinitionTool(
                     var classType = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
-                            if (!t.IsClass || !t.IsPublic)
+                            if (!t.IsClass || !(t.IsPublic || t.IsNestedPublic))
                             {
                                 return false;
                             }
@@ -101,7 +101,7 @@ public class GetClassDefinitionTool(
                                 return true;
                             }
 
-                            if (t.FullName == className)
+                            if (t.FullName == className || t.FullName?.Replace("+", ".") == className)
                             {
                                 return true;
                             }

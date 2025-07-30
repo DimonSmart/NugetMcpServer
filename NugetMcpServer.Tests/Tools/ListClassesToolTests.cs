@@ -88,4 +88,15 @@ public class ListClassesToolTests : TestBase
         TestOutput.WriteLine($"Total classes found: {result.Classes.Count}");
         TestOutput.WriteLine($"Classes with modifiers: {result.Classes.Count(c => c.IsStatic || c.IsAbstract || c.IsSealed)}");
     }
+
+    [Fact]
+    public async Task ListClasses_IncludesNestedClasses()
+    {
+        var packageId = "DimonSmart.AiUtils";
+        var result = await _listTool.list_classes(packageId);
+
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Classes);
+        Assert.Contains(result.Classes, c => c.FullName.Contains("ThinkTagParser+ThinkAnswer"));
+    }
 }
