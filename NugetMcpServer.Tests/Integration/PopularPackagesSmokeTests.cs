@@ -95,6 +95,7 @@ public class PopularPackagesSmokeTests : TestBase
         {
             var def = await classDefTool.get_class_or_record_definition(packageId, cls.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine(def);
         }
 
         var interfaceResult = await listInterfacesTool.list_interfaces(packageId, version);
@@ -103,6 +104,7 @@ public class PopularPackagesSmokeTests : TestBase
         {
             var def = await interfaceDefTool.get_interface_definition(packageId, iface.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine(def);
         }
 
         var structResult = await listStructsTool.list_structs(packageId, version);
@@ -111,6 +113,7 @@ public class PopularPackagesSmokeTests : TestBase
         {
             var def = await structDefTool.get_struct_definition(packageId, st.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine(def);
         }
 
         var recordResult = await listRecordsTool.list_records(packageId, version);
@@ -119,6 +122,7 @@ public class PopularPackagesSmokeTests : TestBase
         {
             var def = await recordDefTool.get_record_definition(packageId, rec.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
+            TestOutput.WriteLine(def);
         }
 
         Assert.Empty(listClassesLogger.Entries.Where(e => e.Exception != null));
