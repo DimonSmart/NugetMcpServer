@@ -32,12 +32,12 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => FuzzySearchPackagesCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
+            () => SearchPackagesFuzzyCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
             Logger,
             "Error performing fuzzy search for packages");
     }
 
-    private async Task<PackageSearchResult> FuzzySearchPackagesCore(
+    private async Task<PackageSearchResult> SearchPackagesFuzzyCore(
         IMcpServer thisServer,
         string query,
         int maxResults,
