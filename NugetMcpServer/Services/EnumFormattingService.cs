@@ -42,15 +42,7 @@ public class EnumFormattingService
                                 string.Empty;
 
             sb.Append($"    {name} = {value}{valueSuffix}");
-
-            if (i < lastIndex)
-            {
-                sb.AppendLine(",");
-            }
-            else
-            {
-                sb.AppendLine();
-            }
+            sb.AppendLine(i < lastIndex ? "," : string.Empty);
         }
         sb.AppendLine("}");
         return sb.ToString();

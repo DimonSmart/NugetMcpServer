@@ -74,7 +74,8 @@ public class GetPackageDependenciesTool(
         {
             result += "This package has no dependencies.\n";
         }
-        else
+
+        if (dependencies.Count > 0)
         {
             result += $"This package has {dependencies.Count} dependencies:\n\n";
 
@@ -89,13 +90,10 @@ public class GetPackageDependenciesTool(
                 result += $"  - {dep.Id} ({dep.Version})\n";
             }
 
-            if (dependencies.Count > 0)
+            result += "\nTo explore the actual implementations, try listing classes/interfaces from these dependencies:\n";
+            foreach (var dep in uniqueDependencies.Take(3))
             {
-                result += "\nTo explore the actual implementations, try listing classes/interfaces from these dependencies:\n";
-                foreach (var dep in uniqueDependencies.Take(3))
-                {
-                    result += $"  - nuget_list_classes_and_records(packageId=\"{dep.Id}\")\n";
-                }
+                result += $"  - nuget_list_classes_and_records(packageId=\"{dep.Id}\")\n";
             }
         }
 
