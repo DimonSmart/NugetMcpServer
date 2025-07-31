@@ -73,9 +73,9 @@ public class ClassFormattingService
 
         if (classType.IsAbstract && classType.IsSealed)
             sb.Append("static ");
-        else if (classType.IsAbstract)
+        if (classType.IsAbstract && !classType.IsSealed)
             sb.Append("abstract ");
-        else if (classType.IsSealed && !classType.IsValueType)
+        if (classType.IsSealed && !classType.IsAbstract && !classType.IsValueType)
             sb.Append("sealed ");
 
         string typeKeyword;
@@ -281,15 +281,16 @@ public class ClassFormattingService
 
     private static string GetMethodModifiersFromAttributes(MethodAttributes attributes)
     {
-        var modifiers = new List<string>();
         if (attributes.HasFlag(MethodAttributes.Static))
-            modifiers.Add("static");
-        else if (attributes.HasFlag(MethodAttributes.Virtual) && !attributes.HasFlag(MethodAttributes.Abstract))
-            modifiers.Add("virtual");
-        else if (attributes.HasFlag(MethodAttributes.Abstract))
-            modifiers.Add("abstract");
+            return "static ";
 
-        return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : string.Empty;
+        if (attributes.HasFlag(MethodAttributes.Virtual) && !attributes.HasFlag(MethodAttributes.Abstract))
+            return "virtual ";
+
+        if (attributes.HasFlag(MethodAttributes.Abstract))
+            return "abstract ";
+
+        return string.Empty;
     }
 
     private sealed class MetadataTypeNameProvider : ISignatureTypeProvider<string, object?>

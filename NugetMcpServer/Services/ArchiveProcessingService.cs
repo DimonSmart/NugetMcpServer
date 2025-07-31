@@ -68,17 +68,14 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
         {
             if (group.Count() == 1)
             {
-                // Only one version, take it
                 result.Add(group.First());
+                continue;
             }
-            else
+
+            var bestFile = SelectBestAssemblyFile(group.ToList());
+            if (bestFile != null)
             {
-                // Multiple versions - prefer the most appropriate one
-                var bestFile = SelectBestAssemblyFile(group.ToList());
-                if (bestFile != null)
-                {
-                    result.Add(bestFile);
-                }
+                result.Add(bestFile);
             }
         }
 
