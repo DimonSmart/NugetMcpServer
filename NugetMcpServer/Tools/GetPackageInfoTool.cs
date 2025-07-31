@@ -76,21 +76,50 @@ public class GetPackageInfoTool(
         return FormatPackageInfo(packageInfo, versions, libFiles);
     }
 
-    private static string FormatPackageInfo(PackageInfo packageInfo, IReadOnlyList<string> versions, List<string> libFiles)
+    private static string FormatPackageInfo(
+        PackageInfo packageInfo,
+        IReadOnlyList<string> versions,
+        List<string> libFiles)
     {
         var sb = new StringBuilder();
+
+        AppendHeader(sb, packageInfo);
+        bool showDependencies = AppendMetaPackageWarning(sb, packageInfo);
+        AppendMetadata(sb, packageInfo, versions);
+        AppendLibFiles(sb, libFiles);
+        if (showDependencies)
+        {
+            AppendDependencies(sb, packageInfo);
+        }
+        AppendRecommendation(sb, packageInfo);
+
+        return sb.ToString();
+    }
+
+    private static void AppendHeader(StringBuilder sb, PackageInfo packageInfo)
+    {
         string header = $"Package: {packageInfo.PackageId} v{packageInfo.Version}";
         sb.AppendLine(header);
         sb.AppendLine(new string('=', header.Length));
         sb.AppendLine();
+    }
 
-        bool showDependenciesLater = true;
+    private static bool AppendMetaPackageWarning(StringBuilder sb, PackageInfo packageInfo)
+    {
         if (packageInfo.IsMetaPackage)
         {
             sb.Append(packageInfo.GetMetaPackageWarningIfAny());
-            showDependenciesLater = false;
+            return false;
         }
 
+        return true;
+    }
+
+    private static void AppendMetadata(
+        StringBuilder sb,
+        PackageInfo packageInfo,
+        IReadOnlyList<string> versions)
+    {
         if (!string.IsNullOrWhiteSpace(packageInfo.Description))
         {
             sb.AppendLine($"Description: {packageInfo.Description}");
@@ -122,7 +151,10 @@ public class GetPackageInfoTool(
             sb.AppendLine();
             sb.AppendLine($"Recent versions: {string.Join(", ", versions)}");
         }
+    }
 
+    private static void AppendLibFiles(StringBuilder sb, List<string> libFiles)
+    {
         sb.AppendLine();
         sb.AppendLine($"LIB_FILES_COUNT: {libFiles.Count}");
         if (libFiles.Any())
@@ -132,50 +164,53 @@ public class GetPackageInfoTool(
             {
                 sb.AppendLine($"  {file}");
             }
+
             if (libFiles.Count > 10)
             {
                 sb.AppendLine($"  ... and {libFiles.Count - 10} more");
             }
         }
+    }
 
-        if (showDependenciesLater)
+    private static void AppendDependencies(StringBuilder sb, PackageInfo packageInfo)
+    {
+        if (packageInfo.Dependencies.Any())
         {
-            if (packageInfo.Dependencies.Any())
+            sb.AppendLine();
+            sb.AppendLine($"DEPENDENCIES_COUNT: {packageInfo.Dependencies.Count}");
+            sb.AppendLine("DEPENDENCIES:");
+
+            var uniqueDeps = packageInfo.Dependencies
+                .GroupBy(d => d.Id)
+                .Select(g => g.First())
+                .OrderBy(d => d.Id)
+                .Take(100)
+                .ToList();
+
+            foreach (var dep in uniqueDeps)
             {
-                sb.AppendLine();
-                sb.AppendLine($"DEPENDENCIES_COUNT: {packageInfo.Dependencies.Count}");
-                sb.AppendLine("DEPENDENCIES:");
-                var uniqueDeps = packageInfo.Dependencies
-                    .GroupBy(d => d.Id)
-                    .Select(g => g.First())
-                    .OrderBy(d => d.Id)
-                    .Take(100)
-                    .ToList();
-
-                foreach (var dep in uniqueDeps)
-                {
-                    sb.AppendLine($"  - {dep.Id} ({dep.Version})");
-                }
-
-                if (packageInfo.Dependencies.Count > 100)
-                {
-                    sb.AppendLine($"  ... and {packageInfo.Dependencies.Count - 100} more");
-                }
+                sb.AppendLine($"  - {dep.Id} ({dep.Version})");
             }
-            else
+
+            if (packageInfo.Dependencies.Count > 100)
             {
-                sb.AppendLine();
-                sb.AppendLine("No dependencies.");
+                sb.AppendLine($"  ... and {packageInfo.Dependencies.Count - 100} more");
             }
         }
+        else
+        {
+            sb.AppendLine();
+            sb.AppendLine("No dependencies.");
+        }
+    }
 
+    private static void AppendRecommendation(StringBuilder sb, PackageInfo packageInfo)
+    {
         sb.AppendLine();
         var recommendation = packageInfo.IsMetaPackage
             ? "Analyze the dependencies listed above to find actual implementations."
             : GenerateSmartRecommendations(packageInfo);
         sb.AppendLine($"RECOMMENDATION: {recommendation}");
-
-        return sb.ToString();
     }
 
     private static List<string> ExtractLibFiles(PackageArchiveReader reader)
