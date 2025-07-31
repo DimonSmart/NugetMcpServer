@@ -9,6 +9,7 @@ using System.Runtime.Loader;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 
 using NuGet.Packaging;
 
@@ -17,7 +18,7 @@ using NuGetMcpServer.Models;
 
 namespace NuGetMcpServer.Services;
 
-public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient httpClient, MetaPackageDetector metaPackageDetector)
+public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient httpClient, MetaPackageDetector metaPackageDetector, IMemoryCache cache)
 {
 
     public async Task<string> GetLatestVersion(string packageId)
@@ -56,12 +57,23 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
 
     public async Task<MemoryStream> DownloadPackageAsync(string packageId, string version, IProgressNotifier? progress = null)
     {
+        string cacheKey = $"{packageId.ToLowerInvariant()}:{version}";
+
+        if (cache.TryGetValue(cacheKey, out byte[]? cachedBytes))
+        {
+            logger.LogInformation("Using cached package {PackageId} v{Version}", packageId, version);
+            progress?.ReportMessage($"Using cached package {packageId} v{version}");
+            return new MemoryStream(cachedBytes, writable: false);
+        }
+
         string url = $"https://api.NuGet.org/v3-flatcontainer/{packageId.ToLower()}/{version}/{packageId.ToLower()}.{version}.nupkg";
         logger.LogInformation("Downloading package from {Url}", url);
 
         progress?.ReportMessage($"Starting package download {packageId} v{version}");
 
         byte[] response = await httpClient.GetByteArrayAsync(url);
+
+        cache.Set(cacheKey, response, TimeSpan.FromMinutes(5));
 
         progress?.ReportMessage("Package downloaded successfully");
 
