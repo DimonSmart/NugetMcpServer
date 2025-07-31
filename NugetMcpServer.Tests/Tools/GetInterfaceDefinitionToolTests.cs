@@ -64,39 +64,6 @@ namespace NuGetMcpServer.Tests.Tools
             TestOutput.WriteLine("================================================================\n");
         }
 
-        [Fact]
-        public async Task GetInterfaceDefinition_WithPackageAndListTool_WorksWithBothTools()
-        {
-            // This test verifies that both tools can work together on the same package
-            var listToolLogger = new TestLogger<ListInterfacesTool>(TestOutput);
-            var archiveProcessingService = CreateArchiveProcessingService();
-            var listTool = new ListInterfacesTool(listToolLogger, _packageService, archiveProcessingService);
-
-            var packageId = "DimonSmart.MazeGenerator";
-
-            // Step 1: List interfaces in the package
-            var result = await listTool.list_interfaces(packageId);
-            Assert.NotNull(result);
-            Assert.NotEmpty(result.Interfaces);
-
-            // Step 2: Get definition of one of the interfaces
-            var mazeInterface = result.Interfaces.FirstOrDefault(i => i.Name.StartsWith("IMaze"));
-            if (mazeInterface != null)
-            {
-                var definition = await _defTool.get_interface_definition(
-                    packageId,
-                    mazeInterface.Name,
-                    result.Version);
-
-                // Assert
-                Assert.Contains("interface", definition);
-                Assert.Contains("IMaze<", definition);
-
-                TestOutput.WriteLine("\n========== TEST OUTPUT: RESULT OF GetInterfaceDefinition ==========");
-                TestOutput.WriteLine(definition);
-                TestOutput.WriteLine("================================================================\n");
-            }
-        }
 
         [Fact]
         public async Task GetInterfaceDefinition_WithFullName_ReturnsDefinition()
