@@ -110,18 +110,8 @@ The server uses the .NET Generic Host and includes:
 
 ### Class Tools
 
-- `get_class_or_record_definition(packageId, typeName, version?)` - Gets the C# class or record definition from a NuGet package. Parameters: packageId (NuGet package ID), typeName (short or full name), version (optional, defaults to latest)
-- `list_classes_and_records(packageId, version?)` - Lists all public classes and records in a NuGet package. Returns package ID, version, and the list of classes/records
-
-### Struct Tools
-
-- `get_struct_definition(packageId, structName, version?)` - Gets the C# struct definition from a NuGet package. Parameters: packageId, structName, version (optional)
-- `list_structs(packageId, version?)` - Lists all public structs in a NuGet package. Returns package ID, version, and the list of structs
-
-### Record Tools
-
-- `get_record_definition(packageId, recordName, version?)` - Gets the C# record definition from a NuGet package. Parameters: packageId, recordName, version (optional)
-- `list_records(packageId, version?)` - Lists all public records in a NuGet package. Returns package ID, version, and the list of records
+- `get_class_or_record_or_struct_definition(packageId, typeName, version?)` - Gets the C# class, record or struct definition from a NuGet package. Parameters: packageId (NuGet package ID), typeName (short or full name), version (optional, defaults to latest)
+ - `list_classes_records_structs(packageId, version?)` - Lists all public classes, records and structs in a NuGet package. Returns package ID, version, and the list of types
 
 ### Package Search Tools
 

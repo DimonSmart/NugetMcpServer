@@ -73,23 +73,15 @@ public class PopularPackagesSmokeTests : TestBase
     {
         var archiveService = CreateArchiveProcessingService();
 
-        var listClassesLogger = new TestLogger<ListClassesTool>(TestOutput);
+        var listTypesLogger = new TestLogger<ListTypesTool>(TestOutput);
         var classDefLogger = new TestLogger<GetClassDefinitionTool>(TestOutput);
         var listInterfacesLogger = new TestLogger<ListInterfacesTool>(TestOutput);
         var interfaceDefLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
-        var listStructsLogger = new TestLogger<ListStructsTool>(TestOutput);
-        var structDefLogger = new TestLogger<GetStructDefinitionTool>(TestOutput);
-        var listRecordsLogger = new TestLogger<ListRecordsTool>(TestOutput);
-        var recordDefLogger = new TestLogger<GetRecordDefinitionTool>(TestOutput);
 
-        var listClassesTool = new ListClassesTool(listClassesLogger, _packageService, archiveService);
+        var listTypesTool = new ListTypesTool(listTypesLogger, _packageService, archiveService);
         var classDefTool = new GetClassDefinitionTool(classDefLogger, _packageService, new ClassFormattingService(), archiveService);
         var listInterfacesTool = new ListInterfacesTool(listInterfacesLogger, _packageService, archiveService);
         var interfaceDefTool = new GetInterfaceDefinitionTool(interfaceDefLogger, _packageService, new InterfaceFormattingService(), archiveService);
-        var listStructsTool = new ListStructsTool(listStructsLogger, _packageService, archiveService);
-        var structDefTool = new GetStructDefinitionTool(structDefLogger, _packageService, new ClassFormattingService(), archiveService);
-        var listRecordsTool = new ListRecordsTool(listRecordsLogger, _packageService, archiveService);
-        var recordDefTool = new GetRecordDefinitionTool(recordDefLogger, _packageService, new ClassFormattingService(), archiveService);
 
         var version = await _packageService.GetLatestVersion(packageId);
         await using var stream = await _packageService.DownloadPackageAsync(packageId, version);
@@ -115,14 +107,14 @@ public class PopularPackagesSmokeTests : TestBase
 
         TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
 
-        var classResult = await listClassesTool.list_classes_and_records(packageId, version);
-        TestOutput.WriteLine("list_classes_and_records =>");
-        TestOutput.WriteLine(classResult.Format());
-        foreach (var cls in classResult.Classes)
+        var typeResult = await listTypesTool.list_classes_records_structs(packageId, version);
+        TestOutput.WriteLine("list_classes_records_structs =>");
+        TestOutput.WriteLine(typeResult.Format());
+        foreach (var cls in typeResult.Types)
         {
-            var def = await classDefTool.get_class_or_record_definition(packageId, cls.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, cls.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_class_or_record_definition({cls.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({cls.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
@@ -137,36 +129,45 @@ public class PopularPackagesSmokeTests : TestBase
             TestOutput.WriteLine(def);
         }
 
-        var structResult = await listStructsTool.list_structs(packageId, version);
-        TestOutput.WriteLine("list_structs =>");
-        TestOutput.WriteLine(structResult.Format());
-        foreach (var st in structResult.Structs)
+        var structTypes = typeResult.Types.Where(t => t.Kind == TypeKind.Struct || t.Kind == TypeKind.RecordStruct).ToList();
+        var recordTypes = typeResult.Types.Where(t => t.Kind == TypeKind.RecordClass || t.Kind == TypeKind.RecordStruct).ToList();
+
+        foreach (var st in structTypes)
         {
-            var def = await structDefTool.get_struct_definition(packageId, st.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, st.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_struct_definition({st.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({st.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
-        var recordResult = await listRecordsTool.list_records(packageId, version);
-        TestOutput.WriteLine("list_records =>");
-        TestOutput.WriteLine(recordResult.Format());
-        foreach (var rec in recordResult.Records)
+        foreach (var rec in recordTypes)
         {
-            var def = await recordDefTool.get_record_definition(packageId, rec.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, rec.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_record_definition({rec.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({rec.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
-        Assert.Empty(listClassesLogger.Entries.Where(e => e.Exception != null));
+        // Verify class flags against record and struct listings
+        var structNames = structTypes.Select(s => s.FullName).ToHashSet();
+        var recordLookup = recordTypes.ToDictionary(r => r.FullName, r => r.Kind == TypeKind.RecordStruct);
+
+        foreach (var cls in typeResult.Types)
+        {
+            if (cls.Kind == TypeKind.Struct || cls.Kind == TypeKind.RecordStruct)
+                Assert.Contains(cls.FullName, structNames);
+
+            if (cls.Kind == TypeKind.RecordClass || cls.Kind == TypeKind.RecordStruct)
+            {
+                Assert.True(recordLookup.TryGetValue(cls.FullName, out bool recIsStruct));
+                Assert.Equal(recIsStruct, cls.Kind == TypeKind.RecordStruct);
+            }
+        }
+
+        Assert.Empty(listTypesLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(classDefLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(listInterfacesLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(interfaceDefLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(listStructsLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(structDefLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(listRecordsLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(recordDefLogger.Entries.Where(e => e.Exception != null));
     }
 
     private static (int classes, int interfaces, int enums) CountTypes(byte[] assemblyData)

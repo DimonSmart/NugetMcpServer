@@ -32,7 +32,7 @@ public class GetClassDefinitionToolTests : TestBase
         var pointClassName = "Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.get_class_or_record_definition(packageId, pointClassName, version);
+        var definition = await _defTool.get_class_or_record_or_struct_definition(packageId, pointClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -51,7 +51,7 @@ public class GetClassDefinitionToolTests : TestBase
         var genericMazeClassName = "Maze";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.get_class_or_record_definition(packageId, genericMazeClassName, version);
+        var definition = await _defTool.get_class_or_record_or_struct_definition(packageId, genericMazeClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -71,7 +71,7 @@ public class GetClassDefinitionToolTests : TestBase
         var fullPointClassName = "DimonSmart.MazeGenerator.Point";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.get_class_or_record_definition(packageId, fullPointClassName, version);
+        var definition = await _defTool.get_class_or_record_or_struct_definition(packageId, fullPointClassName, version);
 
         // Assert
         Assert.NotNull(definition);
@@ -92,7 +92,7 @@ public class GetClassDefinitionToolTests : TestBase
         var className = "NonExistentClass";
         var version = await _packageService.GetLatestVersion(packageId);
 
-        var definition = await _defTool.get_class_or_record_definition(packageId, className, version);
+        var definition = await _defTool.get_class_or_record_or_struct_definition(packageId, className, version);
 
         // Assert
         Assert.NotNull(definition);

@@ -21,10 +21,10 @@ public class GetClassDefinitionTool(
     ArchiveProcessingService archiveService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
-    [Description("Extracts and returns the C# class or record definition from a specified NuGet package.")]
-    public Task<string> get_class_or_record_definition(
+    [Description("Extracts and returns the C# class, record or struct definition from a specified NuGet package.")]
+    public Task<string> get_class_or_record_or_struct_definition(
         [Description("NuGet package ID")] string packageId,
-        [Description("Class or record name (short like 'Point' or full like 'System.Point')")] string typeName,
+        [Description("Class, record or struct name (short like 'Point' or full like 'System.Point')")] string typeName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
@@ -32,7 +32,7 @@ public class GetClassDefinitionTool(
         return ExecuteWithLoggingAsync(
             () => GetClassOrRecordDefinitionCore(packageId, typeName, version, progressNotifier),
             Logger,
-            "Error fetching class or record definition");
+            "Error fetching class, record or struct definition");
     }
 
     private async Task<string> GetClassOrRecordDefinitionCore(
@@ -57,12 +57,12 @@ public class GetClassDefinitionTool(
             await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation(
-            "Fetching class or record {ClassName} from package {PackageId} version {Version}",
+            "Fetching class, record or struct {ClassName} from package {PackageId} version {Version}",
             typeName, packageId, resolvedVersion);
 
         string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
 
-        progress.ReportMessage("Scanning assemblies for class/record");
+        progress.ReportMessage("Scanning assemblies for class/record/struct");
 
         foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
@@ -72,7 +72,7 @@ public class GetClassDefinitionTool(
                 Type? classType = assemblyInfo.Types
                         .FirstOrDefault(t =>
                         {
-                            if (!t.IsClass || !(t.IsPublic || t.IsNestedPublic))
+                            if (!((t.IsClass || (t.IsValueType && !t.IsEnum)) && (t.IsPublic || t.IsNestedPublic)))
                             {
                                 return false;
                             }
@@ -117,7 +117,7 @@ public class GetClassDefinitionTool(
 
                 if (classType != null)
                 {
-                    progress.ReportMessage($"Class or record found: {typeName}");
+                    progress.ReportMessage($"Class, record or struct found: {typeName}");
                     string formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
                     return metaPackageWarning + formatted;
                 }
@@ -132,7 +132,7 @@ public class GetClassDefinitionTool(
             }
         }
 
-        return metaPackageWarning + $"Class or record '{typeName}' not found in package {packageId}.";
+        return metaPackageWarning + $"Class, record or struct '{typeName}' not found in package {packageId}.";
     }
 
 }
