@@ -62,7 +62,7 @@ namespace NuGetMcpServer.Tests.Services
             stream.Position = 0;
 
             // Test loading from memory
-            var loadedAssembly = _packageService.LoadAssemblyFromMemory(stream.ToArray());
+            var (loadedAssembly, _) = _packageService.LoadAssemblyFromMemoryWithTypes(stream.ToArray());
 
             // Assert
             Assert.NotNull(loadedAssembly);

@@ -98,21 +98,6 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
     }
 
 
-    public Assembly? LoadAssemblyFromMemory(byte[] assemblyData, AssemblyLoadContext? loadContext = null)
-    {
-        try
-        {
-            return loadContext == null
-                ? Assembly.Load(assemblyData)
-                : loadContext.LoadFromStream(new MemoryStream(assemblyData));
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to load assembly from memory. Assembly size: {Size} bytes", assemblyData.Length);
-            return null;
-        }
-    }
-
 
     public List<PackageDependency> GetPackageDependencies(Stream packageStream)
     {
