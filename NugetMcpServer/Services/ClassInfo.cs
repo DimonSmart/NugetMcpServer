@@ -8,4 +8,6 @@ public class ClassInfo
     public bool IsStatic { get; set; }
     public bool IsAbstract { get; set; }
     public bool IsSealed { get; set; }
+    public bool IsRecord { get; set; }
+    public bool IsStruct { get; set; }
 }
