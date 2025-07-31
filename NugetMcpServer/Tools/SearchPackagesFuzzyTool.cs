@@ -17,11 +17,11 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, PackageSearchService searchService) : McpToolBase<FuzzySearchPackagesTool>(logger, null!)
+public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, PackageSearchService searchService) : McpToolBase<SearchPackagesFuzzyTool>(logger, null!)
 {
     [McpServerTool]
     [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
-    public Task<PackageSearchResult> fuzzy_search_packages(
+    public Task<PackageSearchResult> search_packages_fuzzy(
         IMcpServer thisServer,
         [Description("Description of the functionality you're looking for")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
@@ -32,12 +32,12 @@ public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, Pa
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => FuzzySearchPackagesCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
+            () => SearchPackagesFuzzyCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
             Logger,
             "Error performing fuzzy search for packages");
     }
 
-    private async Task<PackageSearchResult> FuzzySearchPackagesCore(
+    private async Task<PackageSearchResult> SearchPackagesFuzzyCore(
         IMcpServer thisServer,
         string query,
         int maxResults,
