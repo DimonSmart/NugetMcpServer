@@ -20,16 +20,17 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
         if (_serverProcess == null || _serverProcess.HasExited)
             return;
 
-        ExecuteWithErrorHandling(
-            () =>
-            {
-                TestOutput.WriteLine("Shutting down server process...");
-                _serverProcess.Kill();
-                _serverProcess.Dispose();
-                _serverProcess = null;
-            },
-            ex => TestOutput.WriteLine($"Error shutting down server process: {ex.Message}")
-        );
+        try
+        {
+            TestOutput.WriteLine("Shutting down server process...");
+            _serverProcess.Kill();
+            _serverProcess.Dispose();
+            _serverProcess = null;
+        }
+        catch (Exception ex)
+        {
+            TestOutput.WriteLine($"Error shutting down server process: {ex.Message}");
+        }
     }
 
     private async Task<Process> StartMcpServerProcess()
@@ -96,10 +97,14 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
         var serverProcess = await StartMcpServerProcess();
         _serverProcess = serverProcess;
 
-        await ExecuteWithCleanupAsync(
-            TestInterfacesDirectly,
-            StopServerProcess
-        );
+        try
+        {
+            await TestInterfacesDirectly();
+        }
+        finally
+        {
+            StopServerProcess();
+        }
     }
 
     private async Task TestInterfacesDirectly()

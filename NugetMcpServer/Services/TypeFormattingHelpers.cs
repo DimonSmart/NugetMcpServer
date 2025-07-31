@@ -68,37 +68,22 @@ public static class TypeFormattingHelpers
 
         return constraints.ToString();
     }    // Gets all properties that are not indexers
-    public static IEnumerable<PropertyInfo> GetRegularProperties(Type type)
-    {
-        PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        foreach (PropertyInfo property in properties)
-        {
-            bool isIndexer;
-            try
-            {
-                isIndexer = property.GetIndexParameters().Length > 0;
-            }
-            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
-            {
-                // Skip property if index parameters can't be resolved
-                continue;
-            }
-
-            if (!isIndexer)
-                yield return property;
-        }
-    }
+    public static IEnumerable<PropertyInfo> GetRegularProperties(Type type) =>
+        GetPropertiesFiltered(type, isIndexer: false);
 
     // Gets all indexer properties
-    public static IEnumerable<PropertyInfo> GetIndexerProperties(Type type)
+    public static IEnumerable<PropertyInfo> GetIndexerProperties(Type type) =>
+        GetPropertiesFiltered(type, isIndexer: true);
+
+    private static IEnumerable<PropertyInfo> GetPropertiesFiltered(Type type, bool isIndexer)
     {
-        PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-        foreach (PropertyInfo property in properties)
+        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+        foreach (var property in properties)
         {
-            bool isIndexer;
+            bool hasIndexParameters;
             try
             {
-                isIndexer = property.GetIndexParameters().Length > 0;
+                hasIndexParameters = property.GetIndexParameters().Length > 0;
             }
             catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
             {
@@ -106,7 +91,7 @@ public static class TypeFormattingHelpers
                 continue;
             }
 
-            if (isIndexer)
+            if (hasIndexParameters == isIndexer)
                 yield return property;
         }
     }
@@ -142,21 +127,21 @@ public static class TypeFormattingHelpers
         return method.Name.StartsWith("add_") || method.Name.StartsWith("remove_");
     }
 
-    /// <summary>
-    /// Formats property modifiers (static, virtual, abstract, etc.)
-    /// </summary>
     public static string GetPropertyModifiers(PropertyInfo property)
     {
-        MethodInfo? getter = property.GetGetMethod();
-        MethodInfo? setter = property.GetSetMethod();
+        var getter = property.GetGetMethod();
+        var setter = property.GetSetMethod();
 
         if (getter?.IsStatic == true || setter?.IsStatic == true)
             return "static ";
 
+        if (getter?.IsAbstract == true)
+            return "abstract ";
+
         if (getter?.IsVirtual == true && getter?.IsAbstract != true)
             return "virtual ";
 
-        return getter?.IsAbstract == true ? "abstract " : string.Empty;
+        return string.Empty;
     }
 
     public static string FormatPropertyDefinition(PropertyInfo property, bool isInterface = false)

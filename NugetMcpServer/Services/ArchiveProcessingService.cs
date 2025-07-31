@@ -166,7 +166,7 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
 
         return 10; // Low priority for completely unknown frameworks
     }
-   
+
 
     /// <summary>
     /// Asynchronously loads all assemblies from unique DLL files in the package.
