@@ -42,33 +42,35 @@ public class PopularPackagesSmokeTests : TestBase
         "DimonSmart.StronglyTypedDictionary",
 
         // Top 20 popular NuGet packages by downloads
-        "Newtonsoft.Json",
         "Microsoft.Extensions.DependencyInjection",
         "Microsoft.Extensions.Logging",
-        "System.Text.Json",
         "Microsoft.Bcl.AsyncInterfaces",
-        "Azure.Core",
-        "System.Drawing.Common",
         "Microsoft.Win32.SystemEvents",
         "Serilog",
         "Microsoft.Identity.Client",
-        "Microsoft.EntityFrameworkCore",
         "System.Windows.Extensions",
-        "Microsoft.IdentityModel.Abstractions",
         "Microsoft.Extensions.Http",
-        "AWSSDK.Core",
         "System.Security.Cryptography.Pkcs",
         "System.Diagnostics.EventLog",
-        "Castle.Core",
         "Azure.Identity",
         "System.Threading.Channels",
+
+        // SLOW!!! HUGE
+        //  "AWSSDK.Core",
+        // "Microsoft.EntityFrameworkCore",
+        // "Microsoft.IdentityModel.Abstractions",
+        // "Microsoft.Identity.Client",
+        // "System.Drawing.Common",
+        // "Newtonsoft.Json",
+        // "Castle.Core",
+        // "System.Text.Json",
+        // "Azure.Core",
     };
 
     [Theory]
     [MemberData(nameof(PopularPackages))]
     public async Task LoadPopularPackages_NoErrors(string packageId)
     {
-
         var archiveService = CreateArchiveProcessingService();
 
         var listClassesLogger = new TestLogger<ListClassesTool>(TestOutput);
