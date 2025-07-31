@@ -12,7 +12,7 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
     private readonly TestLogger<MetaPackageDetector> _logger;
     private readonly MetaPackageDetector _detector;
     private readonly NuGetPackageService _packageService;
-    private readonly ListClassesTool _listClassesTool;
+    private readonly ListTypesTool _listClassesTool;
     private readonly ListInterfacesTool _listInterfacesTool;
 
     public MetaPackageDetectorDataDrivenTests(ITestOutputHelper testOutput) : base(testOutput)
@@ -22,8 +22,8 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         _packageService = CreateNuGetPackageService();
 
         var archiveProcessingService = CreateArchiveProcessingService();
-        var classesLogger = new TestLogger<ListClassesTool>(TestOutput);
-        _listClassesTool = new ListClassesTool(classesLogger, _packageService, archiveProcessingService);
+        var classesLogger = new TestLogger<ListTypesTool>(TestOutput);
+        _listClassesTool = new ListTypesTool(classesLogger, _packageService, archiveProcessingService);
 
         var interfacesLogger = new TestLogger<ListInterfacesTool>(TestOutput);
         _listInterfacesTool = new ListInterfacesTool(interfacesLogger, _packageService, archiveProcessingService);
@@ -103,14 +103,14 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
         }
 
         // Act
-        var result = await _listClassesTool.list_classes_and_records(packageId, version);
+        var result = await _listClassesTool.list_classes_records_structs(packageId, version);
 
         // Assert
         TestOutput.WriteLine($"Package: {packageId} v{version}");
-        TestOutput.WriteLine($"Total classes found: {result.Classes.Count}");
+        TestOutput.WriteLine($"Total classes found: {result.Types.Count}");
         TestOutput.WriteLine($"Expected classes: {string.Join(", ", expectedClasses)}");
 
-        var classNames = result.Classes.Select(c => c.Name).ToHashSet();
+        var classNames = result.Types.Select(c => c.Name).ToHashSet();
         TestOutput.WriteLine($"Sample classes found: {string.Join(", ", classNames.Take(10))}");
 
         foreach (var expectedClass in expectedClasses)
