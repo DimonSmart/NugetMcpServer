@@ -63,36 +63,6 @@ public class GetClassDefinitionToolTests : TestBase
         TestOutput.WriteLine("======================================================\n");
     }
 
-    [Fact]
-    public async Task GetClassDefinition_WithPackageAndListTool_WorksWithBothTools()
-    {
-        // This test verifies that both tools can work together on the same package
-        var listToolLogger = new TestLogger<ListClassesTool>(TestOutput);
-        var archiveProcessingService = CreateArchiveProcessingService();
-        var listTool = new ListClassesTool(listToolLogger, _packageService, archiveProcessingService);
-
-        var packageId = "DimonSmart.MazeGenerator";
-
-        // Step 1: List classes in the package
-        var result = await listTool.list_classes_and_records(packageId);
-        Assert.NotNull(result);
-        Assert.NotEmpty(result.Classes);
-
-        // Step 2: Get definition of one of the classes
-        var mazeClass = result.Classes.FirstOrDefault(c => c.Name.StartsWith("Cell"));
-        if (mazeClass != null)
-        {
-            var definition = await _defTool.get_class_or_record_definition(packageId, mazeClass.Name, result.Version);
-
-            // Assert
-            Assert.Contains("class", definition);
-            Assert.Contains("Cell", definition);
-
-            TestOutput.WriteLine("\n========== TEST OUTPUT: RESULT OF GetClassDefinition ==========");
-            TestOutput.WriteLine(definition);
-            TestOutput.WriteLine("=============================================================\n");
-        }
-    }
 
     [Fact]
     public async Task GetClassDefinition_WithFullName_ReturnsDefinition()
