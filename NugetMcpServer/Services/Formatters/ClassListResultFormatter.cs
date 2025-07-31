@@ -43,7 +43,11 @@ public static class ClassListResultFormatter
                         : string.Empty;
             sb.Append(modifier);
 
-            sb.AppendLine($"class {formattedName}");
+            string typeKeyword = cls.IsRecord
+                ? (cls.IsStruct ? "record struct" : "record")
+                : (cls.IsStruct ? "struct" : "class");
+
+            sb.AppendLine($"{typeKeyword} {formattedName}");
         }
 
         return sb.ToString();

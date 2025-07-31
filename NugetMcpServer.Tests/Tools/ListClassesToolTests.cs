@@ -45,6 +45,9 @@ public class ListClassesToolTests : TestBase
 
         // Verify we found expected classes - using Point instead of Cell as Cell doesn't exist in current version
         Assert.Contains(result.Classes, c => c.Name == "Point" || c.FullName.Contains(".Point"));
+
+        // Ensure that structs and records are also included
+        Assert.Contains(result.Classes, c => c.IsStruct || c.IsRecord);
     }
 
     [Fact]

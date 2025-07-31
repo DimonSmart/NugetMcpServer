@@ -59,7 +59,9 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
             System.Collections.Generic.List<Type> classes = assemblyInfo.Types
-                .Where(t => t.IsClass && (t.IsPublic || t.IsNestedPublic))
+                .Where(t =>
+                    (t.IsClass || TypeFormattingHelpers.IsRecordType(t) || (t.IsValueType && !t.IsEnum)) &&
+                    (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
             foreach (Type? cls in classes)
@@ -71,7 +73,9 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
                     AssemblyName = assemblyInfo.FileName,
                     IsStatic = cls.IsAbstract && cls.IsSealed,
                     IsAbstract = cls.IsAbstract && !cls.IsSealed,
-                    IsSealed = cls.IsSealed && !cls.IsAbstract
+                    IsSealed = cls.IsSealed && !cls.IsAbstract,
+                    IsRecord = TypeFormattingHelpers.IsRecordType(cls),
+                    IsStruct = cls.IsValueType && !cls.IsEnum
                 });
             }
         }

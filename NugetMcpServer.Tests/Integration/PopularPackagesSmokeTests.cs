@@ -159,6 +159,22 @@ public class PopularPackagesSmokeTests : TestBase
             TestOutput.WriteLine(def);
         }
 
+        // Verify class flags against record and struct listings
+        var structNames = structResult.Structs.Select(s => s.FullName).ToHashSet();
+        var recordLookup = recordResult.Records.ToDictionary(r => r.FullName, r => r.IsStruct);
+
+        foreach (var cls in classResult.Classes)
+        {
+            if (cls.IsStruct)
+                Assert.Contains(cls.FullName, structNames);
+
+            if (cls.IsRecord)
+            {
+                Assert.True(recordLookup.TryGetValue(cls.FullName, out bool recIsStruct));
+                Assert.Equal(recIsStruct, cls.IsStruct);
+            }
+        }
+
         Assert.Empty(listClassesLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(classDefLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(listInterfacesLogger.Entries.Where(e => e.Exception != null));
