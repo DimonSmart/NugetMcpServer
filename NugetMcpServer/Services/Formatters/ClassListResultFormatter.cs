@@ -34,12 +34,14 @@ public static class ClassListResultFormatter
                 formattedName = formattedName.Substring(prefix.Length);
 
             sb.Append("public ");
-            if (cls.IsStatic)
-                sb.Append("static ");
-            else if (cls.IsAbstract)
-                sb.Append("abstract ");
-            else if (cls.IsSealed)
-                sb.Append("sealed ");
+            var modifier = cls.IsStatic
+                ? "static "
+                : cls.IsAbstract
+                    ? "abstract "
+                    : cls.IsSealed
+                        ? "sealed "
+                        : string.Empty;
+            sb.Append(modifier);
 
             sb.AppendLine($"class {formattedName}");
         }

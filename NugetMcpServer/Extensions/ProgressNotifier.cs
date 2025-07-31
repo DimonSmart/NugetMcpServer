@@ -4,9 +4,6 @@ using ModelContextProtocol;
 
 namespace NuGetMcpServer.Extensions;
 
-/// <summary>
-/// Auto-incrementing progress notifier with using pattern support
-/// </summary>
 public sealed class ProgressNotifier : IDisposable, IProgressNotifier
 {
     public sealed class NullProgressNotifier : IProgressNotifier
@@ -27,10 +24,6 @@ public sealed class ProgressNotifier : IDisposable, IProgressNotifier
         _progress = progress;
     }
 
-    /// <summary>
-    /// Reports progress with auto-incrementing percentage (1-99)
-    /// </summary>
-    /// <param name="message">Operation description</param>
     public void ReportMessage(string message)
     {
         if (_disposed || _progress == null) return;
@@ -48,9 +41,6 @@ public sealed class ProgressNotifier : IDisposable, IProgressNotifier
         });
     }
 
-    /// <summary>
-    /// Reports completion (100%) and disposes the notifier
-    /// </summary>
     public void Dispose()
     {
         if (_disposed || _progress == null) return;

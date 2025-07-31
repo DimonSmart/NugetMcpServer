@@ -23,7 +23,8 @@ public static class MetaPackageResultFormatter
                 sb.AppendLine($"  • {dependency.Id} ({dependency.Version})");
             }
         }
-        else
+
+        if (result.Dependencies.Count == 0)
         {
             sb.AppendLine("No dependencies found (this may indicate an empty meta-package).");
         }

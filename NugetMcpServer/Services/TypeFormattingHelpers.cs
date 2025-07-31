@@ -147,18 +147,16 @@ public static class TypeFormattingHelpers
     /// </summary>
     public static string GetPropertyModifiers(PropertyInfo property)
     {
-        List<string> modifiers = new List<string>();
-
         MethodInfo? getter = property.GetGetMethod();
         MethodInfo? setter = property.GetSetMethod();
 
         if (getter?.IsStatic == true || setter?.IsStatic == true)
-            modifiers.Add("static");
-        else if (getter?.IsVirtual == true && getter?.IsAbstract != true) modifiers.Add("virtual");
-        else if (getter?.IsAbstract == true)
-            modifiers.Add("abstract");
+            return "static ";
 
-        return modifiers.Count > 0 ? string.Join(" ", modifiers) + " " : "";
+        if (getter?.IsVirtual == true && getter?.IsAbstract != true)
+            return "virtual ";
+
+        return getter?.IsAbstract == true ? "abstract " : string.Empty;
     }
 
     public static string FormatPropertyDefinition(PropertyInfo property, bool isInterface = false)
