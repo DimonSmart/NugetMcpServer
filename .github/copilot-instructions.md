@@ -22,4 +22,7 @@
 - In your methods, invoke this helper so that the method body remains focused on core logic.
 
 ### Variables
-- Prefer var style. Example var users = new List<User>();
+- Prefer var style. Example: `var users = new List<User>();`
+
+### Code cleanup
+Call `dotnet format -v d` for code formatting
