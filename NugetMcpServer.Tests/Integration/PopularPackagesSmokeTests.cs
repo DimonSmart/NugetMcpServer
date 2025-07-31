@@ -77,15 +77,11 @@ public class PopularPackagesSmokeTests : TestBase
         var classDefLogger = new TestLogger<GetClassDefinitionTool>(TestOutput);
         var listInterfacesLogger = new TestLogger<ListInterfacesTool>(TestOutput);
         var interfaceDefLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
-        var structDefLogger = new TestLogger<GetStructDefinitionTool>(TestOutput);
-        var recordDefLogger = new TestLogger<GetRecordDefinitionTool>(TestOutput);
 
         var listTypesTool = new ListTypesTool(listTypesLogger, _packageService, archiveService);
         var classDefTool = new GetClassDefinitionTool(classDefLogger, _packageService, new ClassFormattingService(), archiveService);
         var listInterfacesTool = new ListInterfacesTool(listInterfacesLogger, _packageService, archiveService);
         var interfaceDefTool = new GetInterfaceDefinitionTool(interfaceDefLogger, _packageService, new InterfaceFormattingService(), archiveService);
-        var structDefTool = new GetStructDefinitionTool(structDefLogger, _packageService, new ClassFormattingService(), archiveService);
-        var recordDefTool = new GetRecordDefinitionTool(recordDefLogger, _packageService, new ClassFormattingService(), archiveService);
 
         var version = await _packageService.GetLatestVersion(packageId);
         await using var stream = await _packageService.DownloadPackageAsync(packageId, version);
@@ -116,9 +112,9 @@ public class PopularPackagesSmokeTests : TestBase
         TestOutput.WriteLine(typeResult.Format());
         foreach (var cls in typeResult.Types)
         {
-            var def = await classDefTool.get_class_or_record_definition(packageId, cls.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, cls.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_class_or_record_definition({cls.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({cls.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
@@ -138,17 +134,17 @@ public class PopularPackagesSmokeTests : TestBase
 
         foreach (var st in structTypes)
         {
-            var def = await structDefTool.get_struct_definition(packageId, st.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, st.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_struct_definition({st.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({st.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
         foreach (var rec in recordTypes)
         {
-            var def = await recordDefTool.get_record_definition(packageId, rec.FullName, version);
+            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, rec.FullName, version);
             Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_record_definition({rec.FullName}) =>");
+            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({rec.FullName}) =>");
             TestOutput.WriteLine(def);
         }
 
@@ -172,8 +168,6 @@ public class PopularPackagesSmokeTests : TestBase
         Assert.Empty(classDefLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(listInterfacesLogger.Entries.Where(e => e.Exception != null));
         Assert.Empty(interfaceDefLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(structDefLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(recordDefLogger.Entries.Where(e => e.Exception != null));
     }
 
     private static (int classes, int interfaces, int enums) CountTypes(byte[] assemblyData)
