@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Net.Http;
+using Microsoft.Extensions.Caching.Memory;
 
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
@@ -116,6 +118,42 @@ namespace NuGetMcpServer.Tests.Services
             // Assert - this should return empty results
             Assert.NotNull(results);
             TestOutput.WriteLine($"Search for obscure query '{query}' returned {results.Count} results");
+        }
+
+        [Fact]
+        public async Task DownloadPackageAsync_UsesCacheForSubsequentCalls()
+        {
+            const string packageId = "Test.Package";
+            const string version = "1.0.0";
+
+            var handler = new CountingHandler();
+            using var client = new HttpClient(handler);
+            var cache = new MemoryCache(new MemoryCacheOptions());
+            var meta = CreateMetaPackageDetector();
+            var service = new NuGetPackageService(_packageLogger, client, meta, cache);
+
+            using var first = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
+            using var second = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
+
+            Assert.Equal(1, handler.CallCount);
+            Assert.Equal(first.ToArray(), second.ToArray());
+        }
+
+        private sealed class CountingHandler : HttpMessageHandler
+        {
+            public int CallCount { get; private set; }
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                CallCount++;
+                var bytes = new byte[] {1, 2, 3};
+                var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(bytes)
+                };
+
+                return Task.FromResult(response);
+            }
         }
     }
 }

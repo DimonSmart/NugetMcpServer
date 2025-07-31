@@ -35,6 +35,7 @@ internal class Program
         });
 
         builder.Services.AddSingleton<HttpClient>();
+        builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<MetaPackageDetector>();
         builder.Services.AddSingleton<NuGetPackageService>();
         builder.Services.AddSingleton<PackageSearchService>();
