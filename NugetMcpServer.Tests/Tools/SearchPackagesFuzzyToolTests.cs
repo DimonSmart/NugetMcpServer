@@ -9,18 +9,18 @@ namespace NuGetMcpServer.Tests.Tools;
 public class SearchPackagesFuzzyToolTests : TestBase
 {
     private readonly TestLogger<NuGetPackageService> _packageLogger;
-    private readonly TestLogger<FuzzySearchPackagesTool> _toolLogger;
+    private readonly TestLogger<SearchPackagesFuzzyTool> _toolLogger;
     private readonly NuGetPackageService _packageService;
-    private readonly FuzzySearchPackagesTool _tool;
+    private readonly SearchPackagesFuzzyTool _tool;
 
     public SearchPackagesFuzzyToolTests(ITestOutputHelper testOutput) : base(testOutput)
     {
         _packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
-        _toolLogger = new TestLogger<FuzzySearchPackagesTool>(TestOutput);
+        _toolLogger = new TestLogger<SearchPackagesFuzzyTool>(TestOutput);
 
         _packageService = CreateNuGetPackageService();
         var searchService = new PackageSearchService(new TestLogger<PackageSearchService>(TestOutput), _packageService);
-        _tool = new FuzzySearchPackagesTool(_toolLogger, searchService);
+        _tool = new SearchPackagesFuzzyTool(_toolLogger, searchService);
     }
 
     [Theory]

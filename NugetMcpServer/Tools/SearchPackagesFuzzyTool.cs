@@ -17,7 +17,7 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class FuzzySearchPackagesTool(ILogger<FuzzySearchPackagesTool> logger, PackageSearchService searchService) : McpToolBase<FuzzySearchPackagesTool>(logger, null!)
+public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, PackageSearchService searchService) : McpToolBase<SearchPackagesFuzzyTool>(logger, null!)
 {
     [McpServerTool]
     [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
