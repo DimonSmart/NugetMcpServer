@@ -7,9 +7,9 @@ namespace NuGetMcpServer.Tests.Services;
 public class PackageResultBaseTests
 {
     [Fact]
-    public void ClassListResult_WithMetaPackage_ShowsMetaPackageHeader()
+    public void TypeListResult_WithMetaPackage_ShowsMetaPackageHeader()
     {
-        var result = new ClassListResult
+        var result = new TypeListResult
         {
             PackageId = "Microsoft.SemanticKernel",
             Version = "1.60.0",
@@ -32,9 +32,9 @@ public class PackageResultBaseTests
     }
 
     [Fact]
-    public void ClassListResult_WithMetaPackageAndOwnClasses_ShowsBoth()
+    public void TypeListResult_WithMetaPackageAndOwnClasses_ShowsBoth()
     {
-        var result = new ClassListResult
+        var result = new TypeListResult
         {
             PackageId = "SomeMetaPackage",
             Version = "1.0.0",
@@ -43,9 +43,9 @@ public class PackageResultBaseTests
             {
                 new PackageDependency { Id = "SomePackage.Core", Version = "1.0.0" }
             },
-            Classes = new List<ClassInfo>
+            Types = new List<TypeInfo>
             {
-                new ClassInfo { Name = "MetaClass", FullName = "SomeMetaPackage.MetaClass", AssemblyName = "SomeMetaPackage.dll" }
+                new TypeInfo { Name = "MetaClass", FullName = "SomeMetaPackage.MetaClass", AssemblyName = "SomeMetaPackage.dll" }
             }
         };
 
@@ -58,19 +58,19 @@ public class PackageResultBaseTests
     }
 
     [Fact]
-    public void ClassListResult_WithRegularPackage_ShowsClassHeader()
+    public void TypeListResult_WithRegularPackage_ShowsClassHeader()
     {
-        var result = new ClassListResult
+        var result = new TypeListResult
         {
             PackageId = "Newtonsoft.Json",
             Version = "13.0.3",
             IsMetaPackage = false,
-            Classes = new List<ClassInfo>()
+            Types = new List<TypeInfo>()
         };
 
         var formatted = result.Format();
 
-        Assert.Contains("No public classes found in this package", formatted);
+        Assert.Contains("No public classes, records or structs found in this package", formatted);
         Assert.DoesNotContain("META-PACKAGE", formatted);
     }
 

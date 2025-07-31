@@ -13,12 +13,13 @@ using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 namespace NuGetMcpServer.Tools;
 
 [McpServerToolType]
-public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageService packageService, ArchiveProcessingService archiveProcessingService) : McpToolBase<ListClassesTool>(logger, packageService)
+public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService packageService, ArchiveProcessingService archiveProcessingService) : McpToolBase<ListTypesTool>(logger, packageService)
 {
     private readonly ArchiveProcessingService _archiveProcessingService = archiveProcessingService;
+
     [McpServerTool]
-    [Description("Lists all public classes and records available in a specified NuGet package.")]
-    public Task<ClassListResult> list_classes_and_records(
+    [Description("Lists all public classes, records and structs available in a specified NuGet package.")]
+    public Task<TypeListResult> list_classes_records_structs(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
@@ -26,12 +27,12 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => ListClassesCore(packageId, version, progressNotifier),
+            () => ListTypesCore(packageId, version, progressNotifier),
             Logger,
-            "Error listing classes and records");
+            "Error listing types");
     }
 
-    private async Task<ClassListResult> ListClassesCore(string packageId, string? version, IProgressNotifier progress)
+    private async Task<TypeListResult> ListTypesCore(string packageId, string? version, IProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -40,49 +41,57 @@ public class ListClassesTool(ILogger<ListClassesTool> logger, NuGetPackageServic
             await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
 
         Logger.LogInformation(
-            "Listing classes and records from package {PackageId} version {Version}",
+            "Listing types from package {PackageId} version {Version}",
             packageId, resolvedVersion);
 
-        var result = new ClassListResult
+        var result = new TypeListResult
         {
             PackageId = packageId,
             Version = resolvedVersion,
-            Classes = []
+            Types = []
         };
 
         result.IsMetaPackage = packageInfo.IsMetaPackage;
         result.Dependencies = packageInfo.Dependencies;
         result.Description = packageInfo.Description ?? string.Empty;
 
-        progress.ReportMessage("Scanning assemblies for classes/records");
+        progress.ReportMessage("Scanning assemblies for classes/records/structs");
 
         foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
-            System.Collections.Generic.List<Type> classes = assemblyInfo.Types
+            var types = assemblyInfo.Types
                 .Where(t =>
                     (t.IsClass || TypeFormattingHelpers.IsRecordType(t) || (t.IsValueType && !t.IsEnum)) &&
                     (t.IsPublic || t.IsNestedPublic))
                 .ToList();
 
-            foreach (Type? cls in classes)
+            foreach (var type in types)
             {
-                result.Classes.Add(new ClassInfo
+                var kind = TypeKind.Class;
+                var isRecord = TypeFormattingHelpers.IsRecordType(type);
+                var isStruct = type.IsValueType && !type.IsEnum;
+                if (isRecord && isStruct)
+                    kind = TypeKind.RecordStruct;
+                else if (isRecord)
+                    kind = TypeKind.RecordClass;
+                else if (isStruct)
+                    kind = TypeKind.Struct;
+
+                result.Types.Add(new TypeInfo
                 {
-                    Name = cls.Name,
-                    FullName = cls.FullName ?? string.Empty,
+                    Name = type.Name,
+                    FullName = type.FullName ?? string.Empty,
                     AssemblyName = assemblyInfo.FileName,
-                    IsStatic = cls.IsAbstract && cls.IsSealed,
-                    IsAbstract = cls.IsAbstract && !cls.IsSealed,
-                    IsSealed = cls.IsSealed && !cls.IsAbstract,
-                    IsRecord = TypeFormattingHelpers.IsRecordType(cls),
-                    IsStruct = cls.IsValueType && !cls.IsEnum
+                    IsStatic = type.IsAbstract && type.IsSealed,
+                    IsAbstract = type.IsAbstract && !type.IsSealed,
+                    IsSealed = type.IsSealed && !type.IsAbstract,
+                    Kind = kind
                 });
             }
         }
 
-        progress.ReportMessage($"Class listing completed - Found {result.Classes.Count} classes/records");
+        progress.ReportMessage($"Type listing completed - Found {result.Types.Count} types");
 
         return result;
     }
-
 }
