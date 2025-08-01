@@ -61,7 +61,7 @@ public class GetInterfaceDefinitionTool(
             "Fetching interface {InterfaceName} from package {PackageId} version {Version}",
             interfaceName, packageId, resolvedVersion);
 
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
 
         foreach (var assemblyInfo in loaded.Assemblies)
         {
