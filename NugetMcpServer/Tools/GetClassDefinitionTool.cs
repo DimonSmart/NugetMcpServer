@@ -60,7 +60,7 @@ public class GetClassDefinitionTool(
             "Fetching class, record or struct {ClassName} from package {PackageId} version {Version}",
             typeName, packageId, resolvedVersion);
 
-        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
 
         progress.ReportMessage("Scanning assemblies for class/record/struct");
 
