@@ -1,12 +1,9 @@
-using System.Reflection;
 using System.Net.Http;
+using System.Reflection;
 using Microsoft.Extensions.Caching.Memory;
-
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
-
 using Xunit.Abstractions;
-
 using static NuGetMcpServer.Extensions.ProgressNotifier;
 
 namespace NuGetMcpServer.Tests.Services
@@ -146,7 +143,7 @@ namespace NuGetMcpServer.Tests.Services
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 CallCount++;
-                var bytes = new byte[] {1, 2, 3};
+                var bytes = new byte[] { 1, 2, 3 };
                 var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(bytes)

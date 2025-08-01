@@ -26,12 +26,11 @@ public sealed class ProgressNotifier : IDisposable, IProgressNotifier
 
     public void ReportMessage(string message)
     {
-        if (_disposed || _progress == null) return;
+        if (_disposed || _progress == null)
+            return;
 
         if (_currentProgress < 99)
-        {
             _currentProgress++;
-        }
 
         _progress.Report(new ProgressNotificationValue
         {
@@ -43,7 +42,8 @@ public sealed class ProgressNotifier : IDisposable, IProgressNotifier
 
     public void Dispose()
     {
-        if (_disposed || _progress == null) return;
+        if (_disposed || _progress == null)
+            return;
 
         _progress.Report(new ProgressNotificationValue
         {

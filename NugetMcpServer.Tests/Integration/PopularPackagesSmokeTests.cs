@@ -1,13 +1,12 @@
+using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using NuGet.Packaging;
 using NuGetMcpServer.Services;
+using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
-using System.Linq;
-using NuGetMcpServer.Services.Formatters;
 using Xunit;
-
 using Xunit.Abstractions;
 
 namespace NuGetMcpServer.Tests.Integration;
@@ -164,10 +163,10 @@ public class PopularPackagesSmokeTests : TestBase
             }
         }
 
-        Assert.Empty(listTypesLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(classDefLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(listInterfacesLogger.Entries.Where(e => e.Exception != null));
-        Assert.Empty(interfaceDefLogger.Entries.Where(e => e.Exception != null));
+        Assert.DoesNotContain(listTypesLogger.Entries, e => e.Exception != null);
+        Assert.DoesNotContain(classDefLogger.Entries, e => e.Exception != null);
+        Assert.DoesNotContain(listInterfacesLogger.Entries, e => e.Exception != null);
+        Assert.DoesNotContain(interfaceDefLogger.Entries, e => e.Exception != null);
     }
 
     private static (int classes, int interfaces, int enums) CountTypes(byte[] assemblyData)

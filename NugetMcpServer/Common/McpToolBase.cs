@@ -13,6 +13,4 @@ public abstract class McpToolBase<T>(ILogger<T> logger, NuGetPackageService pack
 {
     protected readonly ILogger<T> Logger = logger;
     protected readonly NuGetPackageService PackageService = packageService;
-
-
 }

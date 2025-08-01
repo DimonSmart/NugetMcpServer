@@ -1,8 +1,6 @@
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
-
+using Microsoft.Extensions.Logging.Abstractions;
 using NuGetMcpServer.Services;
-
 using Xunit.Abstractions;
 
 namespace NuGetMcpServer.Tests.Helpers;
@@ -30,27 +28,5 @@ public abstract class TestBase(ITestOutputHelper testOutput)
         return new ArchiveProcessingService(NullLogger<ArchiveProcessingService>.Instance, packageService);
     }
 
-    protected static async Task ExecuteWithCleanupAsync(Func<Task> operation, Action cleanup)
-    {
-        try
-        {
-            await operation();
-        }
-        finally
-        {
-            cleanup();
-        }
-    }
 
-    protected static void ExecuteWithErrorHandling(Action action, Action<Exception>? exceptionHandler = null)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception ex)
-        {
-            exceptionHandler?.Invoke(ex);
-        }
-    }
 }

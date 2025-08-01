@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -35,6 +36,7 @@ public class GetClassDefinitionTool(
             "Error fetching class, record or struct definition");
     }
 
+    [RequiresAssemblyFiles("Calls NuGetMcpServer.Services.ClassFormattingService.FormatClassDefinition(Type, String, String, Byte[])")]
     private async Task<string> GetClassOrRecordDefinitionCore(
         string packageId,
         string typeName,
@@ -69,51 +71,8 @@ public class GetClassDefinitionTool(
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
             try
             {
-                Type? classType = assemblyInfo.Types
-                        .FirstOrDefault(t =>
-                        {
-                            if (!((t.IsClass || (t.IsValueType && !t.IsEnum)) && (t.IsPublic || t.IsNestedPublic)))
-                            {
-                                return false;
-                            }
-
-                            if (t.Name == typeName)
-                            {
-                                return true;
-                            }
-
-                            if (t.FullName == typeName)
-                            {
-                                return true;
-                            }
-
-                            if (!t.IsGenericType)
-                            {
-                                return false;
-                            }
-
-                            int backtickIndex = t.Name.IndexOf('`');
-                            if (backtickIndex > 0)
-                            {
-                                string baseName = t.Name.Substring(0, backtickIndex);
-                                if (baseName == typeName)
-                                {
-                                    return true;
-                                }
-                            }
-
-                            if (t.FullName != null)
-                            {
-                                int fullBacktickIndex = t.FullName.IndexOf('`');
-                                if (fullBacktickIndex > 0)
-                                {
-                                    string fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
-                                    return fullBaseName == typeName;
-                                }
-                            }
-
-                            return false;
-                        });
+                var classType = assemblyInfo.Types
+                    .FirstOrDefault(t => IsMatchingType(t, typeName));
 
                 if (classType != null)
                 {
@@ -133,6 +92,40 @@ public class GetClassDefinitionTool(
         }
 
         return metaPackageWarning + $"Class, record or struct '{typeName}' not found in package {packageId}.";
+    }
+
+    private static bool IsMatchingType(Type type, string typeName)
+    {
+        if (!((type.IsClass || (type.IsValueType && !type.IsEnum)) && (type.IsPublic || type.IsNestedPublic)))
+            return false;
+
+        if (type.Name == typeName || type.FullName == typeName)
+            return true;
+
+        if (!type.IsGenericType)
+            return false;
+
+        // Check generic type name without backtick
+        var backtickIndex = type.Name.IndexOf('`');
+        if (backtickIndex > 0)
+        {
+            var baseName = type.Name.Substring(0, backtickIndex);
+            if (baseName == typeName)
+                return true;
+        }
+
+        // Check full generic type name without backtick
+        if (type.FullName != null)
+        {
+            var fullBacktickIndex = type.FullName.IndexOf('`');
+            if (fullBacktickIndex > 0)
+            {
+                var fullBaseName = type.FullName.Substring(0, fullBacktickIndex);
+                return fullBaseName == typeName;
+            }
+        }
+
+        return false;
     }
 
 }

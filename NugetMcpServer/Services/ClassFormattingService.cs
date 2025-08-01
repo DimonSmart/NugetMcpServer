@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
-using System.Collections.Immutable;
 using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Text;
-using System.IO;
 
 namespace NuGetMcpServer.Services;
 
@@ -15,6 +16,7 @@ public class ClassFormattingService
 {
     // Builds a string representation of a class using metadata-only reflection
     // to avoid requiring all referenced assemblies to be present.
+    [RequiresAssemblyFiles()]
     public string FormatClassDefinition(Type classType, string assemblyName, string packageName, byte[]? assemblyBytes = null)
     {
         if (assemblyBytes == null)
@@ -205,6 +207,7 @@ public class ClassFormattingService
             sb.AppendLine();
     }
 
+    [RequiresAssemblyFiles("Calls System.Reflection.Module.FullyQualifiedName")]
     private static string FormatMethod(MethodInfo method, byte[]? assemblyBytes)
     {
         assemblyBytes ??= TryReadAssemblyBytes(method.Module.FullyQualifiedName);

@@ -4,15 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
-using System.Text.Json;
 using System.Runtime.Loader;
+using System.Text.Json;
 using System.Threading.Tasks;
-
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
-
+using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
-
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Models;
 

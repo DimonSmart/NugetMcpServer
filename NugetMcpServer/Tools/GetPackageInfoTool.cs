@@ -5,18 +5,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
-
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-
+using NuGet.Packaging;
 using NuGetMcpServer.Common;
 using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Services.Formatters;
-using NuGet.Packaging;
-
 using static NuGetMcpServer.Extensions.ExceptionHandlingExtensions;
 
 namespace NuGetMcpServer.Tools;
