@@ -6,13 +6,13 @@ namespace NuGetMcpServer.Common;
 
 public static class MetaPackageHelper
 {
-    public static string CreateMetaPackageWarning(PackageInfo packageInfo, string packageId, string version)
+    public static string CreateMetaPackageWarning(PackageInfo packageInfo)
     {
         if (!packageInfo.IsMetaPackage)
             return string.Empty;
 
         var warning = new StringBuilder();
-        warning.AppendLine($"⚠️  META-PACKAGE: {packageId} v{version}");
+        warning.AppendLine($"⚠️  META-PACKAGE: {packageInfo.PackageId} v{packageInfo.Version}");
         warning.AppendLine("This package groups other related packages together and may not contain actual implementation code.");
 
         if (packageInfo.Dependencies.Count > 0)

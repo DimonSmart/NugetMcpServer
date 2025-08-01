@@ -58,7 +58,7 @@ public class GetEnumDefinitionTool(
             "Fetching enum {EnumName} from package {PackageId} version {Version}",
             enumName, packageId, resolvedVersion);
 
-        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo, packageId, resolvedVersion);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
 
         progress.ReportMessage("Scanning assemblies for enum");
 
