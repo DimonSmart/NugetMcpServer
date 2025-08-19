@@ -7,7 +7,9 @@ namespace NuGetMcpServer.Tests.Services;
 
 public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBase(testOutput)
 {
-    private readonly ClassFormattingService _formattingService = new(); [Fact]
+    private readonly ClassFormattingService _formattingService = new();
+
+    [Fact]
     public void FormatClassDefinition_WithSimpleClass_ReturnsFormattedCode()
     {
         var classType = typeof(string);
@@ -116,6 +118,21 @@ public class ClassFormattingServiceTests(ITestOutputHelper testOutput) : TestBas
 
     public record TestRecord(int Value);
     public record struct TestRecordStruct(int Value);
+
+    public class ConstructorSample
+    {
+        public ConstructorSample() { }
+        public ConstructorSample(int value, string name) { }
+    }
+
+    [Fact]
+    public void FormatClassDefinition_WithConstructors_ReturnsConstructors()
+    {
+        var type = typeof(ConstructorSample);
+        var formatted = _formattingService.FormatClassDefinition(type, "TestAsm", "TestPackage");
+        Assert.Contains("public ConstructorSample()", formatted);
+        Assert.Contains("public ConstructorSample(int value, string name)", formatted);
+    }
 
     [Fact]
     public void FormatClassDefinition_WithRecordClass_ReturnsRecordKeyword()
