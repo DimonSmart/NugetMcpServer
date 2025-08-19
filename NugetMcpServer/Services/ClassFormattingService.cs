@@ -111,6 +111,8 @@ public class ClassFormattingService
 
         AddEvents(sb, classType);
 
+        AddConstructors(sb, classType, assemblyBytes);
+
         AddMethods(sb, classType, processedProperties, assemblyBytes);
 
         AddNestedDelegates(sb, classType);
@@ -189,6 +191,21 @@ public class ClassFormattingService
             sb.AppendLine();
     }
 
+    private static void AddConstructors(StringBuilder sb, Type classType, byte[]? assemblyBytes)
+    {
+        var constructors = classType.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+            .Where(c => c.DeclaringType == classType);
+
+        foreach (var ctor in constructors)
+        {
+            var signature = FormatConstructor(ctor, classType, assemblyBytes);
+            sb.AppendLine($"    {signature}");
+        }
+
+        if (constructors.Any())
+            sb.AppendLine();
+    }
+
     private static void AddMethods(StringBuilder sb, Type classType, HashSet<string> processedProperties, byte[]? assemblyBytes)
     {
         var methods = classType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
@@ -213,6 +230,16 @@ public class ClassFormattingService
         assemblyBytes ??= TryReadAssemblyBytes(method.Module.FullyQualifiedName);
         if (assemblyBytes == null || !TryFormatMethodFromMetadata(method, assemblyBytes, out var signature))
             throw new InvalidOperationException($"Unable to format method {method.Name} using metadata");
+
+        return signature;
+    }
+
+    [RequiresAssemblyFiles("Calls System.Reflection.Module.FullyQualifiedName")]
+    private static string FormatConstructor(ConstructorInfo ctor, Type declaringType, byte[]? assemblyBytes)
+    {
+        assemblyBytes ??= TryReadAssemblyBytes(ctor.Module.FullyQualifiedName);
+        if (assemblyBytes == null || !TryFormatConstructorFromMetadata(ctor, declaringType, assemblyBytes, out var signature))
+            throw new InvalidOperationException($"Unable to format constructor for {declaringType.Name} using metadata");
 
         return signature;
     }
@@ -294,6 +321,51 @@ public class ClassFormattingService
             return "abstract ";
 
         return string.Empty;
+    }
+
+    private static bool TryFormatConstructorFromMetadata(ConstructorInfo ctor, Type declaringType, byte[] assemblyBytes, out string signature)
+    {
+        signature = string.Empty;
+
+        try
+        {
+            using var ms = new MemoryStream(assemblyBytes);
+            using var peReader = new PEReader(ms);
+            var reader = peReader.GetMetadataReader();
+
+            var handle = MetadataTokens.MethodDefinitionHandle(ctor.MetadataToken);
+            var methodDef = reader.GetMethodDefinition(handle);
+
+            var provider = new MetadataTypeNameProvider(reader);
+            object? context = null;
+            if (declaringType.IsGenericType && !declaringType.IsGenericTypeDefinition)
+                context = declaringType.GetGenericArguments();
+
+            var sig = methodDef.DecodeSignature(provider, context);
+
+            var paramHandles = methodDef.GetParameters();
+            var paramTypes = sig.ParameterTypes.ToArray();
+            var paramNames = new List<string>();
+            foreach (var ph in paramHandles)
+            {
+                var param = reader.GetParameter(ph);
+                if (param.SequenceNumber == 0)
+                    continue;
+                paramNames.Add(reader.GetString(param.Name));
+            }
+
+            var parameters = new List<string>();
+            for (var i = 0; i < paramNames.Count && i < paramTypes.Length; i++)
+                parameters.Add($"{paramTypes[i]} {paramNames[i]}");
+
+            var name = declaringType.Name.Split('`')[0];
+            signature = $"public {name}({string.Join(", ", parameters)});";
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private sealed class MetadataTypeNameProvider : ISignatureTypeProvider<string, object?>
