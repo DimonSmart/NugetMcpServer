@@ -22,6 +22,7 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 - Reduces LLM hallucinations by giving accurate API information
 - Supports specific package versions or latest version
 - Supports generic types with correct C# formatting
+- Can list and read arbitrary files from NuGet packages
 - Uses STDIO for client communication
 - Includes a time utility tool for basic server checks
 - Built with .NET 9.0 for good performance
@@ -112,6 +113,11 @@ The server uses the .NET Generic Host and includes:
 
 - `get_class_or_record_or_struct_definition(packageId, typeName, version?)` - Gets the C# class, record or struct definition from a NuGet package. Parameters: packageId (NuGet package ID), typeName (short or full name), version (optional, defaults to latest)
  - `list_classes_records_structs(packageId, version?)` - Lists all public classes, records and structs in a NuGet package. Returns package ID, version, and the list of types
+
+### Package File Tools
+
+- `list_package_files(packageId, version?)` - Lists all files in a NuGet package.
+- `get_package_file(packageId, filePath, version?, offset?, bytes?)` - Reads a file from a NuGet package. Returns text or base64 for binary files. Maximum chunk size is 1 MB.
 
 ### Package Search Tools
 
