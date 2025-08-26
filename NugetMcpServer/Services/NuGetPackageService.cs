@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
@@ -230,6 +231,70 @@ public class NuGetPackageService(ILogger<NuGetPackageService> logger, HttpClient
                 IsMetaPackage = false,
                 Dependencies = []
             };
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> ListPackageFilesAsync(string packageId, string version, IProgressNotifier? progress = null)
+    {
+        using var packageStream = await DownloadPackageAsync(packageId, version, progress);
+        using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+        var files = reader.GetFiles().OrderBy(f => f).ToList();
+        return files;
+    }
+
+    public async Task<FileContentResult> GetPackageFileAsync(
+        string packageId,
+        string version,
+        string filePath,
+        long offset = 0,
+        int? bytes = null,
+        IProgressNotifier? progress = null)
+    {
+        using var packageStream = await DownloadPackageAsync(packageId, version, progress);
+        using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+
+        if (!reader.GetFiles().Contains(filePath))
+            throw new FileNotFoundException($"File {filePath} not found in package {packageId} v{version}");
+
+        using var fileStream = reader.GetStream(filePath);
+        if (offset > 0)
+            fileStream.Seek(offset, SeekOrigin.Begin);
+
+        var maxBytes = Math.Min(bytes ?? 1_000_000, 1_000_000);
+        var buffer = new byte[maxBytes];
+        var read = await fileStream.ReadAsync(buffer.AsMemory(0, maxBytes));
+
+        var isBinary = IsBinary(buffer, read);
+        var content = isBinary
+            ? Convert.ToBase64String(buffer, 0, read)
+            : Encoding.UTF8.GetString(buffer, 0, read);
+
+        return new FileContentResult
+        {
+            PackageId = packageId,
+            Version = version,
+            FilePath = filePath,
+            Content = content,
+            IsBinary = isBinary
+        };
+    }
+
+    private static bool IsBinary(byte[] data, int length)
+    {
+        for (var i = 0; i < length; i++)
+        {
+            if (data[i] == 0)
+                return true;
+        }
+
+        try
+        {
+            Encoding.UTF8.GetString(data, 0, length);
+            return false;
+        }
+        catch
+        {
+            return true;
         }
     }
 }
