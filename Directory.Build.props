@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>1.0.11</VersionPrefix>
+    <VersionPrefix>1.0.12</VersionPrefix>
     <VersionSuffix></VersionSuffix>
   </PropertyGroup>
   <PropertyGroup>
@@ -14,6 +14,6 @@
     <Company>DimonSmart</Company>
     <Product>NugetMcpServer</Product>
     <Description>MCP server for searching interfaces and their methods inside NuGet packages.</Description>
-    <Copyright>© 2025 DimonSmart</Copyright>
+    <Copyright>(c) 2025 DimonSmart</Copyright>
   </PropertyGroup>
 </Project>

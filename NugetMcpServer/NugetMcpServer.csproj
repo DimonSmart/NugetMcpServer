@@ -3,10 +3,6 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net9.0</TargetFramework>
-        <PublishSingleFile>true</PublishSingleFile>
-        <PublishTrimmed>false</PublishTrimmed>
-        <SelfContained>true</SelfContained>
-        <RuntimeIdentifier>win-x64</RuntimeIdentifier>        
         <Nullable>enable</Nullable>
 
         <!-- Disable CET (Control-flow Enforcement Technology) because .NET 9 single-file apps
@@ -15,6 +11,32 @@
          or your minimum supported OS fully supports CET. -->
         <CetCompat>false</CetCompat>
 
+        <!-- Makes the package a .NET Tool so VS Code can run it through dnx -->
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>NugetMcpServer</ToolCommandName>
+
+        <!-- MCP server marker -->
+        <PackageType>McpServer</PackageType>
+
+        <!-- NuGet Metadata -->
+        <PackageId>DimonSmart.NugetMcpServer</PackageId>
+        <Authors>DimonSmart</Authors>
+        <Description>MCP server that exposes NuGet package metadata &amp; API surface.</Description>
+        <PackageTags>mcp;mcpserver;stdio;nuget</PackageTags>
+        <RepositoryUrl>https://github.com/DimonSmart/NugetMcpServer</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/DimonSmart/NugetMcpServer</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    </PropertyGroup>
+
+    <!-- Separate PropertyGroup for publish settings (not used for tool packaging) -->
+    <PropertyGroup Condition="'$(PublishProfile)' != ''">
+        <PublishSingleFile>true</PublishSingleFile>
+        <PublishTrimmed>false</PublishTrimmed>
+        <SelfContained>true</SelfContained>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,5 +48,20 @@
         <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.0-preview.6.25358.103" />
         <PackageReference Include="System.Text.Json" Version="9.0.5" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- Include MCP server description file in .mcp/ root -->
+        <None Include=".mcp\server.json" Pack="true" PackagePath=".mcp\" />
+        <!-- README in package root -->
+        <None Include="..\README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
+
+    <!-- Target to synchronize version in server.json -->
+    <Target Name="SyncServerJsonVersion" BeforeTargets="Build">
+        <Message Text="Syncing version from Directory.Build.props to server.json..." Importance="normal" />
+        <Exec Command="pwsh -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\sync-version.ps1&quot;" 
+              ContinueOnError="false" 
+              WorkingDirectory="$(MSBuildProjectDirectory)\.." />
+    </Target>
 
 </Project>

@@ -1,5 +1,8 @@
 # NugetMcpServer
 
+[![Install in VS Code](https://img.shields.io/badge/Install%20in-VS%20Code-007ACC?logo=visualstudiocode&style=for-the-badge)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%22%2C%22command%22%3A%22dnx%22%2C%22args%22%3A%5B%22DimonSmart.NugetMcpServer%22%5D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/Install%20in-VS%20Code%20Insiders-24bfa5?logo=visualstudiocode&style=for-the-badge)](https://insiders.vscode.dev/redirect?url=vscode-insiders:mcp/install?%7B%22name%22%3A%22NugetMcpServer%22%2C%22command%22%3A%22dnx%22%2C%22args%22%3A%5B%22DimonSmart.NugetMcpServer%22%5D%7D)
+
 A powerful MCP server for getting accurate interface, class, enum, record, and struct definitions from NuGet packages. It helps reduce LLM hallucinations by giving precise information about real package APIs.
 Certified by [MCPHub](https://mcphub.com/mcp-servers/dimonsmart/nugetmcpserver)
 
@@ -11,99 +14,47 @@ The server uses the Model Context Protocol (MCP). This makes it easy to connect 
 
 You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaChat), VS Code with Copilot, and other MCP-compatible clients.
 
+## Quick Start
+
+1. **Click "Install in VS Code"** (button above) 
+2. **In VS Code**: Open Command Palette → `MCP: List Servers` → **NugetMcpServer** → **Start**
+3. **In Copilot Chat** (Agent Mode): "Use NugetMcpServer to get package info for `Newtonsoft.Json`"
+
 ## Features
 
-- Real-time extraction of interfaces, classes, records, structs, and enums from NuGet packages
-- **Smart package search with AI-enhanced keyword generation**
-- **Two-phase search: direct search + AI fallback for better results**
-- **Comma-separated keyword search for fast targeted results with balanced distribution**
-- **Package popularity ranking by download count**
-- **Meta-package detection with clear warnings and dependency guidance**
-- Reduces LLM hallucinations by giving accurate API information
-- Supports specific package versions or latest version
-- Supports generic types with correct C# formatting
-- Can list and read arbitrary files from NuGet packages
-- Uses STDIO for client communication
-- Includes a time utility tool for basic server checks
-- Built with .NET 9.0 for good performance
-- Easy to integrate with VS Code, OllamaChat, and other MCP clients
+- **Real-time NuGet package analysis** - Extract interfaces, classes, records, structs, and enums from any NuGet package
+- **AI-enhanced smart search** - Two-phase search with AI fallback and keyword generation for better package discovery  
+- **Popularity-based ranking** - Results sorted by download count to find the most trusted packages
+- **Meta-package detection** - Clear warnings and dependency guidance for meta-packages
+- **Version-specific queries** - Support for specific package versions or latest version
+- **Reduces LLM hallucinations** - Provides accurate, up-to-date API information instead of outdated training data
+- **Universal compatibility** - Works with VS Code, OllamaChat, and other MCP-compatible clients
 
-## Prerequisites
+## Manual Installation
 
-- .NET 9.0 SDK or higher
-- A compatible MCP client for testing (for example, [OllamaChat](https://github.com/DimonSmart/OllamaChat))
-
-## Installation
-
-### Option 1: Install via WinGet (Recommended)
-
-
-You can install NugetMcpServer using WinGet:
-
+### .NET Tool (Global)
+```bash
+dotnet tool install -g DimonSmart.NugetMcpServer
 ```
+
+### VS Code Workspace Configuration
+Create `.vscode/mcp.json` in your workspace:
+```json
+{
+  "servers": {
+    "NugetMcpServer": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["DimonSmart.NugetMcpServer"]
+    }
+  }
+}
+```
+
+### WinGet Installation
+```bash
 winget install DimonSmart.NugetMcpServer
 ```
-
-
-After installation, you can add the server to VS Code and other MCP-compatible clients. For VS Code:
-
-1. Install the server using the command above.
-2. Open VS Code settings and search for "MCP".
-3. Add NugetMcpServer to your MCP servers configuration.
-4. The server executable (`NugetMcpServer.exe`) will be in your system PATH.
-
-### Option 2: Build from Source
-
-1. Clone this repository.
-2. Build the application:
-   ```
-   dotnet build
-   ```
-3. Run the server:
-   ```
-   dotnet run
-   ```
-
-## Project Structure
-
-- `Program.cs` - Main entry point that configures and runs the MCP server with version support
-- `TimeTool.cs` - Utility tool for time-related functions (namespace `NugetMcpServer`)
-- `Tools/GetInterfaceDefinitionTool.cs` - Extracts interface definitions from NuGet packages
-- `Tools/GetClassDefinitionTool.cs` - Extracts class, record, and struct definitions from NuGet packages  
-- `Tools/ListInterfacesTool.cs` - Lists all interfaces in NuGet packages
-- `Tools/ListTypesTool.cs` - Lists all types (classes, records, structs) in NuGet packages
-- `Tools/GetEnumDefinitionTool.cs` - Extracts enum definitions from NuGet packages
-- `Tools/GetPackageInfoTool.cs` - Gets comprehensive package information and metadata
-- `Tools/SearchPackagesTool.cs` - Standard package search functionality
-- `Tools/SearchPackagesFuzzyTool.cs` - AI-enhanced fuzzy package search
-- `Tools/PackageFileTool.cs` - Lists and reads files from NuGet packages
-- `Services/NuGetPackageService.cs` - Core service for working with NuGet packages
-- `Services/InterfaceFormattingService.cs` - Formats interface definitions
-- `Services/ClassFormattingService.cs` - Formats class, record, and struct definitions
-- `Services/EnumFormattingService.cs` - Formats enum definitions
-- `Services/ArchiveProcessingService.cs` - Processes NuGet package archives
-- `Services/MetaPackageDetector.cs` - Detects and handles meta-packages
-- `Services/Formatters/` - Specialized result formatters for different output types
-- `Common/McpToolBase.cs` - Base class for MCP tools with common functionality
-- `Extensions/` - Extension methods for string formatting, exception handling, and progress notification
-
-## Implementation Details
-
-The server uses the .NET Generic Host and includes:
-
-- Console logging set to trace level
-- MCP server registered with STDIO transport
-- Automatic discovery and registration of tools using reflection
-- HttpClient service for downloading NuGet packages
-- In-memory caching for improved performance
-- NuGetPackageService for package operations
-- Multiple formatting services for different C# constructs (interfaces, classes, enums)
-- Archive processing service for efficient package analysis
-- Meta-package detection and dependency resolution
-- Progress notification system for long-running operations
-- Version support with `--version` or `-v` command line arguments
-- Comprehensive test suite covering all tools and services
-- Windows-optimized single-file deployment with CET compatibility handling
 
 ## Available Tools
 
@@ -150,7 +101,8 @@ The server uses the .NET Generic Host and includes:
 
 - **Note**: Package dependencies are now included in the `get_package_info` tool response, providing complete package information in a single call.
 
-## MCP Server Response Examples
+<details>
+<summary>📄 MCP Server Response Examples</summary>
 
 Here are examples of server responses from the MCP tools using DimonSmart.MazeGenerator as a sample package:
 
@@ -238,7 +190,7 @@ Request:
 {
   "name": "SearchPackages",
   "parameters": {
-    "query": "Пользователю надо генерировать лабиринт",
+    "query": "User needs to generate a maze",
     "maxResults": 10,
     "fuzzySearch": true
   }
@@ -247,7 +199,7 @@ Request:
 
 Response (formatted result shows combined results):
 ```
-/* NUGET PACKAGE SEARCH RESULTS FOR: Пользователю надо генерировать лабиринт */
+/* NUGET PACKAGE SEARCH RESULTS FOR: User needs to generate a maze */
 /* AI-GENERATED PACKAGE NAMES: MazeGenerator MazeBuilder MazeCreator */
 /* FOUND 8 PACKAGES (SHOWING TOP 8) */
 
@@ -272,25 +224,7 @@ The search algorithm works as follows:
   4. Searches for the AI-generated names
   5. Combines and deduplicates all results sorted by popularity
 
-## Technical Details
-
-The application uses the ModelContextProtocol library (version 0.3.0-preview.2), which helps create MCP-compatible servers. The server uses standard input/output to talk to clients and includes comprehensive error handling and progress reporting.
-
-Key dependencies:
-- **ModelContextProtocol**: 0.3.0-preview.2 - MCP protocol implementation
-- **Microsoft.Extensions.Hosting**: 9.0.7 - Application hosting framework
-- **Microsoft.Extensions.Caching.Memory**: 9.0.7 - In-memory caching
-- **NuGet.Packaging**: 6.14.0 - NuGet package processing
-- **System.Reflection.MetadataLoadContext**: 10.0.0-preview.6 - Assembly metadata analysis
-- **System.Text.Json**: 9.0.5 - JSON serialization
-
-Project namespaces:
-- `NugetMcpServer` - Main namespace (used in TimeTool.cs)
-- `NuGetMcpServer.Tools` - Tool components (all analysis and search tools)
-- `NuGetMcpServer.Services` - Service components (package processing, formatting, archive handling)
-- `NuGetMcpServer.Common` - Shared components and base classes
-- `NuGetMcpServer.Extensions` - Extension methods for strings, exceptions, and progress
-- `NuGetMcpServer.Models` - Data models and result types
+</details>
 
 ## Integration with Development Tools
 
@@ -356,6 +290,69 @@ All tools that analyze package content (class definitions, interface definitions
 - Provide guidance on which packages to analyze instead
 
 The meta-package detection is powered by the `MetaPackageDetector` service which analyzes package structure and dependency patterns to identify when a package serves only as a grouping mechanism.
+
+<details>
+<summary>📁 Project Structure</summary>
+
+- `Program.cs` - Main entry point that configures and runs the MCP server with version support
+- `TimeTool.cs` - Utility tool for time-related functions (namespace `NugetMcpServer`)
+- `Tools/GetInterfaceDefinitionTool.cs` - Extracts interface definitions from NuGet packages
+- `Tools/GetClassDefinitionTool.cs` - Extracts class, record, and struct definitions from NuGet packages  
+- `Tools/ListInterfacesTool.cs` - Lists all interfaces in NuGet packages
+- `Tools/ListTypesTool.cs` - Lists all types (classes, records, structs) in NuGet packages
+- `Tools/GetEnumDefinitionTool.cs` - Extracts enum definitions from NuGet packages
+- `Tools/GetPackageInfoTool.cs` - Gets comprehensive package information and metadata
+- `Tools/SearchPackagesTool.cs` - Standard package search functionality
+- `Tools/SearchPackagesFuzzyTool.cs` - AI-enhanced fuzzy package search
+- `Tools/PackageFileTool.cs` - Lists and reads files from NuGet packages
+- `Services/NuGetPackageService.cs` - Core service for working with NuGet packages
+- `Services/InterfaceFormattingService.cs` - Formats interface definitions
+- `Services/ClassFormattingService.cs` - Formats class, record, and struct definitions
+- `Services/EnumFormattingService.cs` - Formats enum definitions
+- `Services/ArchiveProcessingService.cs` - Processes NuGet package archives
+- `Services/MetaPackageDetector.cs` - Detects and handles meta-packages
+- `Services/Formatters/` - Specialized result formatters for different output types
+- `Common/McpToolBase.cs` - Base class for MCP tools with common functionality
+- `Extensions/` - Extension methods for string formatting, exception handling, and progress notification
+
+</details>
+
+<details>
+<summary>⚙️ Implementation Details</summary>
+
+The server uses the .NET Generic Host and includes:
+
+- Console logging set to trace level
+- MCP server registered with STDIO transport
+- Automatic discovery and registration of tools using reflection
+- HttpClient service for downloading NuGet packages
+- In-memory caching for improved performance
+- NuGetPackageService for package operations
+- Multiple formatting services for different C# constructs (interfaces, classes, enums)
+- Archive processing service for efficient package analysis
+- Meta-package detection and dependency resolution
+- Progress notification system for long-running operations
+- Version support with `--version` or `-v` command line arguments
+- Comprehensive test suite covering all tools and services
+- Windows-optimized single-file deployment with CET compatibility handling
+
+Key dependencies:
+- **ModelContextProtocol**: 0.3.0-preview.2 - MCP protocol implementation
+- **Microsoft.Extensions.Hosting**: 9.0.7 - Application hosting framework
+- **Microsoft.Extensions.Caching.Memory**: 9.0.7 - In-memory caching
+- **NuGet.Packaging**: 6.14.0 - NuGet package processing
+- **System.Reflection.MetadataLoadContext**: 10.0.0-preview.6 - Assembly metadata analysis
+- **System.Text.Json**: 9.0.5 - JSON serialization
+
+Project namespaces:
+- `NugetMcpServer` - Main namespace (used in TimeTool.cs)
+- `NuGetMcpServer.Tools` - Tool components (all analysis and search tools)
+- `NuGetMcpServer.Services` - Service components (package processing, formatting, archive handling)
+- `NuGetMcpServer.Common` - Shared components and base classes
+- `NuGetMcpServer.Extensions` - Extension methods for strings, exceptions, and progress
+- `NuGetMcpServer.Models` - Data models and result types
+
+</details>
 
 ## Version Information
 

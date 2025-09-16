@@ -1,0 +1,23 @@
+﻿{
+    "name":  "io.github.dimonsmart/NugetMcpServer",
+    "description":  "NuGet API/metadata MCP server",
+    "packages":  [
+                     {
+                         "registry_name":  "nuget",
+                         "name":  "DimonSmart.NugetMcpServer",
+                         "package_arguments":  [
+
+                                               ],
+                         "environment_variables":  [
+
+                                                   ]
+                     }
+                 ],
+    "repository":  {
+                       "url":  "https://github.com/DimonSmart/NugetMcpServer",
+                       "source":  "github"
+                   },
+    "version_detail":  {
+                           "version":  "1.0.12"
+                       }
+}
