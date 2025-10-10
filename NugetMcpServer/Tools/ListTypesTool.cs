@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,17 +23,20 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
     public Task<TypeListResult> list_classes_records_structs(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
+        [Description("Filter by name or namespace. Supports wildcards: '*Message*' matches any type containing 'Message', 'Telegram.Bot.Types.*' matches namespace")] string? filter = null,
+        [Description("Maximum number of results to return (default: 100, prevents token limit issues)")] int maxResults = 100,
+        [Description("Number of results to skip (for pagination)")] int skip = 0,
         [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
     {
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => ListTypesCore(packageId, version, progressNotifier),
+            () => ListTypesCore(packageId, version, filter, maxResults, skip, progressNotifier),
             Logger,
             "Error listing types");
     }
 
-    private async Task<TypeListResult> ListTypesCore(string packageId, string? version, IProgressNotifier progress)
+    private async Task<TypeListResult> ListTypesCore(string packageId, string? version, string? filter, int maxResults, int skip, IProgressNotifier progress)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -57,6 +61,8 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
 
         progress.ReportMessage("Scanning assemblies for classes/records/structs");
 
+        var allTypes = new List<TypeInfo>();
+
         foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
         {
             var types = assemblyInfo.Types
@@ -77,7 +83,7 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
                 else if (isStruct)
                     kind = TypeKind.Struct;
 
-                result.Types.Add(new TypeInfo
+                allTypes.Add(new TypeInfo
                 {
                     Name = type.Name,
                     FullName = type.FullName ?? string.Empty,
@@ -90,8 +96,38 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
             }
         }
 
-        progress.ReportMessage($"Type listing completed - Found {result.Types.Count} types");
+        // Apply filter if provided
+        var filteredTypes = allTypes;
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            filteredTypes = FilterTypes(allTypes, filter);
+            progress.ReportMessage($"Filter applied: {filteredTypes.Count} types match '{filter}'");
+        }
+
+        // Apply pagination
+        result.TotalCount = filteredTypes.Count;
+        result.Types = filteredTypes.Skip(skip).Take(maxResults).ToList();
+        result.ReturnedCount = result.Types.Count;
+        result.IsPartial = result.ReturnedCount < result.TotalCount;
+
+        progress.ReportMessage($"Type listing completed - Returned {result.ReturnedCount} of {result.TotalCount} types");
 
         return result;
+    }
+
+    private static List<TypeInfo> FilterTypes(List<TypeInfo> types, string filter)
+    {
+        // Convert wildcard pattern to regex
+        // *Message* -> .*Message.*
+        // Telegram.Bot.Types.* -> Telegram\.Bot\.Types\..*
+        var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(filter)
+            .Replace("\\*", ".*")
+            .Replace("\\?", ".") + "$";
+
+        var regex = new System.Text.RegularExpressions.Regex(regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return types.Where(t =>
+            regex.IsMatch(t.Name) || regex.IsMatch(t.FullName)
+        ).ToList();
     }
 }
