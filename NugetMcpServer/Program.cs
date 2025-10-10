@@ -43,6 +43,8 @@ internal class Program
         builder.Services.AddSingleton<InterfaceFormattingService>();
         builder.Services.AddSingleton<EnumFormattingService>();
         builder.Services.AddSingleton<ClassFormattingService>();
+        builder.Services.AddSingleton<DocumentationProvider>();
+        builder.Services.AddSingleton<PackageComparisonService>();
 
         builder.Services
             .AddMcpServer()
