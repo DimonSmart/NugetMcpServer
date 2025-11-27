@@ -1,0 +1,9 @@
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  context: "."
+startCommand:
+  type: stdio
+  command: dotnet
+  args:
+    - /app/NugetMcpServer.dll

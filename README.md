@@ -20,15 +20,43 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 2. **In VS Code**: Open Command Palette → `MCP: List Servers` → **NugetMcpServer** → **Start**
 3. **In Copilot Chat** (Agent Mode): "Use NugetMcpServer to get package info for `Newtonsoft.Json`"
 
-## Features
+### Option 1: Run with Docker (Recommended)
 
-- **Real-time NuGet package analysis** - Extract interfaces, classes, records, structs, and enums from any NuGet package
-- **AI-enhanced smart search** - Two-phase search with AI fallback and keyword generation for better package discovery  
-- **Popularity-based ranking** - Results sorted by download count to find the most trusted packages
-- **Meta-package detection** - Clear warnings and dependency guidance for meta-packages
-- **Version-specific queries** - Support for specific package versions or latest version
-- **Reduces LLM hallucinations** - Provides accurate, up-to-date API information instead of outdated training data
-- **Universal compatibility** - Works with VS Code, OllamaChat, and other MCP-compatible clients
+You can run the server using Docker. This method works on Windows, macOS, and Linux and doesn't require installing the .NET SDK.
+
+#### Build locally
+```bash
+docker build -t nugetmcpserver .
+docker run -i --rm nugetmcpserver
+```
+
+#### Configure in MCP Clients (e.g., Claude Desktop)
+```json
+{
+  "mcpServers": {
+    "nuget": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "nugetmcpserver"]
+    }
+  }
+}
+```
+
+### Option 2: Install via Smithery
+
+To install NugetMcpServer for Claude Desktop automatically via [Smithery](https://smithery.ai/server/nugetmcpserver):
+
+```bash
+npx -y @smithery/cli install @dimonsmart/nugetmcpserver --client claude
+```
+
+Or directly from GitHub:
+
+```bash
+npx -y @smithery/cli install github.com/DimonSmart/NugetMcpServer --client claude
+```
+
+### Option 3: Install via WinGet (Windows)
 
 ## Manual Installation
 
@@ -36,6 +64,12 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 ```bash
 dotnet tool install -g DimonSmart.NugetMcpServer
 ```
+### Option 4: Install as .NET Tool
+If you have the .NET SDK installed, you can install the server as a global tool:
+```bash
+dotnet tool install -g DimonSmart.NugetMcpServer
+```
+### Option 5: Build from Source
 
 ### VS Code Workspace Configuration
 Create `.vscode/mcp.json` in your workspace:

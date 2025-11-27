@@ -5,6 +5,12 @@
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
 
+        <!-- Tool Packaging -->
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>NugetMcpServer</ToolCommandName>
+        <PackageId>DimonSmart.NugetMcpServer</PackageId>
+        <PackageOutputPath>./nupkg</PackageOutputPath>
+
         <!-- Disable CET (Control-flow Enforcement Technology) because .NET 9 single-file apps
          crash with a FailFast on Windows 10/11 when Shadow Stacks are enabled.
          Remove this line once the runtime bug (dotnet/runtime#108589) is fixed
