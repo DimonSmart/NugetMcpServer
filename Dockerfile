@@ -6,7 +6,8 @@ RUN dotnet restore "NugetMcpServer/NugetMcpServer.csproj"
 COPY . .
 WORKDIR "/src/NugetMcpServer"
 # Override the single-file and runtime settings for Docker build to create a portable framework-dependent build
-RUN dotnet publish "NugetMcpServer.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:PublishSingleFile=false /p:SelfContained=false /p:RuntimeIdentifier=""
+ARG VERSION=0.0.0-dev
+RUN dotnet publish "NugetMcpServer.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:PublishSingleFile=false /p:SelfContained=false /p:RuntimeIdentifier="" /p:Version=${VERSION} /p:InformationalVersion=${VERSION}
 
 FROM mcr.microsoft.com/dotnet/runtime:9.0 AS final
 WORKDIR /app

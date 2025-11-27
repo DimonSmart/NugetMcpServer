@@ -1,7 +1,7 @@
 # NugetMcpServer
 
-[![Install in VS Code](https://img.shields.io/badge/Install%20in-VS%20Code-007ACC?logo=visualstudiocode&style=for-the-badge)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%22%2C%22command%22%3A%22dnx%22%2C%22args%22%3A%5B%22DimonSmart.NugetMcpServer%22%5D%7D)
-[![Install in VS Code Insiders](https://img.shields.io/badge/Install%20in-VS%20Code%20Insiders-24bfa5?logo=visualstudiocode&style=for-the-badge)](https://insiders.vscode.dev/redirect?url=vscode-insiders:mcp/install?%7B%22name%22%3A%22NugetMcpServer%22%2C%22command%22%3A%22dnx%22%2C%22args%22%3A%5B%22DimonSmart.NugetMcpServer%22%5D%7D)
+[![Install via Docker](https://img.shields.io/badge/Install%20via%20Docker-VS%20Code-blue?logo=docker&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Amain%22%5D%7D)
+[![Install via .NET Tool](https://img.shields.io/badge/Install%20via%20.NET-VS%20Code-512BD4?logo=dotnet&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Local%29%22%2C%22command%22%3A%22NugetMcpServer%22%2C%22args%22%3A%5B%5D%7D)
 
 A powerful MCP server for getting accurate interface, class, enum, record, and struct definitions from NuGet packages. It helps reduce LLM hallucinations by giving precise information about real package APIs.
 Certified by [MCPHub](https://mcphub.com/mcp-servers/dimonsmart/nugetmcpserver)
@@ -16,9 +16,57 @@ You can use this server with [OllamaChat](https://github.com/DimonSmart/OllamaCh
 
 ## Quick Start
 
-1. **Click "Install in VS Code"** (button above) 
-2. **In VS Code**: Open Command Palette → `MCP: List Servers` → **NugetMcpServer** → **Start**
-3. **In Copilot Chat** (Agent Mode): "Use NugetMcpServer to get package info for `Newtonsoft.Json`"
+### Option 1: Docker (Recommended)
+**Prerequisite**: [Docker](https://www.docker.com/) installed and running.
+
+[**Click to Install in VS Code (Docker)**](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Amain%22%5D%7D)
+
+### Option 2: .NET Tool (Native)
+**Prerequisite**: .NET 9.0 SDK installed.
+
+1. Install the tool globally:
+   ```bash
+   dotnet tool install -g DimonSmart.NugetMcpServer
+   ```
+2. [**Click to Install in VS Code (Local)**](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Local%29%22%2C%22command%22%3A%22NugetMcpServer%22%2C%22args%22%3A%5B%5D%7D)
+
+### Option 3: Claude Desktop
+
+Run this command to install automatically via Smithery:
+
+```bash
+npx -y @smithery/cli install @dimonsmart/nugetmcpserver --client claude
+```
+
+### Option 4: Manual Configuration
+
+If you prefer to configure manually or use a different client:
+
+#### Docker Configuration
+```json
+{
+  "mcpServers": {
+    "nuget": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/dimonsmart/nugetmcpserver:main"]
+    }
+  }
+}
+```
+
+#### .NET Tool Configuration
+```json
+{
+  "mcpServers": {
+    "nuget": {
+      "command": "NugetMcpServer",
+      "args": []
+    }
+  }
+}
+```
+
+## Installation Options
 
 ### Option 1: Run with Docker (Recommended)
 
@@ -28,18 +76,6 @@ You can run the server using Docker. This method works on Windows, macOS, and Li
 ```bash
 docker build -t nugetmcpserver .
 docker run -i --rm nugetmcpserver
-```
-
-#### Configure in MCP Clients (e.g., Claude Desktop)
-```json
-{
-  "mcpServers": {
-    "nuget": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "nugetmcpserver"]
-    }
-  }
-}
 ```
 
 ### Option 2: Install via Smithery
@@ -58,39 +94,21 @@ npx -y @smithery/cli install github.com/DimonSmart/NugetMcpServer --client claud
 
 ### Option 3: Install via WinGet (Windows)
 
-## Manual Installation
+You can install NugetMcpServer using WinGet:
 
-### .NET Tool (Global)
-```bash
-dotnet tool install -g DimonSmart.NugetMcpServer
 ```
-### Option 4: Install as .NET Tool
-If you have the .NET SDK installed, you can install the server as a global tool:
-```bash
-dotnet tool install -g DimonSmart.NugetMcpServer
-```
-### Option 5: Build from Source
-
-### VS Code Workspace Configuration
-Create `.vscode/mcp.json` in your workspace:
-```json
-{
-  "servers": {
-    "NugetMcpServer": {
-      "type": "stdio",
-      "command": "dnx",
-      "args": ["DimonSmart.NugetMcpServer"]
-    }
-  }
-}
-```
-
-### WinGet Installation
-```bash
 winget install DimonSmart.NugetMcpServer
 ```
 
-## Available Tools
+### Option 4: Install as .NET Tool
+
+If you have the .NET SDK installed, you can install the server as a global tool:
+
+```bash
+dotnet tool install -g DimonSmart.NugetMcpServer
+```
+
+### Option 5: Build from Source
 
 
 ### TimeTool
