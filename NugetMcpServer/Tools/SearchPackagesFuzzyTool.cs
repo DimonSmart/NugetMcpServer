@@ -22,7 +22,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
     [McpServerTool]
     [Description("Advanced fuzzy search for NuGet packages using AI-generated alternatives and word matching. Use this method when regular search doesn't return desired results. This method uses sampling and may provide broader but less precise results.")]
     public Task<PackageSearchResult> search_packages_fuzzy(
-        IMcpServer thisServer,
+        McpServer thisServer,
         [Description("Description of the functionality you're looking for")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
         IProgress<ProgressNotificationValue>? progress = null,
@@ -38,7 +38,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
     }
 
     private async Task<PackageSearchResult> SearchPackagesFuzzyCore(
-        IMcpServer thisServer,
+        McpServer thisServer,
         string query,
         int maxResults,
         ProgressNotifier progress,
@@ -60,7 +60,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
     }
 
     private async Task<IReadOnlyCollection<string>> AIGeneratePackageNamesAsync(
-        IMcpServer mcpServer,
+        McpServer mcpServer,
         string originalQuery,
         int packageCount,
         CancellationToken cancellationToken)
