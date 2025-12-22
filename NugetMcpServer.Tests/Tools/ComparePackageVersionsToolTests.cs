@@ -558,7 +558,7 @@ public class ComparePackageVersionsToolTests
     {
         // Get paths to the test library assemblies
         // Use the workspace root to find the assemblies
-        var workspaceRoot = "/workspaces/NugetMcpServer";
+        var workspaceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../"));
         var v1Path = Path.Combine(workspaceRoot, "TestLibraries", "TestLibrary.V1", "bin", "Debug", "net9.0", "TestLibrary.V1.dll");
         var v2Path = Path.Combine(workspaceRoot, "TestLibraries", "TestLibrary.V2", "bin", "Debug", "net9.0", "TestLibrary.V2.dll");
 
@@ -809,7 +809,7 @@ public class ComparePackageVersionsToolTests
         // This test verifies that TypeComparer.AreTypesEquivalent correctly ignores assembly version differences
         // by loading the same assembly twice in different contexts (which gives them different runtime versions)
 
-        var workspaceRoot = "/workspaces/NugetMcpServer";
+        var workspaceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../"));
         var v1Path = Path.Combine(workspaceRoot, "TestLibraries", "TestLibrary.V1", "bin", "Debug", "net9.0", "TestLibrary.V1.dll");
 
         Assert.True(File.Exists(v1Path), $"V1 assembly not found at: {v1Path}");

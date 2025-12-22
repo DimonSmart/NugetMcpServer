@@ -53,6 +53,19 @@ public class PackageComparisonService
         int maxChangesPerCategory = 100,
         CancellationToken cancellationToken = default)
     {
+        return await ExecuteWithPackageContextsAsync(
+            packageId, fromVersion, toVersion,
+            (oldLoaded, newLoaded) => CompareLoadedPackages(
+                oldLoaded, newLoaded, packageId, fromVersion, toVersion,
+                typeNameFilter, memberNameFilter, breakingChangesOnly, maxChangesPerCategory));
+    }
+
+    private async Task<T> ExecuteWithPackageContextsAsync<T>(
+        string packageId,
+        string fromVersion,
+        string toVersion,
+        Func<LoadedPackageAssemblies, LoadedPackageAssemblies, T> action)
+    {
         LoadedPackageAssemblies? oldLoaded = null;
         LoadedPackageAssemblies? newLoaded = null;
 
@@ -62,116 +75,19 @@ public class PackageComparisonService
 
             // Load both versions with separate load contexts
             _logger.LogInformation("Loading old version {FromVersion}", fromVersion);
-            (LoadedPackageAssemblies oldPackage, PackageInfo _, string _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
+            (oldLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
                 packageId, fromVersion, progress);
-            oldLoaded = oldPackage;
 
             _logger.LogInformation("Loading new version {ToVersion}", toVersion);
-            (LoadedPackageAssemblies newPackage, PackageInfo _, string _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
+            (newLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
                 packageId, toVersion, progress);
-            newLoaded = newPackage;
 
             if (oldLoaded.Assemblies.Count == 0 || newLoaded.Assemblies.Count == 0)
             {
                 throw new InvalidOperationException("No assemblies found in one or both package versions");
             }
 
-            // Get all public types from both versions
-            var oldTypes = GetPublicTypes(oldLoaded.Assemblies, typeNameFilter);
-            var newTypes = GetPublicTypes(newLoaded.Assemblies, typeNameFilter);
-
-            _logger.LogInformation(
-                "Found {OldCount} types in old version, {NewCount} types in new version",
-                oldTypes.Count, newTypes.Count);
-
-            // Create type comparer
-            var comparer = new TypeComparer(_documentationProvider);
-
-            // Detect changes
-            var changes = new List<TypeChange>();
-
-            // Build dictionaries by full name for comparison
-            var oldTypeDict = oldTypes.ToDictionary(t => t.FullName ?? t.Name);
-            var newTypeDict = newTypes.ToDictionary(t => t.FullName ?? t.Name);
-
-            // Find removed types
-            foreach (var (fullName, type) in oldTypeDict)
-            {
-                if (!newTypeDict.ContainsKey(fullName))
-                {
-                    changes.Add(comparer.CreateTypeRemovedChange(type));
-                }
-            }
-
-            // Find added types
-            foreach (var (fullName, type) in newTypeDict)
-            {
-                if (!oldTypeDict.ContainsKey(fullName))
-                {
-                    changes.Add(comparer.CreateTypeAddedChange(type));
-                }
-            }
-
-            // Compare existing types
-            foreach (var (fullName, oldType) in oldTypeDict)
-            {
-                if (newTypeDict.TryGetValue(fullName, out var newType))
-                {
-                    var typeChanges = comparer.CompareTypes(oldType, newType);
-                    changes.AddRange(typeChanges);
-                }
-            }
-
-            _logger.LogInformation("Detected {ChangeCount} total changes", changes.Count);
-
-            // Store all changes for summary (before any filtering)
-            var allChanges = changes.ToList();
-
-            // Apply memberNameFilter if requested
-            if (!string.IsNullOrWhiteSpace(memberNameFilter))
-            {
-                var patterns = memberNameFilter.Split('|', StringSplitOptions.RemoveEmptyEntries);
-                var regexes = patterns.Select(p => {
-                    var pattern = "^" + Regex.Escape(p.Trim())
-                        .Replace("\\*", ".*")
-                        .Replace("\\?", ".") + "$";
-                    return new Regex(pattern, RegexOptions.IgnoreCase);
-                }).ToList();
-
-                changes = changes.Where(c =>
-                    !string.IsNullOrEmpty(c.MemberName) &&
-                    regexes.Any(r => r.IsMatch(c.MemberName))
-                ).ToList();
-
-                _logger.LogInformation("Filtered to {Count} changes by member name", changes.Count);
-            }
-
-            // Apply breakingChangesOnly filter if requested
-            if (breakingChangesOnly)
-            {
-                changes = changes.Where(c => c.Severity == ChangeSeverity.High).ToList();
-                _logger.LogInformation("Filtered to {Count} breaking changes only", changes.Count);
-            }
-
-            // Apply per-category limits
-            var limitedChanges = ApplyLimits(changes, maxChangesPerCategory);
-            var isTruncated = limitedChanges.Count < changes.Count;
-
-            // Build result
-            var result = new ComparisonResult
-            {
-                PackageId = packageId,
-                FromVersion = fromVersion,
-                ToVersion = toVersion,
-                Changes = limitedChanges,
-                Summary = BuildSummary(allChanges), // Use full changes for accurate summary
-                IsTruncated = isTruncated,
-                TypeNameFilter = typeNameFilter,
-                MemberNameFilter = memberNameFilter,
-                BreakingChangesOnly = breakingChangesOnly
-            };
-
-            return result;
+            return action(oldLoaded, newLoaded);
         }
         finally
         {
@@ -183,6 +99,113 @@ public class PackageComparisonService
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
+    }
+
+    private ComparisonResult CompareLoadedPackages(
+        LoadedPackageAssemblies oldLoaded,
+        LoadedPackageAssemblies newLoaded,
+        string packageId,
+        string fromVersion,
+        string toVersion,
+        string? typeNameFilter,
+        string? memberNameFilter,
+        bool breakingChangesOnly,
+        int maxChangesPerCategory)
+    {
+        // Get all public types from both versions
+        var oldTypes = GetPublicTypes(oldLoaded.Assemblies, typeNameFilter);
+        var newTypes = GetPublicTypes(newLoaded.Assemblies, typeNameFilter);
+
+        _logger.LogInformation(
+            "Found {OldCount} types in old version, {NewCount} types in new version",
+            oldTypes.Count, newTypes.Count);
+
+        // Create type comparer
+        var comparer = new TypeComparer(_documentationProvider);
+
+        // Detect changes
+        var changes = new List<TypeChange>();
+
+        // Build dictionaries by full name for comparison
+        var oldTypeDict = oldTypes.ToDictionary(t => t.FullName ?? t.Name);
+        var newTypeDict = newTypes.ToDictionary(t => t.FullName ?? t.Name);
+
+        // Find removed types
+        foreach (var (fullName, type) in oldTypeDict)
+        {
+            if (!newTypeDict.ContainsKey(fullName))
+            {
+                changes.Add(comparer.CreateTypeRemovedChange(type));
+            }
+        }
+
+        // Find added types
+        foreach (var (fullName, type) in newTypeDict)
+        {
+            if (!oldTypeDict.ContainsKey(fullName))
+            {
+                changes.Add(comparer.CreateTypeAddedChange(type));
+            }
+        }
+
+        // Compare existing types
+        foreach (var (fullName, oldType) in oldTypeDict)
+        {
+            if (newTypeDict.TryGetValue(fullName, out var newType))
+            {
+                var typeChanges = comparer.CompareTypes(oldType, newType);
+                changes.AddRange(typeChanges);
+            }
+        }
+
+        _logger.LogInformation("Detected {ChangeCount} total changes", changes.Count);
+
+        // Store all changes for summary (before any filtering)
+        var allChanges = changes.ToList();
+
+        // Apply memberNameFilter if requested
+        if (!string.IsNullOrWhiteSpace(memberNameFilter))
+        {
+            var patterns = memberNameFilter.Split('|', StringSplitOptions.RemoveEmptyEntries);
+            var regexes = patterns.Select(p => {
+                var pattern = "^" + Regex.Escape(p.Trim())
+                    .Replace("\\*", ".*")
+                    .Replace("\\?", ".") + "$";
+                return new Regex(pattern, RegexOptions.IgnoreCase);
+            }).ToList();
+
+            changes = changes.Where(c =>
+                !string.IsNullOrEmpty(c.MemberName) &&
+                regexes.Any(r => r.IsMatch(c.MemberName))
+            ).ToList();
+
+            _logger.LogInformation("Filtered to {Count} changes by member name", changes.Count);
+        }
+
+        // Apply breakingChangesOnly filter if requested
+        if (breakingChangesOnly)
+        {
+            changes = changes.Where(c => c.Severity == ChangeSeverity.High).ToList();
+            _logger.LogInformation("Filtered to {Count} breaking changes only", changes.Count);
+        }
+
+        // Apply per-category limits
+        var limitedChanges = ApplyLimits(changes, maxChangesPerCategory);
+        var isTruncated = limitedChanges.Count < changes.Count;
+
+        // Build result
+        return new ComparisonResult
+        {
+            PackageId = packageId,
+            FromVersion = fromVersion,
+            ToVersion = toVersion,
+            Changes = limitedChanges,
+            Summary = BuildSummary(allChanges), // Use full changes for accurate summary
+            IsTruncated = isTruncated,
+            TypeNameFilter = typeNameFilter,
+            MemberNameFilter = memberNameFilter,
+            BreakingChangesOnly = breakingChangesOnly
+        };
     }
 
     private List<Type> GetPublicTypes(List<LoadedAssemblyInfo> assemblies, string? typeNameFilter)

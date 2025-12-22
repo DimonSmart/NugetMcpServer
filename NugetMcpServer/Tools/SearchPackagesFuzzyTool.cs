@@ -52,7 +52,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
         progress.ReportMessage("Direct search");
 
         // AI suggestions - filtered by stop words and duplicates
-        IReadOnlyCollection<string> aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
+        var aiKeywords = await AIGeneratePackageNamesAsync(thisServer, query, 10, cancellationToken);
 
         progress.ReportMessage("AI search");
 
@@ -60,16 +60,16 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
     }
 
     private async Task<IReadOnlyCollection<string>> AIGeneratePackageNamesAsync(
-        IMcpServer thisServer,
+        IMcpServer mcpServer,
         string originalQuery,
         int packageCount,
         CancellationToken cancellationToken)
     {
-        List<string> allResults = new List<string>();
+        List<string> allResults = [];
 
         try
         {
-            string formattedPrompt = string.Format(PromptConstants.PackageSearchPrompt, 20, originalQuery);
+            var formattedPrompt = string.Format(PromptConstants.PackageSearchPrompt, 20, originalQuery);
 
             ChatMessage[] messages = [new ChatMessage(ChatRole.User, formattedPrompt)];
 
@@ -79,7 +79,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
                 Temperature = 0.95f
             };
 
-            ChatResponse response = await thisServer
+            ChatResponse response = await mcpServer
                 .AsSamplingChatClient()
                 .GetResponseAsync(messages, options, cancellationToken);
 
