@@ -624,7 +624,8 @@ public class ComparePackageVersionsToolTests
             if (!string.IsNullOrWhiteSpace(memberFilter))
             {
                 var patterns = memberFilter.Split('|', StringSplitOptions.RemoveEmptyEntries);
-                var regexes = patterns.Select(p => {
+                var regexes = patterns.Select(p =>
+                {
                     var pattern = "^" + System.Text.RegularExpressions.Regex.Escape(p.Trim())
                         .Replace("\\*", ".*")
                         .Replace("\\?", ".") + "$";

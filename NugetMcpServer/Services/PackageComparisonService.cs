@@ -167,7 +167,8 @@ public class PackageComparisonService
         if (!string.IsNullOrWhiteSpace(memberNameFilter))
         {
             var patterns = memberNameFilter.Split('|', StringSplitOptions.RemoveEmptyEntries);
-            var regexes = patterns.Select(p => {
+            var regexes = patterns.Select(p =>
+            {
                 var pattern = "^" + Regex.Escape(p.Trim())
                     .Replace("\\*", ".*")
                     .Replace("\\?", ".") + "$";
