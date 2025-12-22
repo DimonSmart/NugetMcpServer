@@ -62,10 +62,4 @@
         <None Include="..\README.md" Pack="true" PackagePath="" />
     </ItemGroup>
 
-    <!-- Target to synchronize version in server.json -->
-    <Target Name="SyncServerJsonVersion" BeforeTargets="Build">
-        <Message Text="Syncing version from Directory.Build.props to server.json..." Importance="normal" />
-        <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\sync-version.ps1&quot;" ContinueOnError="false" WorkingDirectory="$(MSBuildProjectDirectory)\.." />
-    </Target>
-
 </Project>
