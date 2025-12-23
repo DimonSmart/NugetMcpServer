@@ -32,10 +32,13 @@ jobs:
         run: dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.VERSION }} --no-build --output nupkg
 
       - name: Publish to NuGet
-        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        run: |
+          Get-ChildItem nupkg\*.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }
         
       - name: Publish Single File
-        run: dotnet publish -c Release -r win-x64 /p:Version=${{ steps.get_version.outputs.VERSION }} /p:PublishSingleFile=true --self-contained true --output publish
+        run: dotnet publish NugetMcpServer/NugetMcpServer.csproj -c Release -r win-x64 /p:Version=${{ steps.get_version.outputs.VERSION }} /p:PublishSingleFile=true --self-contained true --output publish
 
       - name: Zip for WinGet
         run: |
