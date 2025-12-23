@@ -1,0 +1,52 @@
+name: Publish NuGet & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get Version
+        id: get_version
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Build
+        run: dotnet build -c Release /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+      - name: Pack
+        run: dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.VERSION }} --no-build --output nupkg
+
+      - name: Publish to NuGet
+        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        
+      - name: Publish Single File
+        run: dotnet publish -c Release -r win-x64 /p:Version=${{ steps.get_version.outputs.VERSION }} /p:PublishSingleFile=true --self-contained true --output publish
+
+      - name: Zip for WinGet
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          Compress-Archive -Path publish\NugetMcpServer.exe -DestinationPath "NugetMcpServer-win-x64-$version.zip"
+        shell: powershell
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            NugetMcpServer-win-x64-${{ steps.get_version.outputs.VERSION }}.zip
+            nupkg/*.nupkg
+          generate_release_notes: true
