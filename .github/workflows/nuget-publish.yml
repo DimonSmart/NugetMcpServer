@@ -25,6 +25,14 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: powershell
 
+      - name: Update MCP Server Version
+        run: |
+          $path = "NugetMcpServer/.mcp/server.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.version_detail.version = "${{ steps.get_version.outputs.VERSION }}"
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+        shell: powershell
+
       - name: Build
         run: dotnet build -c Release /p:Version=${{ steps.get_version.outputs.VERSION }}
 
