@@ -1,4 +1,4 @@
-name: Publish NuGet & Release
+name: Publish Release (NuGet, WinGet)
 
 on:
   push:
@@ -61,3 +61,10 @@ jobs:
             NugetMcpServer-win-x64-${{ steps.get_version.outputs.VERSION }}.zip
             nupkg/*.nupkg
           generate_release_notes: true
+
+      - name: Publish to WinGet
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: DimonSmart.NugetMcpServer
+          installers-regex: '\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
