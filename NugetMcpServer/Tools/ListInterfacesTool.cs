@@ -26,22 +26,23 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
     public Task<InterfaceListResult> list_interfaces(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using ProgressNotifier progressNotifier = new(progress);
         return ExecuteWithLoggingAsync(
-            () => ListInterfacesCore(packageId, version, progressNotifier),
+            () => ListInterfacesCore(packageId, version, progressNotifier, source),
             Logger,
             "Error listing interfaces");
     }
 
-    private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version, IProgressNotifier progress)
+    private async Task<InterfaceListResult> ListInterfacesCore(string packageId, string? version, IProgressNotifier progress, string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
         (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
+            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Listing interfaces from package {PackageId} version {Version}",

@@ -27,11 +27,12 @@ public class GetClassDefinitionTool(
         [Description("NuGet package ID")] string packageId,
         [Description("Class, record or struct name (short like 'Point' or full like 'System.Point')")] string typeName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetClassOrRecordDefinitionCore(packageId, typeName, version, progressNotifier),
+            () => GetClassOrRecordDefinitionCore(packageId, typeName, version, progressNotifier, source),
             Logger,
             "Error fetching class, record or struct definition");
     }
@@ -41,7 +42,8 @@ public class GetClassDefinitionTool(
         string packageId,
         string typeName,
         string? version,
-        ProgressNotifier progress)
+        ProgressNotifier progress,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -56,7 +58,7 @@ public class GetClassDefinitionTool(
         progress.ReportMessage("Resolving package version");
 
         (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching class, record or struct {ClassName} from package {PackageId} version {Version}",

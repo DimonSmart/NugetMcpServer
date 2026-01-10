@@ -78,6 +78,60 @@ If you prefer to configure manually:
 }
 ```
 
+## Private & Local NuGet Sources
+
+You can point the server at private feeds (Azure Artifacts, Artifactory, ProGet, Nexus) and local folders.
+
+**Source resolution order (highest priority first):**
+1. `--source` / `--sources` command-line args
+2. `NUGET_SOURCES` + `NUGET_CONFIG` environment variables
+3. `NuGet:Sources` + `NuGet:ConfigPath` in `appsettings.json` (or client env binding)
+4. Default NuGet config discovery (machine/user/solution), fallback to `nuget.org`
+
+### CLI Examples
+```bash
+NugetMcpServer --source "C:\\NuGet\\LocalFeed" --source "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
+NugetMcpServer --nuget-config "C:\\path\\to\\nuget.config"
+```
+
+### MCP Client Config (VS Code / Claude / etc.)
+```json
+{
+  "mcpServers": {
+    "nuget": {
+      "command": "NugetMcpServer",
+      "args": [
+        "--source", "C:\\NuGet\\LocalFeed",
+        "--source", "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
+      ],
+      "env": {
+        "NUGET_CONFIG": "C:\\path\\to\\nuget.config"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+```bash
+set NUGET_SOURCES=C:\NuGet\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json
+set NUGET_CONFIG=C:\path\to\nuget.config
+```
+
+### Tool Parameters
+All package-related tools accept an optional `source` parameter. It can be a source name from `nuget.config`
+or a full URL/local path.
+
+```json
+{
+  "name": "get_package_info",
+  "parameters": {
+    "packageId": "Contoso.Internal.Logging",
+    "source": "corp"
+  }
+}
+```
+
 ## Installation Options
 
 ### Option 1: Run with Docker (Recommended)
@@ -114,45 +168,47 @@ dotnet tool install -g DimonSmart.NugetMcpServer
 
 ## Available Tools
 
+All package-related tools accept an optional `source` parameter (source name or URL/path) to target a specific feed or local folder.
+
 ### Package Search
 
-*   `search_packages(query, maxResults?)`
+*   `search_packages(query, maxResults?, source?)`
     *   Searches for packages using keywords.
     *   Good for finding a specific package if you know the name or a keyword.
-*   `search_packages_fuzzy(query, maxResults?)`
+*   `search_packages_fuzzy(query, maxResults?, source?)`
     *   Uses AI to guess package names based on your description.
     *   Good if you don't know the exact package name (e.g., "library to generate mazes").
 
 ### Package Information
 
-*   `get_package_info(packageId, version?)`
+*   `get_package_info(packageId, version?, source?)`
     *   Gets details about a package, including its dependencies and whether it is a meta-package.
-*   `compare_package_versions(packageId, fromVersion, toVersion, ...)`
+*   `compare_package_versions(packageId, fromVersion, toVersion, ..., source?)`
     *   Compares two versions of a package.
     *   Shows breaking changes, new methods, and removed APIs.
     *   You can filter by type name or member name.
 
 ### Type Definitions
 
-*   `get_interface_definition(packageId, interfaceName, version?)`
+*   `get_interface_definition(packageId, interfaceName, version?, source?)`
     *   Gets the C# code for an interface.
-*   `get_class_or_record_or_struct_definition(packageId, typeName, version?)`
+*   `get_class_or_record_or_struct_definition(packageId, typeName, version?, source?)`
     *   Gets the C# code for a class, record, or struct.
-*   `get_enum_definition(packageId, enumName, version?)`
+*   `get_enum_definition(packageId, enumName, version?, source?)`
     *   Gets the C# code for an enum.
 
 ### Listing Types
 
-*   `list_interfaces(packageId, version?)`
+*   `list_interfaces(packageId, version?, source?)`
     *   Lists all public interfaces in a package.
-*   `list_classes_records_structs(packageId, version?)`
+*   `list_classes_records_structs(packageId, version?, source?)`
     *   Lists all public classes, records, and structs in a package.
 
 ### File Access
 
-*   `list_package_files(packageId, version?)`
+*   `list_package_files(packageId, version?, source?)`
     *   Lists all files inside the package.
-*   `get_package_file(packageId, filePath, ...)`
+*   `get_package_file(packageId, filePath, ..., source?)`
     *   Reads the content of a file from the package.
 
 ### Utilities

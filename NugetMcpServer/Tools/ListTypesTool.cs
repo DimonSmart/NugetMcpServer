@@ -26,23 +26,24 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
         [Description("Filter by name or namespace. Supports wildcards: '*Message*' matches any type containing 'Message', 'Telegram.Bot.Types.*' matches namespace")] string? filter = null,
         [Description("Maximum number of results to return (default: 100, prevents token limit issues)")] int maxResults = 100,
         [Description("Number of results to skip (for pagination)")] int skip = 0,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => ListTypesCore(packageId, version, filter, maxResults, skip, progressNotifier),
+            () => ListTypesCore(packageId, version, filter, maxResults, skip, progressNotifier, source),
             Logger,
             "Error listing types");
     }
 
-    private async Task<TypeListResult> ListTypesCore(string packageId, string? version, string? filter, int maxResults, int skip, IProgressNotifier progress)
+    private async Task<TypeListResult> ListTypesCore(string packageId, string? version, string? filter, int maxResults, int skip, IProgressNotifier progress, string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
         (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress);
+            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Listing types from package {PackageId} version {Version}",

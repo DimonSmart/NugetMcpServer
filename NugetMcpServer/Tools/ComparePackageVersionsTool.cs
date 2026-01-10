@@ -38,12 +38,13 @@ public class ComparePackageVersionsTool : McpToolBase<ComparePackageVersionsTool
         [Description("Optional filter for MEMBER NAMES (properties, fields, methods). Supports wildcards: '*Id' matches members ending with Id, 'Calculate*' matches members starting with Calculate. Supports OR via '|': 'StarCount|TopicId'. Works independently from typeNameFilter.")] string? memberNameFilter = null,
         [Description("If true, returns only breaking changes (high severity). Non-breaking changes and additions are excluded. Default: false")] bool breakingChangesOnly = false,
         [Description("Maximum changes to return per category (default: 100)")] int maxChangesPerCategory = 100,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => CompareVersionsCore(packageId, fromVersion, toVersion, typeNameFilter, memberNameFilter, breakingChangesOnly, maxChangesPerCategory, progressNotifier),
+            () => CompareVersionsCore(packageId, fromVersion, toVersion, typeNameFilter, memberNameFilter, breakingChangesOnly, maxChangesPerCategory, progressNotifier, source),
             Logger,
             "Error comparing package versions");
     }
@@ -56,7 +57,8 @@ public class ComparePackageVersionsTool : McpToolBase<ComparePackageVersionsTool
         string? memberNameFilter,
         bool breakingChangesOnly,
         int maxChangesPerCategory,
-        IProgressNotifier progress)
+        IProgressNotifier progress,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -81,6 +83,7 @@ public class ComparePackageVersionsTool : McpToolBase<ComparePackageVersionsTool
             memberNameFilter,
             breakingChangesOnly,
             maxChangesPerCategory,
+            source,
             System.Threading.CancellationToken.None);
 
         progress.ReportMessage(

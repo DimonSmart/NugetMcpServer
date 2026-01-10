@@ -50,7 +50,9 @@
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.1" />
         <PackageReference Include="ModelContextProtocol" Version="0.5.0-preview.1" />
+        <PackageReference Include="NuGet.Configuration" Version="7.0.1" />
         <PackageReference Include="NuGet.Packaging" Version="7.0.1" />
+        <PackageReference Include="NuGet.Protocol" Version="7.0.1" />
         <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.1" />
         <PackageReference Include="System.Text.Json" Version="10.0.1" />
     </ItemGroup>

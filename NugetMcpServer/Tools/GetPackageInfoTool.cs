@@ -27,11 +27,12 @@ public class GetPackageInfoTool(
     public Task<string> get_package_info(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetPackageInfoCore(packageId, version, progressNotifier),
+            () => GetPackageInfoCore(packageId, version, progressNotifier, source),
             Logger,
             "Error getting package information");
     }
@@ -39,7 +40,8 @@ public class GetPackageInfoTool(
     private async Task<string> GetPackageInfoCore(
         string packageId,
         string? version,
-        ProgressNotifier progress)
+        ProgressNotifier progress,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -50,13 +52,13 @@ public class GetPackageInfoTool(
 
         if (version.IsNullOrEmptyOrNullString())
         {
-            version = await PackageService.GetLatestVersion(packageId);
+            version = await PackageService.GetLatestVersion(packageId, source);
         }
 
         Logger.LogInformation("Getting information for package {PackageId} version {Version}", packageId, version!);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
-        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress);
+        using var packageStream = await PackageService.DownloadPackageAsync(packageId, version!, progress, source);
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = PackageService.GetPackageInfoAsync(packageStream, packageId, version!);
@@ -67,7 +69,7 @@ public class GetPackageInfoTool(
             libFiles = ExtractLibFiles(reader);
         }
 
-        var versions = await PackageService.GetLatestVersions(packageId);
+        var versions = await PackageService.GetLatestVersions(packageId, source: source);
 
         return FormatPackageInfo(packageInfo, versions, libFiles);
     }

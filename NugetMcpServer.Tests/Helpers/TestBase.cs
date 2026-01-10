@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using NuGetMcpServer.Configuration;
 using NuGetMcpServer.Services;
 using Xunit.Abstractions;
 
@@ -8,7 +9,6 @@ namespace NuGetMcpServer.Tests.Helpers;
 public abstract class TestBase(ITestOutputHelper testOutput)
 {
     protected readonly ITestOutputHelper TestOutput = testOutput;
-    protected readonly HttpClient HttpClient = new();
 
     protected MetaPackageDetector CreateMetaPackageDetector()
     {
@@ -19,7 +19,8 @@ public abstract class TestBase(ITestOutputHelper testOutput)
     {
         var metaPackageDetector = CreateMetaPackageDetector();
         var cache = new MemoryCache(new MemoryCacheOptions());
-        return new NuGetPackageService(NullLogger<NuGetPackageService>.Instance, HttpClient, metaPackageDetector, cache);
+        var options = new NuGetSourceOptions();
+        return new NuGetPackageService(NullLogger<NuGetPackageService>.Instance, metaPackageDetector, cache, options);
     }
 
     protected ArchiveProcessingService CreateArchiveProcessingService()

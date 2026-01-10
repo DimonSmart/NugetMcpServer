@@ -218,12 +218,24 @@ public class MetaPackageDetectorDataDrivenTests : TestBase
     [InlineData(" ")]
     public async Task GetLatestVersion_InvalidPackageId_ThrowsException(string invalidPackageId)
     {
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<HttpRequestException>(
+        // Act
+        var exception = await Record.ExceptionAsync(
             () => _packageService.GetLatestVersion(invalidPackageId));
 
-        TestOutput.WriteLine($"Package ID: '{invalidPackageId}' -> Exception: {exception.Message}");
-        Assert.Contains("404", exception.Message);
+        // Assert
+        Assert.NotNull(exception);
+        TestOutput.WriteLine($"Package ID: '{invalidPackageId}' -> Exception: {exception!.Message}");
+
+        if (string.IsNullOrWhiteSpace(invalidPackageId))
+        {
+            var argException = Assert.IsType<ArgumentNullException>(exception);
+            Assert.Equal("packageId", argException.ParamName);
+        }
+        else
+        {
+            var invalidOperation = Assert.IsType<InvalidOperationException>(exception);
+            Assert.Contains("was not found", invalidOperation.Message);
+        }
     }
 
     [Fact]

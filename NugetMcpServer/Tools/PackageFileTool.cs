@@ -20,11 +20,12 @@ public class PackageFileTool(ILogger<PackageFileTool> logger, NuGetPackageServic
     public Task<FileListResult> list_package_files(
         [Description("NuGet package ID")] string packageId,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => ListFilesCore(packageId, version, progressNotifier),
+            () => ListFilesCore(packageId, version, progressNotifier, source),
             Logger,
             "Error listing package files");
     }
@@ -37,26 +38,27 @@ public class PackageFileTool(ILogger<PackageFileTool> logger, NuGetPackageServic
         [Description("Package version (optional, defaults to latest)")] string? version = null,
         [Description("Byte offset within the file (optional)")] long offset = 0,
         [Description("Maximum number of bytes to read (optional, max: 1048576)")] int? bytes = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetFileCore(packageId, filePath, version, offset, bytes, progressNotifier),
+            () => GetFileCore(packageId, filePath, version, offset, bytes, progressNotifier, source),
             Logger,
             "Error reading package file");
     }
 
-    private async Task<FileListResult> ListFilesCore(string packageId, string? version, IProgressNotifier progress)
+    private async Task<FileListResult> ListFilesCore(string packageId, string? version, IProgressNotifier progress, string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
         progress.ReportMessage("Resolving package version");
         if (version.IsNullOrEmptyOrNullString())
-            version = await PackageService.GetLatestVersion(packageId);
+            version = await PackageService.GetLatestVersion(packageId, source);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
-        var files = await PackageService.ListPackageFilesAsync(packageId, version!, progress);
+        var files = await PackageService.ListPackageFilesAsync(packageId, version!, progress, source);
 
         return new FileListResult
         {
@@ -66,7 +68,7 @@ public class PackageFileTool(ILogger<PackageFileTool> logger, NuGetPackageServic
         };
     }
 
-    private async Task<FileContentResult> GetFileCore(string packageId, string filePath, string? version, long offset, int? bytes, IProgressNotifier progress)
+    private async Task<FileContentResult> GetFileCore(string packageId, string filePath, string? version, long offset, int? bytes, IProgressNotifier progress, string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -75,10 +77,10 @@ public class PackageFileTool(ILogger<PackageFileTool> logger, NuGetPackageServic
 
         progress.ReportMessage("Resolving package version");
         if (version.IsNullOrEmptyOrNullString())
-            version = await PackageService.GetLatestVersion(packageId);
+            version = await PackageService.GetLatestVersion(packageId, source);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
-        var result = await PackageService.GetPackageFileAsync(packageId, version!, filePath, offset, bytes, progress);
+        var result = await PackageService.GetPackageFileAsync(packageId, version!, filePath, offset, bytes, progress, source);
         return result;
     }
 }

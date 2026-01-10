@@ -1,6 +1,7 @@
-using System.Net.Http;
+using System.IO.Compression;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Memory;
+using NuGetMcpServer.Configuration;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
 using Xunit.Abstractions;
@@ -123,34 +124,61 @@ namespace NuGetMcpServer.Tests.Services
             const string packageId = "Test.Package";
             const string version = "1.0.0";
 
-            var handler = new CountingHandler();
-            using var client = new HttpClient(handler);
-            var cache = new MemoryCache(new MemoryCacheOptions());
-            var meta = CreateMetaPackageDetector();
-            var service = new NuGetPackageService(_packageLogger, client, meta, cache);
+            var tempRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempRoot);
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{version}.nupkg");
+            CreateTestPackage(packagePath, packageId, version, "initial");
 
-            using var first = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
-            using var second = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
+            try
+            {
+                var cache = new MemoryCache(new MemoryCacheOptions());
+                var meta = CreateMetaPackageDetector();
+                var options = new NuGetSourceOptions
+                {
+                    Sources = [tempRoot]
+                };
+                var service = new NuGetPackageService(_packageLogger, meta, cache, options);
 
-            Assert.Equal(1, handler.CallCount);
-            Assert.Equal(first.ToArray(), second.ToArray());
+                using var first = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
+                var firstBytes = first.ToArray();
+
+                CreateTestPackage(packagePath, packageId, version, "updated");
+                using var second = await service.DownloadPackageAsync(packageId, version, VoidProgressNotifier);
+
+                Assert.Equal(firstBytes, second.ToArray());
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(tempRoot, true);
+                }
+                catch
+                {
+                    // Ignore cleanup failures on CI/locked files.
+                }
+            }
         }
 
-        private sealed class CountingHandler : HttpMessageHandler
+        private static void CreateTestPackage(string path, string packageId, string version, string description)
         {
-            public int CallCount { get; private set; }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            using var stream = new MemoryStream();
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
             {
-                CallCount++;
-                var bytes = new byte[] { 1, 2, 3 };
-                var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
-                {
-                    Content = new ByteArrayContent(bytes)
-                };
-
-                return Task.FromResult(response);
+                var nuspecEntry = archive.CreateEntry($"{packageId}.nuspec");
+                using var writer = new StreamWriter(nuspecEntry.Open());
+                writer.Write($@"<?xml version=""1.0""?>
+<package>
+  <metadata>
+    <id>{packageId}</id>
+    <version>{version}</version>
+    <authors>Test</authors>
+    <description>{description}</description>
+  </metadata>
+</package>");
             }
+
+            File.WriteAllBytes(path, stream.ToArray());
         }
     }
 }

@@ -28,6 +28,7 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
         string query,
         IEnumerable<string> additionalKeywords,
         int maxResults,
+        string? source = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -41,7 +42,7 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
         var ctx = new SearchContext();
 
         // Direct search as baseline
-        ctx.Add(query, await packageService.SearchPackagesAsync(query, maxResults));
+        ctx.Add(query, await packageService.SearchPackagesAsync(query, maxResults, source));
 
         // Additional keywords search - filtered by stop words and duplicates
         var filteredKeywords = additionalKeywords
@@ -54,7 +55,7 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
         if (filteredKeywords.Any())
         {
             ctx.Keywords.UnionWith(filteredKeywords);
-            var keywordResults = await SearchKeywordsAsync(filteredKeywords, maxResults, cancellationToken);
+            var keywordResults = await SearchKeywordsAsync(filteredKeywords, maxResults, source, cancellationToken);
             ctx.Sets.AddRange(keywordResults);
         }
 
@@ -70,6 +71,7 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
     private async Task<List<SearchResultSet>> SearchKeywordsAsync(
         IReadOnlyCollection<string> keywords,
         int maxResults,
+        string? source,
         CancellationToken cancellationToken)
     {
         List<SearchResultSet> results = [];
@@ -78,7 +80,7 @@ public class PackageSearchService(ILogger<PackageSearchService> logger, NuGetPac
         {
             try
             {
-                var packages = await packageService.SearchPackagesAsync(keyword, maxResults);
+                var packages = await packageService.SearchPackagesAsync(keyword, maxResults, source);
                 results.Add(new SearchResultSet(keyword, packages.ToList()));
             }
             catch (Exception ex)

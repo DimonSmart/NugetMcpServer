@@ -224,7 +224,7 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
     /// <param name="progress">Progress reporter</param>
     /// <returns>Tuple of loaded assemblies, package info and resolved version</returns>
     public async Task<(LoadedPackageAssemblies Assemblies, PackageInfo PackageInfo, string Version)>
-        LoadPackageAssembliesAsync(string packageId, string? version, IProgressNotifier progress)
+        LoadPackageAssembliesAsync(string packageId, string? version, IProgressNotifier progress, string? source = null)
     {
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
@@ -233,14 +233,14 @@ public class ArchiveProcessingService(ILogger<ArchiveProcessingService> logger, 
 
         if (version.IsNullOrEmptyOrNullString())
         {
-            version = await _packageService.GetLatestVersion(packageId);
+            version = await _packageService.GetLatestVersion(packageId, source);
         }
 
         _logger.LogInformation("Loading assemblies from package {PackageId} version {Version}",
             packageId, version);
 
         progress.ReportMessage($"Downloading package {packageId} v{version}");
-        using var packageStream = await _packageService.DownloadPackageAsync(packageId, version!, progress);
+        using var packageStream = await _packageService.DownloadPackageAsync(packageId, version!, progress, source);
 
         progress.ReportMessage("Extracting package information");
         var packageInfo = _packageService.GetPackageInfoAsync(packageStream, packageId, version!);

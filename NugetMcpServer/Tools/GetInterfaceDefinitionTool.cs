@@ -29,11 +29,12 @@ public class GetInterfaceDefinitionTool(
         [Description("NuGet package ID")] string packageId,
         [Description("Interface name (short name like 'IDisposable' or full name like 'System.IDisposable')")] string interfaceName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using var progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progressNotifier),
+            () => GetInterfaceDefinitionCore(packageId, interfaceName, version, progressNotifier, source),
             Logger,
             "Error fetching interface definition");
     }
@@ -42,7 +43,8 @@ public class GetInterfaceDefinitionTool(
         string packageId,
         string interfaceName,
         string? version,
-        ProgressNotifier progress)
+        ProgressNotifier progress,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -55,7 +57,7 @@ public class GetInterfaceDefinitionTool(
         }
 
         var (loaded, packageInfo, resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching interface {InterfaceName} from package {PackageId} version {Version}",

@@ -26,13 +26,14 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
         [Description("Description of the functionality you're looking for")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
         IProgress<ProgressNotificationValue>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => SearchPackagesFuzzyCore(thisServer, query, maxResults, progressNotifier, cancellationToken),
+            () => SearchPackagesFuzzyCore(thisServer, query, maxResults, progressNotifier, cancellationToken, source),
             Logger,
             "Error performing fuzzy search for packages");
     }
@@ -42,7 +43,8 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
         string query,
         int maxResults,
         ProgressNotifier progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
         ArgumentNullException.ThrowIfNull(thisServer);
@@ -56,7 +58,7 @@ public class SearchPackagesFuzzyTool(ILogger<SearchPackagesFuzzyTool> logger, Pa
 
         progress.ReportMessage("AI search");
 
-        return await searchService.SearchWithKeywordsAsync(query, aiKeywords, maxResults, cancellationToken);
+        return await searchService.SearchWithKeywordsAsync(query, aiKeywords, maxResults, source, cancellationToken);
     }
 
     private async Task<IReadOnlyCollection<string>> AIGeneratePackageNamesAsync(

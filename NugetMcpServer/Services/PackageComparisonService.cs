@@ -51,10 +51,12 @@ public class PackageComparisonService
         string? memberNameFilter = null,
         bool breakingChangesOnly = false,
         int maxChangesPerCategory = 100,
+        string? source = null,
         CancellationToken cancellationToken = default)
     {
         return await ExecuteWithPackageContextsAsync(
             packageId, fromVersion, toVersion,
+            source,
             (oldLoaded, newLoaded) => CompareLoadedPackages(
                 oldLoaded, newLoaded, packageId, fromVersion, toVersion,
                 typeNameFilter, memberNameFilter, breakingChangesOnly, maxChangesPerCategory));
@@ -64,6 +66,7 @@ public class PackageComparisonService
         string packageId,
         string fromVersion,
         string toVersion,
+        string? source,
         Func<LoadedPackageAssemblies, LoadedPackageAssemblies, T> action)
     {
         LoadedPackageAssemblies? oldLoaded = null;
@@ -76,11 +79,11 @@ public class PackageComparisonService
             // Load both versions with separate load contexts
             _logger.LogInformation("Loading old version {FromVersion}", fromVersion);
             (oldLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
-                packageId, fromVersion, progress);
+                packageId, fromVersion, progress, source);
 
             _logger.LogInformation("Loading new version {ToVersion}", toVersion);
             (newLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
-                packageId, toVersion, progress);
+                packageId, toVersion, progress, source);
 
             if (oldLoaded.Assemblies.Count == 0 || newLoaded.Assemblies.Count == 0)
             {

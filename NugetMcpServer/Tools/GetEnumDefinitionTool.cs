@@ -25,11 +25,12 @@ public class GetEnumDefinitionTool(
         [Description("NuGet package ID")] string packageId,
         [Description("Enum name (short name like 'DayOfWeek' or full name like 'System.DayOfWeek')")] string enumName,
         [Description("Package version (optional, defaults to latest)")] string? version = null,
-        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null)
+        [Description("Progress notification for long-running operations")] IProgress<ProgressNotificationValue>? progress = null,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         using ProgressNotifier progressNotifier = new ProgressNotifier(progress);
         return ExecuteWithLoggingAsync(
-            () => GetEnumDefinitionCore(packageId, enumName, version, progressNotifier),
+            () => GetEnumDefinitionCore(packageId, enumName, version, progressNotifier, source),
             Logger,
             "Error fetching enum definition");
     }
@@ -37,7 +38,8 @@ public class GetEnumDefinitionTool(
         string packageId,
         string enumName,
         string? version,
-        ProgressNotifier progress)
+        ProgressNotifier progress,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(packageId))
         {
@@ -52,7 +54,7 @@ public class GetEnumDefinitionTool(
         progress.ReportMessage("Resolving package version");
 
         (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress);
+            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching enum {EnumName} from package {PackageId} version {Version}",

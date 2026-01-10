@@ -26,13 +26,14 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, PackageSearc
         [Description("Description of the functionality you're looking for, or comma-separated keywords for targeted search")] string query,
         [Description("Maximum number of results to return (default: 20, max: 100)")] int maxResults = 20,
         IProgress<ProgressNotificationValue>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional NuGet source name or URL/path")] string? source = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var progressNotifier = new ProgressNotifier(progress);
 
         return ExecuteWithLoggingAsync(
-            () => SearchPackagesCore(query, maxResults, progressNotifier, cancellationToken),
+            () => SearchPackagesCore(query, maxResults, progressNotifier, cancellationToken, source),
             Logger,
             "Error searching packages");
     }
@@ -41,7 +42,8 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, PackageSearc
         string query,
         int maxResults,
         ProgressNotifier progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? source)
     {
         if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query cannot be empty", nameof(query));
 
@@ -56,6 +58,6 @@ public class SearchPackagesTool(ILogger<SearchPackagesTool> logger, PackageSearc
 
         progress.ReportMessage("Keyword search");
 
-        return await searchService.SearchWithKeywordsAsync(query, keywords, maxResults, cancellationToken);
+        return await searchService.SearchWithKeywordsAsync(query, keywords, maxResults, source, cancellationToken);
     }
 }
