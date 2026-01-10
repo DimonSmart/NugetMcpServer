@@ -92,7 +92,7 @@ jobs:
               if ($null -eq $resp.permissions) {
                 Write-Host "Token auth succeeded for $repoUri, but permissions were not returned."
               } else {
-                Write-Host "Token repo access for $repoUri: pull=$($resp.permissions.pull) push=$($resp.permissions.push) admin=$($resp.permissions.admin)"
+                Write-Host "Token repo access for ${repoUri}: pull=$($resp.permissions.pull) push=$($resp.permissions.push) admin=$($resp.permissions.admin)"
               }
               Write-Host "Repo: $($resp.full_name), private=$($resp.private)"
             } catch {
