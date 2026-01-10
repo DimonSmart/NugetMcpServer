@@ -62,7 +62,7 @@ jobs:
             nupkg/*.nupkg
           generate_release_notes: true
 
-      - name: Diagnostics: WinGet token access
+      - name: Diagnostics - WinGet token access
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
         run: |
