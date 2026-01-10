@@ -72,22 +72,37 @@ jobs:
             "X-GitHub-Api-Version" = "2022-11-28"
             "User-Agent" = "winget-releaser-diagnostics"
           }
-          $uri = "https://api.github.com/repos/DimonSmart/winget-pkgs"
-          try {
-            $resp = Invoke-RestMethod -Headers $headers -Uri $uri -Method Get
-            if ($null -eq $resp.permissions) {
-              Write-Host "Token auth succeeded, but permissions were not returned."
-            } else {
-              Write-Host "Token repo access: pull=$($resp.permissions.pull) push=$($resp.permissions.push) admin=$($resp.permissions.admin)"
+          $userResp = Invoke-WebRequest -Headers $headers -Uri "https://api.github.com/user" -Method Get
+          $user = $userResp.Content | ConvertFrom-Json
+          Write-Host "Token user: $($user.login), id=$($user.id)"
+          $scopes = $userResp.Headers["X-OAuth-Scopes"]
+          if ([string]::IsNullOrWhiteSpace($scopes)) {
+            Write-Host "Token scopes header missing (fine-grained token?)"
+          } else {
+            Write-Host "Token scopes: $scopes"
+          }
+
+          $repoUris = @(
+            "https://api.github.com/repos/DimonSmart/winget-pkgs",
+            "https://api.github.com/repos/microsoft/winget-pkgs"
+          )
+          foreach ($repoUri in $repoUris) {
+            try {
+              $resp = Invoke-RestMethod -Headers $headers -Uri $repoUri -Method Get
+              if ($null -eq $resp.permissions) {
+                Write-Host "Token auth succeeded for $repoUri, but permissions were not returned."
+              } else {
+                Write-Host "Token repo access for $repoUri: pull=$($resp.permissions.pull) push=$($resp.permissions.push) admin=$($resp.permissions.admin)"
+              }
+              Write-Host "Repo: $($resp.full_name), private=$($resp.private)"
+            } catch {
+              Write-Host "Failed to access $repoUri"
+              Write-Host $_.Exception.Message
+              if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                try { Write-Host "Status: $($_.Exception.Response.StatusCode.value__)" } catch {}
+              }
+              exit 1
             }
-            Write-Host "Repo: $($resp.full_name), private=$($resp.private)"
-          } catch {
-            Write-Host "Failed to access $uri"
-            Write-Host $_.Exception.Message
-            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
-              try { Write-Host "Status: $($_.Exception.Response.StatusCode.value__)" } catch {}
-            }
-            exit 1
           }
         shell: powershell
 
