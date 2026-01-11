@@ -1,0 +1,37 @@
+name: Publish WinGet
+
+on:
+  push:
+    tags:
+      - 'wg*'
+
+jobs:
+  publish-winget:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Get Version
+        id: get_version
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('wg')) {
+            Write-Host "Unexpected tag prefix: $tag"
+            exit 1
+          }
+          $version = $tag -replace '^wg[-v]?', ''
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            Write-Host "Failed to parse version from tag: $tag"
+            exit 1
+          }
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Publish to WinGet
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: DimonSmart.NugetMcpServer
+          installers-regex: '\.zip$'
+          release-tag: v${{ steps.get_version.outputs.VERSION }}
+          version: ${{ steps.get_version.outputs.VERSION }}
+          token: ${{ secrets.WINGET_TOKEN }}
