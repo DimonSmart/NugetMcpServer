@@ -31,24 +31,25 @@ set NUGET_SOURCES=C:\NuGet\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/F
 set NUGET_CONFIG=C:\path\to\nuget.config
 ```
 
-MCP client configuration:
+VS Code MCP configuration with `dnx`:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "nuget": {
-      "command": "NugetMcpServer",
-      "args": [
-        "--source", "C:\\NuGet\\LocalFeed",
-        "--source", "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
-      ],
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["DimonSmart.NugetMcpServer@<version>", "--yes"],
       "env": {
+        "NUGET_SOURCES": "C:\\NuGet\\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json",
         "NUGET_CONFIG": "C:\\path\\to\\nuget.config"
       }
     }
   }
 }
 ```
+
+For clients that use the `mcpServers` shape, keep the same `command`, `args`, and `env` values under that client-specific key.
 
 ## MCP tools
 
@@ -138,11 +139,15 @@ NugetMcpServer --version
 
 ## Packaging
 
-The project is packaged as a .NET tool with command name `NugetMcpServer`.
+The project is packaged as a .NET tool with command name `NugetMcpServer`. The recommended distribution path for MCP clients is the NuGet MCP package launched by `dnx`:
+
+```bash
+dnx DimonSmart.NugetMcpServer@<version> --yes
+```
 
 The NuGet package is marked as an MCP server package. The `.mcp/server.json` file is included under `.mcp/`, and the root `README.md` is included in the package.
 
-Docker packaging is provided by the repository Dockerfile and published image:
+Docker packaging is provided as a fallback by the repository Dockerfile and published image:
 
 ```bash
 docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest

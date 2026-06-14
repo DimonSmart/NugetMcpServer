@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Get Version
         id: get_version
@@ -29,8 +29,9 @@ jobs:
         run: |
           $path = "NugetMcpServer/.mcp/server.json"
           $json = Get-Content $path -Raw | ConvertFrom-Json
-          $json.version_detail.version = "${{ steps.get_version.outputs.VERSION }}"
-          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+          $json.version = "${{ steps.get_version.outputs.VERSION }}"
+          $json.packages[0].version = "${{ steps.get_version.outputs.VERSION }}"
+          $json | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $path
         shell: powershell
 
       - name: Build

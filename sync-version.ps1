@@ -45,14 +45,16 @@ function Update-ServerJsonVersion {
     }
     
     $serverJson = Get-Content $ServerJsonPath -Raw | ConvertFrom-Json
-    $currentVersion = $serverJson.version_detail.version
+    $currentVersion = $serverJson.version
+    $currentPackageVersion = $serverJson.packages[0].version
     
-    if ($currentVersion -eq $NewVersion) {
+    if ($currentVersion -eq $NewVersion -and $currentPackageVersion -eq $NewVersion) {
         Write-Host "Version is already up to date: $NewVersion" -ForegroundColor Green
         return $false
     }
     
-    $serverJson.version_detail.version = $NewVersion
+    $serverJson.version = $NewVersion
+    $serverJson.packages[0].version = $NewVersion
     
     # Save with clean formatting
     $cleanJson = $serverJson | ConvertTo-Json -Depth 10
