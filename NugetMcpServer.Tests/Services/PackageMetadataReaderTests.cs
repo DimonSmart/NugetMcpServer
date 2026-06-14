@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Services;
 using Xunit;
 
@@ -99,18 +100,6 @@ public sealed class PackageMetadataReaderTests
 
     private static string FindTestLibrary(string projectName)
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null)
-        {
-            var candidate = Path.Combine(directory.FullName, "TestLibraries", projectName, "bin", "Debug", "net10.0", $"{projectName}.dll");
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException($"Could not find compiled {projectName}.dll");
+        return BuildOutputPaths.FindProjectAssembly(Path.Combine("TestLibraries", projectName), $"{projectName}.dll");
     }
 }

@@ -49,18 +49,6 @@ public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(
 
     private static string FindServerDll()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null)
-        {
-            var candidate = Path.Combine(directory.FullName, "NugetMcpServer", "bin", "Debug", "net10.0", "NugetMcpServer.dll");
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not find NugetMcpServer.dll in bin/Debug/net10.0.");
+        return BuildOutputPaths.FindProjectAssembly("NugetMcpServer", "NugetMcpServer.dll");
     }
 }
