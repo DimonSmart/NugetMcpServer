@@ -22,14 +22,7 @@ public class ArchiveProcessingService(
     public static List<string> GetUniqueAssemblyFiles(PackageArchiveReader packageReader)
     {
         var assemblyFiles = GetCandidateAssemblyFiles(packageReader.GetFiles()).ToList();
-        var selectedFramework = SelectNearestFramework(assemblyFiles.Select(static file => file.TargetFramework));
-        if (selectedFramework == null)
-        {
-            return [];
-        }
-
-        return assemblyFiles
-            .Where(file => file.TargetFramework.Equals(selectedFramework, StringComparison.OrdinalIgnoreCase))
+        return SelectNearestAssemblyFiles(assemblyFiles)
             .Select(static file => file.PackagePath)
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -79,17 +72,14 @@ public class ArchiveProcessingService(
     public async Task<IReadOnlyList<PackageAssemblyFile>> ReadSelectedAssemblyFilesAsync(PackageArchiveReader packageReader)
     {
         var candidateFiles = GetCandidateAssemblyFiles(packageReader.GetFiles()).ToList();
-        var selectedFramework = SelectNearestFramework(candidateFiles.Select(static file => file.TargetFramework));
-        if (selectedFramework == null)
+        var selectedFiles = SelectNearestAssemblyFiles(candidateFiles)
+            .OrderBy(static file => file.PackagePath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (selectedFiles.Count == 0)
         {
             _logger.LogDebug("No lib target framework assemblies found in package");
             return [];
         }
-
-        var selectedFiles = candidateFiles
-            .Where(file => file.TargetFramework.Equals(selectedFramework, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(static file => file.PackagePath, StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
         var result = new List<PackageAssemblyFile>();
         foreach (var file in selectedFiles)
@@ -108,6 +98,29 @@ public class ArchiveProcessingService(
         }
 
         return result;
+    }
+
+    internal static IReadOnlyList<(string PackagePath, string TargetFramework)> SelectNearestAssemblyFiles(
+        IReadOnlyList<(string PackagePath, string TargetFramework)> candidateFiles)
+    {
+        return candidateFiles
+            .GroupBy(file => Path.GetFileNameWithoutExtension(file.PackagePath), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group =>
+            {
+                var selectedFramework = SelectNearestFramework(group.Select(static file => file.TargetFramework));
+                return selectedFramework == null
+                    ? []
+                    : group.Where(file => file.TargetFramework.Equals(selectedFramework, StringComparison.OrdinalIgnoreCase));
+            })
+            .OrderBy(static file => file.PackagePath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static NuGetFramework GetCurrentFramework()
+    {
+        return !string.IsNullOrWhiteSpace(AppContext.TargetFrameworkName)
+            ? NuGetFramework.ParseFrameworkName(AppContext.TargetFrameworkName, DefaultFrameworkNameProvider.Instance)
+            : NuGetFramework.ParseFolder($"net{Environment.Version.Major}.0");
     }
 
     private static IEnumerable<(string PackagePath, string TargetFramework)> GetCandidateAssemblyFiles(IEnumerable<string> files)
@@ -129,7 +142,7 @@ public class ArchiveProcessingService(
         }
     }
 
-    private static string? SelectNearestFramework(IEnumerable<string> targetFrameworks)
+    internal static string? SelectNearestFramework(IEnumerable<string> targetFrameworks)
     {
         var distinct = targetFrameworks
             .Where(static framework => !string.IsNullOrWhiteSpace(framework))
@@ -147,11 +160,7 @@ public class ArchiveProcessingService(
             .Where(static framework => !framework.IsUnsupported)
             .ToList();
 
-        var current = NuGetFramework.ParseFolder(AppContext.TargetFrameworkName is { Length: > 0 } target
-            ? NuGetFramework.Parse(target).GetShortFolderName()
-            : $"net{Environment.Version.Major}.0");
-
-        var nearest = reducer.GetNearest(current, candidates);
+        var nearest = reducer.GetNearest(GetCurrentFramework(), candidates);
         return nearest?.GetShortFolderName() ?? distinct.First();
     }
 }

@@ -4,5 +4,7 @@
 // a specific target and scoped to a namespace, type, member, etc.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 [assembly: SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "<Pending>", Scope = "member", Target = "~M:NuGetMcpServer.Tools.TimeTool.get_current_time~System.String")]
+[assembly: InternalsVisibleTo("NugetMcpServer.Tests")]

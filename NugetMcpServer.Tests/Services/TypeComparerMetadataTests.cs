@@ -85,6 +85,37 @@ public sealed class TypeComparerMetadataTests
     }
 
     [Fact]
+    public void CompareTypes_ClassifiesMethodParameterTypeChange()
+    {
+        var oldType = CreateType(methods:
+        [
+            new ApiMethodModel
+            {
+                Name = "Save",
+                ReturnType = "void",
+                Parameters = [new ApiParameterModel { Name = "id", Type = "int" }],
+                Identity = "M:Save`0(int)"
+            }
+        ]);
+        var newType = CreateType(methods:
+        [
+            new ApiMethodModel
+            {
+                Name = "Save",
+                ReturnType = "void",
+                Parameters = [new ApiParameterModel { Name = "id", Type = "long" }],
+                Identity = "M:Save`0(long)"
+            }
+        ]);
+
+        var changes = new TypeComparer().CompareTypes(oldType, newType);
+
+        Assert.Contains(changes, change => change.Category == ChangeCategory.ParameterTypeChanged && change.MemberName == "Save");
+        Assert.DoesNotContain(changes, change => change.Category == ChangeCategory.MemberRemoved && change.MemberName == "Save");
+        Assert.DoesNotContain(changes, change => change.Category == ChangeCategory.MemberAdded && change.MemberName == "Save");
+    }
+
+    [Fact]
     public void CompareTypes_DetectsEnumValueChanges()
     {
         var oldType = CreateType(ApiTypeKind.Enum) with

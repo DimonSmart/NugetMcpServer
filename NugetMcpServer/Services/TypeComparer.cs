@@ -61,14 +61,7 @@ public class TypeComparer
 
     private static void CompareMembers(ApiTypeModel oldType, ApiTypeModel newType, List<TypeChange> changes)
     {
-        CompareMembersByIdentity(
-            oldType,
-            newType,
-            oldType.Methods.ToDictionary(static method => method.Identity, StringComparer.Ordinal),
-            newType.Methods.ToDictionary(static method => method.Identity, StringComparer.Ordinal),
-            static method => method.Name,
-            static method => $"{method.ReturnType} {method.Name}({string.Join(", ", method.Parameters.Select(static p => p.Type))})",
-            changes);
+        CompareMethods(oldType, newType, changes);
 
         CompareMembersByIdentity(
             oldType,
@@ -118,15 +111,67 @@ public class TypeComparer
                     $"Field type changed from {oldField.Type} to {newField.Type}"));
             }
         }
+    }
 
-        foreach (var oldMethod in oldType.Methods)
+    private static void CompareMethods(ApiTypeModel oldType, ApiTypeModel newType, List<TypeChange> changes)
+    {
+        var oldByIdentity = oldType.Methods.ToDictionary(static method => method.Identity, StringComparer.Ordinal);
+        var newByIdentity = newType.Methods.ToDictionary(static method => method.Identity, StringComparer.Ordinal);
+        var matchedNew = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (identity, oldMethod) in oldByIdentity)
         {
-            var newMethod = newType.Methods.FirstOrDefault(m => m.Identity == oldMethod.Identity);
-            if (newMethod == null)
+            if (!newByIdentity.TryGetValue(identity, out var newMethod))
             {
                 continue;
             }
 
+            matchedNew.Add(identity);
+            CompareMatchingMethod(oldType, newType, oldMethod, newMethod, changes);
+        }
+
+        foreach (var (identity, oldMethod) in oldByIdentity)
+        {
+            if (newByIdentity.ContainsKey(identity))
+            {
+                continue;
+            }
+
+            var candidate = newByIdentity
+                .Where(pair => !matchedNew.Contains(pair.Key))
+                .Select(static pair => pair.Value)
+                .FirstOrDefault(newMethod => MethodCompatibilityKey(newMethod) == MethodCompatibilityKey(oldMethod));
+
+            if (candidate == null)
+            {
+                changes.Add(CreateMemberChange(ChangeCategory.MemberRemoved, ChangeSeverity.High, newType,
+                    oldMethod.Name, from: MethodSignature(oldMethod),
+                    impact: $"Member {oldMethod.Name} removed - code using it will break"));
+                continue;
+            }
+
+            matchedNew.Add(candidate.Identity);
+            CompareChangedMethodSignature(newType, oldMethod, candidate, changes);
+        }
+
+        foreach (var (identity, newMethod) in newByIdentity)
+        {
+            if (!oldByIdentity.ContainsKey(identity) && !matchedNew.Contains(identity))
+            {
+                changes.Add(CreateMemberChange(ChangeCategory.MemberAdded, ChangeSeverity.Low, newType,
+                    newMethod.Name, to: MethodSignature(newMethod),
+                    impact: "New member added - non-breaking change"));
+            }
+        }
+    }
+
+    private static void CompareMatchingMethod(
+        ApiTypeModel oldType,
+        ApiTypeModel newType,
+        ApiMethodModel oldMethod,
+        ApiMethodModel newMethod,
+        List<TypeChange> changes)
+    {
             if (!StringEquals(oldMethod.ReturnType, newMethod.ReturnType))
             {
                 changes.Add(CreateMemberChange(ChangeCategory.ReturnTypeChanged, ChangeSeverity.High, newType,
@@ -145,7 +190,63 @@ public class TypeComparer
                 changes.Add(CreateMemberChange(ChangeCategory.MemberObsoleted, ChangeSeverity.Medium, newType,
                     oldMethod.Name, impact: "Member marked as obsolete - should be replaced"));
             }
+    }
+
+    private static void CompareChangedMethodSignature(
+        ApiTypeModel type,
+        ApiMethodModel oldMethod,
+        ApiMethodModel newMethod,
+        List<TypeChange> changes)
+    {
+        changes.Add(CreateMemberChange(ChangeCategory.MethodSignatureChanged, ChangeSeverity.High, type,
+            oldMethod.Name, from: MethodSignature(oldMethod), to: MethodSignature(newMethod),
+            impact: "Method signature changed - calls may need to be updated"));
+
+        if (!StringEquals(oldMethod.ReturnType, newMethod.ReturnType))
+        {
+            changes.Add(CreateMemberChange(ChangeCategory.ReturnTypeChanged, ChangeSeverity.High, type,
+                oldMethod.Name, oldMethod.ReturnType, newMethod.ReturnType,
+                "Return type changed - may break code expecting original type"));
         }
+
+        var commonCount = Math.Min(oldMethod.Parameters.Count, newMethod.Parameters.Count);
+        for (var i = 0; i < commonCount; i++)
+        {
+            var oldParameter = oldMethod.Parameters[i];
+            var newParameter = newMethod.Parameters[i];
+            if (!StringEquals(oldParameter.Type, newParameter.Type))
+            {
+                changes.Add(CreateMemberChange(ChangeCategory.ParameterTypeChanged, ChangeSeverity.High, type,
+                    oldMethod.Name,
+                    from: $"{oldParameter.Name}: {oldParameter.Type}",
+                    to: $"{newParameter.Name}: {newParameter.Type}",
+                    impact: "Parameter type changed - method calls may break"));
+            }
+        }
+
+        foreach (var parameter in oldMethod.Parameters.Skip(commonCount))
+        {
+            changes.Add(CreateMemberChange(ChangeCategory.ParameterRemoved, ChangeSeverity.High, type,
+                oldMethod.Name, from: $"{parameter.Name}: {parameter.Type}",
+                impact: "Parameter removed - method calls may need to be updated"));
+        }
+
+        foreach (var parameter in newMethod.Parameters.Skip(commonCount))
+        {
+            changes.Add(CreateMemberChange(ChangeCategory.ParameterAdded, ChangeSeverity.High, type,
+                oldMethod.Name, to: $"{parameter.Name}: {parameter.Type}",
+                impact: "Parameter added - existing calls may need to pass a new value"));
+        }
+    }
+
+    private static string MethodCompatibilityKey(ApiMethodModel method)
+    {
+        return $"{method.Name}`{method.GenericParameters.Count}";
+    }
+
+    private static string MethodSignature(ApiMethodModel method)
+    {
+        return $"{method.ReturnType} {method.Name}({string.Join(", ", method.Parameters.Select(static p => $"{p.Type} {p.Name}"))})";
     }
 
     private static void CompareMembersByIdentity<T>(

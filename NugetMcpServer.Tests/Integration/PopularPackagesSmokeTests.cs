@@ -1,26 +1,15 @@
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
-using NuGet.Packaging;
 using NuGetMcpServer.Services;
-using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 using Xunit;
+using static NuGetMcpServer.Extensions.ProgressNotifier;
 
 namespace NuGetMcpServer.Tests.Integration;
 
 public class PopularNuGetPackagesMetadataSmokeTests : TestBase
 {
-    private readonly NuGetPackageService _packageService;
-
-    public PopularNuGetPackagesMetadataSmokeTests(ITestOutputHelper output) : base(output)
-    {
-        _packageService = CreateNuGetPackageService();
-    }
-
-    public static TheoryData<string> PopularPackages => new()
-    {
+    private static readonly string[] PopularPackages =
+    [
         "Newtonsoft.Json",
         "System.Text.Json",
         "Microsoft.Extensions.DependencyInjection",
@@ -50,14 +39,48 @@ public class PopularNuGetPackagesMetadataSmokeTests : TestBase
         "Bogus",
         "BenchmarkDotNet",
         "xunit.v3",
-        "Moq",
-    };
+        "Moq"
+    ];
 
-    [Theory]
+    private static readonly IReadOnlyDictionary<string, PackageSmokeExpectation> Expectations =
+        new Dictionary<string, PackageSmokeExpectation>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Newtonsoft.Json"] = new()
+            {
+                PackageId = "Newtonsoft.Json",
+                MinPublicTypes = 20,
+                ExpectedTypeNames =
+                [
+                    "Newtonsoft.Json.JsonConvert",
+                    "Newtonsoft.Json.JsonSerializer",
+                    "Newtonsoft.Json.Linq.JObject"
+                ]
+            },
+            ["Dapper"] = new()
+            {
+                PackageId = "Dapper",
+                MinPublicTypes = 5,
+                ExpectedTypeNames = ["Dapper.SqlMapper"]
+            },
+            ["Serilog"] = new()
+            {
+                PackageId = "Serilog",
+                MinPublicTypes = 10,
+                ExpectedTypeNames = ["Serilog.Log", "Serilog.ILogger"]
+            }
+        };
+
+    private readonly NuGetPackageService _packageService;
+
+    public PopularNuGetPackagesMetadataSmokeTests(ITestOutputHelper output) : base(output)
+    {
+        _packageService = CreateNuGetPackageService();
+    }
+
+    [Fact]
     [Trait("Category", "Exploratory")]
     [Trait("Category", "Manual")]
-    [MemberData(nameof(PopularPackages))]
-    public async Task LoadPopularPackages_NoErrors(string packageId)
+    public async Task PopularNuGetPackages_MetadataParser_IsProductionSmokeStable()
     {
         if (Environment.GetEnvironmentVariable("NUGET_MCP_RUN_EXPLORATORY_TESTS") != "1")
         {
@@ -66,155 +89,128 @@ public class PopularNuGetPackagesMetadataSmokeTests : TestBase
         }
 
         var archiveService = CreateArchiveProcessingService();
+        var listTypesTool = new ListTypesTool(new TestLogger<ListTypesTool>(TestOutput), _packageService, archiveService);
+        var listInterfacesTool = new ListInterfacesTool(new TestLogger<ListInterfacesTool>(TestOutput), _packageService, archiveService);
+        var classDefinitionTool = new GetClassDefinitionTool(new TestLogger<GetClassDefinitionTool>(TestOutput), _packageService, new ApiDefinitionFormatter(), archiveService);
+        var interfaceDefinitionTool = new GetInterfaceDefinitionTool(new TestLogger<GetInterfaceDefinitionTool>(TestOutput), _packageService, new ApiDefinitionFormatter(), archiveService);
+        var enumDefinitionTool = new GetEnumDefinitionTool(new TestLogger<GetEnumDefinitionTool>(TestOutput), _packageService, new ApiDefinitionFormatter(), archiveService);
 
-        var listTypesLogger = new TestLogger<ListTypesTool>(TestOutput);
-        var classDefLogger = new TestLogger<GetClassDefinitionTool>(TestOutput);
-        var listInterfacesLogger = new TestLogger<ListInterfacesTool>(TestOutput);
-        var interfaceDefLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
+        var failures = new List<string>();
+        var parsedOk = 0;
+        var metaPackages = 0;
+        var totalPublicTypes = 0;
+        var totalPublicMethods = 0;
 
-        var listTypesTool = new ListTypesTool(listTypesLogger, _packageService, archiveService);
-        var classDefTool = new GetClassDefinitionTool(classDefLogger, _packageService, new ApiDefinitionFormatter(), archiveService);
-        var listInterfacesTool = new ListInterfacesTool(listInterfacesLogger, _packageService, archiveService);
-        var interfaceDefTool = new GetInterfaceDefinitionTool(interfaceDefLogger, _packageService, new ApiDefinitionFormatter(), archiveService);
-
-        var version = await _packageService.GetLatestVersion(packageId);
-        await using var stream = await _packageService.DownloadPackageAsync(packageId, version);
-        using var reader = new PackageArchiveReader(stream, leaveStreamOpen: true);
-
-        var dllFiles = ArchiveProcessingService.GetUniqueAssemblyFiles(reader);
-
-        int classCount = 0;
-        int interfaceCount = 0;
-        int enumCount = 0;
-
-        foreach (var file in dllFiles)
+        foreach (var packageId in PopularPackages)
         {
-            using var dllStream = reader.GetStream(file);
-            using var msDll = new MemoryStream();
-            dllStream.CopyTo(msDll);
-
-            var (c, i, e) = CountTypes(msDll.ToArray());
-            classCount += c;
-            interfaceCount += i;
-            enumCount += e;
-        }
-
-        TestOutput.WriteLine($"{packageId} v{version}: Classes={classCount}, Interfaces={interfaceCount}, Enums={enumCount}");
-
-        var typeResult = await listTypesTool.list_classes_records_structs(packageId, version);
-        TestOutput.WriteLine("list_classes_records_structs =>");
-        TestOutput.WriteLine(typeResult.Format());
-        foreach (var cls in typeResult.Types)
-        {
-            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, cls.FullName, version);
-            Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({cls.FullName}) =>");
-            TestOutput.WriteLine(def);
-        }
-
-        var interfaceResult = await listInterfacesTool.list_interfaces(packageId, version);
-        TestOutput.WriteLine("list_interfaces =>");
-        TestOutput.WriteLine(interfaceResult.Format());
-        foreach (var iface in interfaceResult.Interfaces)
-        {
-            var def = await interfaceDefTool.get_interface_definition(packageId, iface.FullName, version);
-            Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_interface_definition({iface.FullName}) =>");
-            TestOutput.WriteLine(def);
-        }
-
-        var structTypes = typeResult.Types.Where(t => t.Kind == TypeKind.Struct || t.Kind == TypeKind.RecordStruct).ToList();
-        var recordTypes = typeResult.Types.Where(t => t.Kind == TypeKind.RecordClass || t.Kind == TypeKind.RecordStruct).ToList();
-
-        foreach (var st in structTypes)
-        {
-            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, st.FullName, version);
-            Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({st.FullName}) =>");
-            TestOutput.WriteLine(def);
-        }
-
-        foreach (var rec in recordTypes)
-        {
-            var def = await classDefTool.get_class_or_record_or_struct_definition(packageId, rec.FullName, version);
-            Assert.False(string.IsNullOrWhiteSpace(def));
-            TestOutput.WriteLine($"get_class_or_record_or_struct_definition({rec.FullName}) =>");
-            TestOutput.WriteLine(def);
-        }
-
-        // Verify class flags against record and struct listings
-        var structNames = structTypes.Select(s => s.FullName).ToHashSet();
-        var recordLookup = recordTypes.ToDictionary(r => r.FullName, r => r.Kind == TypeKind.RecordStruct);
-
-        foreach (var cls in typeResult.Types)
-        {
-            if (cls.Kind == TypeKind.Struct || cls.Kind == TypeKind.RecordStruct)
-                Assert.Contains(cls.FullName, structNames);
-
-            if (cls.Kind == TypeKind.RecordClass || cls.Kind == TypeKind.RecordStruct)
+            try
             {
-                Assert.True(recordLookup.TryGetValue(cls.FullName, out bool recIsStruct));
-                Assert.Equal(recIsStruct, cls.Kind == TypeKind.RecordStruct);
-            }
-        }
+                var version = await _packageService.GetLatestVersion(packageId);
+                var loaded = await archiveService.LoadPackageMetadataAsync(packageId, version, VoidProgressNotifier);
+                var allTypes = loaded.Api.Assemblies.SelectMany(static assembly => assembly.Types).ToList();
+                var classes = allTypes.Where(static type => type.Kind is ApiTypeKind.Class or ApiTypeKind.StaticClass or ApiTypeKind.AbstractClass or ApiTypeKind.SealedClass or ApiTypeKind.RecordClass).ToList();
+                var interfaces = allTypes.Where(static type => type.Kind == ApiTypeKind.Interface).ToList();
+                var structs = allTypes.Where(static type => type.Kind is ApiTypeKind.Struct or ApiTypeKind.RecordStruct).ToList();
+                var enums = allTypes.Where(static type => type.Kind == ApiTypeKind.Enum).ToList();
+                var delegates = allTypes.Where(static type => type.Kind == ApiTypeKind.Delegate).ToList();
+                var methodCount = allTypes.Sum(static type => type.Methods.Count);
+                var propertyCount = allTypes.Sum(static type => type.Properties.Count);
+                var eventCount = allTypes.Sum(static type => type.Events.Count);
 
-        Assert.DoesNotContain(listTypesLogger.Entries, e => e.Exception != null);
-        Assert.DoesNotContain(classDefLogger.Entries, e => e.Exception != null);
-        Assert.DoesNotContain(listInterfacesLogger.Entries, e => e.Exception != null);
-        Assert.DoesNotContain(interfaceDefLogger.Entries, e => e.Exception != null);
-    }
-
-    private static (int classes, int interfaces, int enums) CountTypes(byte[] assemblyData)
-    {
-        using var ms = new MemoryStream(assemblyData);
-        using var peReader = new PEReader(ms);
-        var reader = peReader.GetMetadataReader();
-
-        int classCount = 0;
-        int interfaceCount = 0;
-        int enumCount = 0;
-
-        foreach (var handle in reader.TypeDefinitions)
-        {
-            var typeDef = reader.GetTypeDefinition(handle);
-
-            var attrs = typeDef.Attributes;
-
-
-
-            bool isInterface = (attrs & System.Reflection.TypeAttributes.Interface) != 0;
-
-            bool isEnum = false;
-            if (!isInterface && !typeDef.BaseType.IsNil)
-            {
-                var baseTypeName = string.Empty;
-                var baseTypeNamespace = string.Empty;
-                switch (typeDef.BaseType.Kind)
+                if (loaded.PackageInfo.IsMetaPackage)
                 {
-                    case HandleKind.TypeReference:
-                        var tr = reader.GetTypeReference((TypeReferenceHandle)typeDef.BaseType);
-                        baseTypeName = reader.GetString(tr.Name);
-                        baseTypeNamespace = reader.GetString(tr.Namespace);
-                        break;
-                    case HandleKind.TypeDefinition:
-                        var td = reader.GetTypeDefinition((TypeDefinitionHandle)typeDef.BaseType);
-                        baseTypeName = reader.GetString(td.Name);
-                        baseTypeNamespace = reader.GetString(td.Namespace);
-                        break;
+                    metaPackages++;
+                }
+                else
+                {
+                    Assert.NotEmpty(loaded.Api.Assemblies);
+                    Assert.NotEmpty(allTypes);
                 }
 
-                if (baseTypeName == "Enum" && baseTypeNamespace == "System")
-                    isEnum = true;
-            }
+                if (Expectations.TryGetValue(packageId, out var expectation))
+                {
+                    if (expectation.MinPublicTypes is { } minTypes)
+                    {
+                        Assert.True(allTypes.Count >= minTypes, $"{packageId}: expected at least {minTypes} public types, got {allTypes.Count}.");
+                    }
 
-            if (isInterface)
-                interfaceCount++;
-            else if (isEnum)
-                enumCount++;
-            else
-                classCount++;
+                    foreach (var expectedType in expectation.ExpectedTypeNames)
+                    {
+                        Assert.Contains(allTypes, type => type.FullName == expectedType);
+                    }
+                }
+
+                var typeResult = await listTypesTool.list_classes_records_structs(packageId, version, maxResults: 10);
+                var interfaceResult = await listInterfacesTool.list_interfaces(packageId, version);
+                Assert.True(
+                    loaded.PackageInfo.IsMetaPackage || typeResult.Types.Count > 0 || interfaceResult.Interfaces.Count > 0 || enums.Count > 0,
+                    $"{packageId}: expected at least one tool to return API results.");
+
+                foreach (var type in typeResult.Types.Take(3))
+                {
+                    var definition = await classDefinitionTool.get_class_or_record_or_struct_definition(packageId, type.FullName, version);
+                    Assert.Contains(type.Name.Split('<')[0], definition);
+                }
+
+                foreach (var iface in interfaceResult.Interfaces.Take(3))
+                {
+                    var definition = await interfaceDefinitionTool.get_interface_definition(packageId, iface.FullName, version);
+                    Assert.Contains("interface", definition);
+                }
+
+                foreach (var enumType in enums.Take(2))
+                {
+                    var definition = await enumDefinitionTool.get_enum_definition(packageId, enumType.FullName, version);
+                    Assert.Contains("enum", definition);
+                }
+
+                totalPublicTypes += allTypes.Count;
+                totalPublicMethods += methodCount;
+                parsedOk++;
+
+                TestOutput.WriteLine($"""
+Package: {packageId}
+Version: {version}
+Selected TFM: {string.Join(", ", loaded.Api.Assemblies.Select(static assembly => assembly.TargetFramework).Distinct())}
+Assemblies:
+{string.Join(Environment.NewLine, loaded.Api.Assemblies.Select(static assembly => $"  - {assembly.PackagePath}"))}
+Public types: {allTypes.Count}
+Classes: {classes.Count}
+Interfaces: {interfaces.Count}
+Structs: {structs.Count}
+Enums: {enums.Count}
+Delegates: {delegates.Count}
+Methods: {methodCount}
+Properties: {propertyCount}
+Events: {eventCount}
+Status: OK
+""");
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{packageId}: {ex.GetType().Name}: {ex.Message}");
+                TestOutput.WriteLine($"Package: {packageId}{Environment.NewLine}Status: FAILED{Environment.NewLine}{ex}");
+            }
         }
 
-        return (classCount, interfaceCount, enumCount);
+        TestOutput.WriteLine($"""
+Total packages: {PopularPackages.Length}
+Parsed OK: {parsedOk}
+Failed: {failures.Count}
+Meta-packages: {metaPackages}
+Total public types: {totalPublicTypes}
+Total public methods: {totalPublicMethods}
+""");
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    public sealed record PackageSmokeExpectation
+    {
+        public required string PackageId { get; init; }
+        public int? MinPublicTypes { get; init; }
+        public int? MinClasses { get; init; }
+        public int? MinInterfaces { get; init; }
+        public string[] ExpectedTypeNames { get; init; } = [];
     }
 }

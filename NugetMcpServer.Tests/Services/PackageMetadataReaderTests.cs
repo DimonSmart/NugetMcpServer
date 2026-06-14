@@ -18,9 +18,9 @@ public sealed class PackageMetadataReaderTests
             [
                 new PackageAssemblyFile
                 {
-                    PackagePath = "lib/net9.0/TestLibrary.V1.dll",
+                    PackagePath = "lib/net10.0/TestLibrary.V1.dll",
                     FileName = "TestLibrary.V1.dll",
-                    TargetFramework = "net9.0",
+                    TargetFramework = "net10.0",
                     Bytes = bytes
                 }
             ]);
@@ -56,9 +56,9 @@ public sealed class PackageMetadataReaderTests
             [
                 new PackageAssemblyFile
                 {
-                    PackagePath = "lib/net9.0/TestLibrary.V1.dll",
+                    PackagePath = "lib/net10.0/TestLibrary.V1.dll",
                     FileName = "TestLibrary.V1.dll",
-                    TargetFramework = "net9.0",
+                    TargetFramework = "net10.0",
                     Bytes = bytes
                 }
             ]);
@@ -67,8 +67,8 @@ public sealed class PackageMetadataReaderTests
         var iface = api.Assemblies.SelectMany(static a => a.Types).Single(static type => type.Name == "IMetadataGenericInterface<T>");
         var enumType = api.Assemblies.SelectMany(static a => a.Types).Single(static type => type.Name == "MetadataExplicitEnum");
 
-        var ifaceText = formatter.FormatTypeDefinition(iface, api.PackageId, api.Version, "net9.0");
-        var enumText = formatter.FormatTypeDefinition(enumType, api.PackageId, api.Version, "net9.0");
+        var ifaceText = formatter.FormatTypeDefinition(iface, api.PackageId, api.Version, "net10.0");
+        var enumText = formatter.FormatTypeDefinition(enumType, api.PackageId, api.Version, "net10.0");
 
         Assert.Contains("interface IMetadataGenericInterface<T>", ifaceText);
         Assert.Contains("where T : class, new()", ifaceText);
@@ -87,9 +87,9 @@ public sealed class PackageMetadataReaderTests
             [
                 new PackageAssemblyFile
                 {
-                    PackagePath = "lib/net9.0/Broken.dll",
+                    PackagePath = "lib/net10.0/Broken.dll",
                     FileName = "Broken.dll",
-                    TargetFramework = "net9.0",
+                    TargetFramework = "net10.0",
                     Bytes = [1, 2, 3, 4]
                 }
             ]);
@@ -102,7 +102,7 @@ public sealed class PackageMetadataReaderTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null)
         {
-            var candidate = Path.Combine(directory.FullName, "TestLibraries", projectName, "bin", "Debug", "net9.0", $"{projectName}.dll");
+            var candidate = Path.Combine(directory.FullName, "TestLibraries", projectName, "bin", "Debug", "net10.0", $"{projectName}.dll");
             if (File.Exists(candidate))
             {
                 return candidate;

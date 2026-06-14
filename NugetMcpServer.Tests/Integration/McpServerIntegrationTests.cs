@@ -1,140 +1,66 @@
-using System;
-using System.Diagnostics;
-
-using NuGetMcpServer.Services;
+using Microsoft.Extensions.Logging.Abstractions;
+using ModelContextProtocol.Client;
 using NuGetMcpServer.Tests.Helpers;
-using NuGetMcpServer.Tools;
-
 using Xunit;
 
 namespace NuGetMcpServer.Tests.Integration;
 
-public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(testOutput), IDisposable
+public class McpServerIntegrationTests(ITestOutputHelper testOutput) : TestBase(testOutput)
 {
-    private Process? _serverProcess;
-
-    public void Dispose() => StopServerProcess();
-
-    private void StopServerProcess()
-    {
-        if (_serverProcess == null || _serverProcess.HasExited)
-            return;
-
-        try
-        {
-            TestOutput.WriteLine("Shutting down server process...");
-            _serverProcess.Kill();
-            _serverProcess.Dispose();
-            _serverProcess = null;
-        }
-        catch (Exception ex)
-        {
-            TestOutput.WriteLine($"Error shutting down server process: {ex.Message}");
-        }
-    }
-
-    private async Task<Process> StartMcpServerProcess()
-    {
-        // Find the server executable path
-        var serverDirectory = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "..", "..", "..",
-            "..", "NugetMcpServer", "bin", "Debug", "net9.0", "win-x64");
-
-        var serverExecutablePath = Path.Combine(serverDirectory, "NugetMcpServer.exe");
-
-        // Ensure the path exists
-        if (!File.Exists(serverExecutablePath))
-        {
-            TestOutput.WriteLine($"Could not find server at {serverExecutablePath}");
-            throw new FileNotFoundException($"Server executable not found at {serverExecutablePath}");
-        }
-
-        TestOutput.WriteLine($"Starting MCP server from: {serverExecutablePath}");
-
-        // Start the MCP server process
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = serverExecutablePath,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        // Capture and log stderr output
-        process.ErrorDataReceived += (s, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-            {
-                TestOutput.WriteLine($"SERVER ERROR: {e.Data}");
-            }
-        };
-
-        process.Start();
-        process.BeginErrorReadLine();
-
-        // Wait a moment for the process to initialize
-        await Task.Delay(1000);
-
-        return process;
-    }
-
     [Fact]
-    public async Task CanExecuteMcpServerAndCheckForInterfaces()
+    public async Task StdioTransport_CanInitializeListToolsAndCallTool()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            TestOutput.WriteLine("Skipping integration test on non-Windows platform");
-            return;
-        }
+        var serverDll = FindServerDll();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var stderrLines = new List<string>();
+        var transport = new StdioClientTransport(
+            new StdioClientTransportOptions
+            {
+                Name = "NugetMcpServer integration test",
+                Command = "dotnet",
+                Arguments = [serverDll],
+                WorkingDirectory = Path.GetDirectoryName(serverDll),
+                StandardErrorLines = line => stderrLines.Add(line)
+            },
+            NullLoggerFactory.Instance);
 
-        // Start NuGet MCP server process - this verifies the server can start
-        var serverProcess = await StartMcpServerProcess();
-        _serverProcess = serverProcess;
+        await using var client = await McpClient.CreateAsync(
+            transport,
+            loggerFactory: NullLoggerFactory.Instance,
+            cancellationToken: timeout.Token);
 
-        try
+        var tools = await client.ListToolsAsync(cancellationToken: timeout.Token);
+        Assert.Contains(tools, tool => tool.Name == "list_interfaces");
+        Assert.Contains(tools, tool => tool.Name == "get_current_time");
+
+        var result = await client.CallToolAsync(
+            "get_current_time",
+            arguments: new Dictionary<string, object?>(),
+            cancellationToken: timeout.Token);
+
+        Assert.True(result.IsError != true);
+        Assert.NotEmpty(result.Content);
+
+        foreach (var line in stderrLines)
         {
-            await TestInterfacesDirectly();
-        }
-        finally
-        {
-            StopServerProcess();
+            TestOutput.WriteLine($"SERVER STDERR: {line}");
         }
     }
 
-    private async Task TestInterfacesDirectly()
+    private static string FindServerDll()
     {
-        TestOutput.WriteLine("MCP server process started, testing interfaces directly...");
-
-        var packageLogger = new TestLogger<NuGetPackageService>(TestOutput);
-        var toolLogger = new TestLogger<ListInterfacesTool>(TestOutput);
-
-        var packageService = CreateNuGetPackageService();
-        var archiveProcessingService = CreateArchiveProcessingService();
-        var listTool = new ListInterfacesTool(toolLogger, packageService, archiveProcessingService);
-
-        // Call the tool directly to verify the package contains interfaces
-        var result = await listTool.list_interfaces("DimonSmart.MazeGenerator");
-
-        // Make sure we found interfaces
-        Assert.NotNull(result);
-        Assert.Equal("DimonSmart.MazeGenerator", result.PackageId);
-        Assert.NotEmpty(result.Interfaces);
-
-        TestOutput.WriteLine($"Found {result.Interfaces.Count} interfaces in {result.PackageId} version {result.Version}");
-
-        // Display the interfaces
-        foreach (var iface in result.Interfaces)
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
         {
-            TestOutput.WriteLine($"- {iface.FullName} ({iface.AssemblyName})");
+            var candidate = Path.Combine(directory.FullName, "NugetMcpServer", "bin", "Debug", "net10.0", "NugetMcpServer.dll");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
         }
 
-        // Verify that we found at least one IMaze interface
-        Assert.Contains(result.Interfaces, i => i.Name.StartsWith("IMaze") || i.FullName.Contains(".IMaze"));
+        throw new FileNotFoundException("Could not find NugetMcpServer.dll in bin/Debug/net10.0.");
     }
 }

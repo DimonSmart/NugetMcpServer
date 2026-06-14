@@ -307,6 +307,6 @@ Remove-Item Env:\NUGET_MCP_RUN_EXPLORATORY_TESTS
 
 ## License
 
-Unlicense - This is free and unencumbered software released into the public domain.
+MIT
 
 
