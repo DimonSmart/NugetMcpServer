@@ -283,6 +283,24 @@ Check your version:
 NugetMcpServer --version
 ```
 
+## Developer Verification
+
+Run the regular verification suite:
+
+```bash
+dotnet restore
+dotnet build
+dotnet test --filter "Category!=Exploratory&Category!=Manual"
+```
+
+Run the manual metadata-only NuGet smoke test:
+
+```powershell
+$env:NUGET_MCP_RUN_EXPLORATORY_TESTS="1"
+dotnet test --filter "Category=Exploratory"
+Remove-Item Env:\NUGET_MCP_RUN_EXPLORATORY_TESTS
+```
+
 ## Copyright
 
 © 2025 DimonSmart

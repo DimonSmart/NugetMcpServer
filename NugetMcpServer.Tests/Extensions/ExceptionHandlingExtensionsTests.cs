@@ -4,7 +4,7 @@ using Moq;
 
 using NuGetMcpServer.Extensions;
 
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Extensions;
 

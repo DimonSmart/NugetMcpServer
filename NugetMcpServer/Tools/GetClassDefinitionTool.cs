@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -18,7 +16,7 @@ namespace NuGetMcpServer.Tools;
 public class GetClassDefinitionTool(
     ILogger<GetClassDefinitionTool> logger,
     NuGetPackageService packageService,
-    ClassFormattingService formattingService,
+    ApiDefinitionFormatter formattingService,
     ArchiveProcessingService archiveService) : McpToolBase<GetClassDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
@@ -37,7 +35,6 @@ public class GetClassDefinitionTool(
             "Error fetching class, record or struct definition");
     }
 
-    [RequiresAssemblyFiles("Calls NuGetMcpServer.Services.ClassFormattingService.FormatClassDefinition(Type, String, String, Byte[])")]
     private async Task<string> GetClassOrRecordDefinitionCore(
         string packageId,
         string typeName,
@@ -57,77 +54,41 @@ public class GetClassDefinitionTool(
 
         progress.ReportMessage("Resolving package version");
 
-        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
+        LoadedPackageMetadata loaded =
+            await archiveService.LoadPackageMetadataAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching class, record or struct {ClassName} from package {PackageId} version {Version}",
-            typeName, packageId, resolvedVersion);
+            typeName, packageId, loaded.Version);
 
-        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(loaded.PackageInfo);
 
         progress.ReportMessage("Scanning assemblies for class/record/struct");
 
-        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
+        foreach (ApiAssemblyModel assemblyInfo in loaded.Api.Assemblies)
         {
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
-            try
+            var classType = assemblyInfo.Types.FirstOrDefault(t => IsMatchingType(t, typeName));
+            if (classType != null)
             {
-                var classType = assemblyInfo.Types
-                    .FirstOrDefault(t => IsMatchingType(t, typeName));
-
-                if (classType != null)
-                {
-                    progress.ReportMessage($"Class, record or struct found: {typeName}");
-                    string formatted = formattingService.FormatClassDefinition(classType, assemblyInfo.FileName, packageId, assemblyInfo.AssemblyBytes);
-                    return metaPackageWarning + formatted;
-                }
-            }
-            catch (FileNotFoundException)
-            {
-                // Missing referenced assembly - skip logging
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
+                progress.ReportMessage($"Class, record or struct found: {typeName}");
+                string formatted = formattingService.FormatTypeDefinition(classType, packageId, loaded.Version, assemblyInfo.TargetFramework);
+                return metaPackageWarning + formatted;
             }
         }
 
         return metaPackageWarning + $"Class, record or struct '{typeName}' not found in package {packageId}.";
     }
 
-    private static bool IsMatchingType(Type type, string typeName)
+    private static bool IsMatchingType(ApiTypeModel type, string typeName)
     {
-        if (!((type.IsClass || (type.IsValueType && !type.IsEnum)) && (type.IsPublic || type.IsNestedPublic)))
-            return false;
-
-        if (type.Name == typeName || type.FullName == typeName)
-            return true;
-
-        if (!type.IsGenericType)
-            return false;
-
-        // Check generic type name without backtick
-        var backtickIndex = type.Name.IndexOf('`');
-        if (backtickIndex > 0)
+        if (type.Kind is not (ApiTypeKind.Class or ApiTypeKind.StaticClass or ApiTypeKind.AbstractClass
+            or ApiTypeKind.SealedClass or ApiTypeKind.RecordClass or ApiTypeKind.Struct or ApiTypeKind.RecordStruct))
         {
-            var baseName = type.Name.Substring(0, backtickIndex);
-            if (baseName == typeName)
-                return true;
+            return false;
         }
 
-        // Check full generic type name without backtick
-        if (type.FullName != null)
-        {
-            var fullBacktickIndex = type.FullName.IndexOf('`');
-            if (fullBacktickIndex > 0)
-            {
-                var fullBaseName = type.FullName.Substring(0, fullBacktickIndex);
-                return fullBaseName == typeName;
-            }
-        }
-
-        return false;
+        return ApiModelSearch.Matches(type, typeName);
     }
 
 }

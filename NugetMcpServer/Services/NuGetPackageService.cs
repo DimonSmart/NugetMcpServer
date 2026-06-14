@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -173,36 +171,6 @@ public class NuGetPackageService
         throw new InvalidOperationException(BuildNotFoundMessage(packageId, source));
     }
 
-    public (Assembly? assembly, Type[] types) LoadAssemblyFromMemoryWithTypes(byte[] assemblyData, AssemblyLoadContext? loadContext = null)
-    {
-        try
-        {
-            var assembly = loadContext == null
-                ? Assembly.Load(assemblyData)
-                : loadContext.LoadFromStream(new MemoryStream(assemblyData));
-
-            try
-            {
-                var types = assembly.GetTypes();
-                return (assembly, types);
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                _logger.LogWarning(
-                    "Some types could not be loaded from assembly due to missing dependencies. Loaded {LoadedCount} out of {TotalCount} types",
-                    ex.Types.Count(t => t != null), ex.Types.Length);
-
-                var loadedTypes = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
-                return (assembly, loadedTypes);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load assembly from memory. Assembly size: {Size} bytes", assemblyData.Length);
-            return (null, Array.Empty<Type>());
-        }
-    }
-
     public List<PackageDependency> GetPackageDependencies(Stream packageStream)
     {
         try
@@ -364,9 +332,30 @@ public class NuGetPackageService
         if (!reader.GetFiles().Contains(filePath))
             throw new FileNotFoundException($"File {filePath} not found in package {packageId} v{version}");
 
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater than or equal to 0.");
+        }
+
+        if (bytes.HasValue && bytes.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bytes), "Bytes must be greater than 0.");
+        }
+
         using var fileStream = reader.GetStream(filePath);
-        if (offset > 0)
+        if (fileStream.CanSeek)
+        {
+            if (offset > fileStream.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset), $"Offset {offset} is greater than file size {fileStream.Length}.");
+            }
+
             fileStream.Seek(offset, SeekOrigin.Begin);
+        }
+        else if (offset > 0)
+        {
+            await SkipBytesAsync(fileStream, offset);
+        }
 
         var maxBytes = Math.Min(bytes ?? 1_000_000, 1_000_000);
         var buffer = new byte[maxBytes];
@@ -659,20 +648,31 @@ public class NuGetPackageService
 
     private static bool IsBinary(byte[] data, int length)
     {
-        for (var i = 0; i < length; i++)
-        {
-            if (data[i] == 0)
-                return true;
-        }
-
         try
         {
-            Encoding.UTF8.GetString(data, 0, length);
+            var decoder = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+            decoder.GetString(data, 0, length);
             return false;
         }
         catch
         {
             return true;
+        }
+    }
+
+    private static async Task SkipBytesAsync(Stream stream, long offset)
+    {
+        var buffer = new byte[8192];
+        long remaining = offset;
+        while (remaining > 0)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)));
+            if (read == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset), $"Offset {offset} is greater than file size.");
+            }
+
+            remaining -= read;
         }
     }
 }

@@ -16,7 +16,7 @@ namespace NuGetMcpServer.Tools;
 public class GetEnumDefinitionTool(
     ILogger<GetEnumDefinitionTool> logger,
     NuGetPackageService packageService,
-    EnumFormattingService formattingService,
+    ApiDefinitionFormatter formattingService,
     ArchiveProcessingService archiveService) : McpToolBase<GetEnumDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
@@ -53,44 +53,29 @@ public class GetEnumDefinitionTool(
 
         progress.ReportMessage("Resolving package version");
 
-        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
+        LoadedPackageMetadata loaded =
+            await archiveService.LoadPackageMetadataAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching enum {EnumName} from package {PackageId} version {Version}",
-            enumName, packageId, resolvedVersion);
+            enumName, packageId, loaded.Version);
 
-        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
+        string metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(loaded.PackageInfo);
 
         progress.ReportMessage("Scanning assemblies for enum");
 
-        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
+        foreach (ApiAssemblyModel assemblyInfo in loaded.Api.Assemblies)
         {
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
-            string? definition = TryGetEnumFromAssembly(assemblyInfo, enumName, packageId);
-            if (definition != null)
+            var enumType = assemblyInfo.Types.FirstOrDefault(t =>
+                t.Kind == ApiTypeKind.Enum && ApiModelSearch.Matches(t, enumName));
+            if (enumType != null)
             {
                 progress.ReportMessage($"Enum found: {enumName}");
-                return metaPackageWarning + definition;
+                return metaPackageWarning + formattingService.FormatTypeDefinition(enumType, packageId, loaded.Version, assemblyInfo.TargetFramework);
             }
         }
 
         return metaPackageWarning + $"Enum '{enumName}' not found in package {packageId}.";
-    }
-
-    private string? TryGetEnumFromAssembly(LoadedAssemblyInfo assemblyInfo, string enumName, string packageId)
-    {
-        try
-        {
-            Type? enumType = assemblyInfo.Types
-                .FirstOrDefault(t => t.IsEnum && (t.Name == enumName || t.FullName == enumName));
-
-            return enumType == null ? null : formattingService.FormatEnumDefinition(enumType, assemblyInfo.FileName, packageId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
-            return null;
-        }
     }
 }

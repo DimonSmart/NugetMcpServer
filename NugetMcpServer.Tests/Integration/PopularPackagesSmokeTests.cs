@@ -7,69 +7,64 @@ using NuGetMcpServer.Services.Formatters;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace NuGetMcpServer.Tests.Integration;
 
-public class PopularPackagesSmokeTests : TestBase
+public class PopularNuGetPackagesMetadataSmokeTests : TestBase
 {
     private readonly NuGetPackageService _packageService;
 
-    public PopularPackagesSmokeTests(ITestOutputHelper output) : base(output)
+    public PopularNuGetPackagesMetadataSmokeTests(ITestOutputHelper output) : base(output)
     {
         _packageService = CreateNuGetPackageService();
     }
 
     public static TheoryData<string> PopularPackages => new()
     {
-        // DimonSmart packages
-        "DimonSmart.MazeGenerator",
-        "DimonSmart.FileByContentComparer",
-        "DimonSmart.TinyBenchmark",
-        "DimonSmart.StringTrimmer",
-        "DimonSmart.StringDiff",
-        "DimonSmart.BuilderGenerator",
-        "DimonSmart.StringTrimmerGenerator",
-        "DimonSmart.Specification",
-        "DimonSmart.RegexUnitTester.TestAdapter",
-        "DimonSmart.RegexUnitTester.Attributes",
-        "DimonSmart.Utils.Progress",
-        "DimonSmart.AiUtils",
-        "DimonSmart.IndentedStringBuilder",
-        "DimonSmart.CustomizedDictionary",
-        "DimonSmart.HashX",
-        "DimonSmart.StronglyTypedDictionary",
-
-        // Top 20 popular NuGet packages by downloads
+        "Newtonsoft.Json",
+        "System.Text.Json",
         "Microsoft.Extensions.DependencyInjection",
         "Microsoft.Extensions.Logging",
-        "Microsoft.Bcl.AsyncInterfaces",
-        "Microsoft.Win32.SystemEvents",
-        "Serilog",
-        "Microsoft.Identity.Client",
-        "System.Windows.Extensions",
         "Microsoft.Extensions.Http",
-        "System.Security.Cryptography.Pkcs",
-        "System.Diagnostics.EventLog",
+        "Microsoft.EntityFrameworkCore",
+        "Dapper",
+        "Serilog",
+        "AutoMapper",
+        "FluentValidation",
+        "Polly",
+        "MediatR",
+        "NodaTime",
+        "CsvHelper",
+        "RestSharp",
+        "AngleSharp",
+        "HtmlAgilityPack",
+        "Humanizer",
+        "Spectre.Console",
+        "CommandLineParser",
+        "Microsoft.Identity.Client",
+        "Azure.Core",
         "Azure.Identity",
-        "System.Threading.Channels",
-
-        // SLOW!!! HUGE
-        //  "AWSSDK.Core",
-        // "Microsoft.EntityFrameworkCore",
-        // "Microsoft.IdentityModel.Abstractions",
-        // "Microsoft.Identity.Client",
-        // "System.Drawing.Common",
-        // "Newtonsoft.Json",
-        // "Castle.Core",
-        // "System.Text.Json",
-        // "Azure.Core",
+        "Grpc.Net.Client",
+        "Google.Protobuf",
+        "StackExchange.Redis",
+        "Bogus",
+        "BenchmarkDotNet",
+        "xunit.v3",
+        "Moq",
     };
 
     [Theory]
+    [Trait("Category", "Exploratory")]
+    [Trait("Category", "Manual")]
     [MemberData(nameof(PopularPackages))]
     public async Task LoadPopularPackages_NoErrors(string packageId)
     {
+        if (Environment.GetEnvironmentVariable("NUGET_MCP_RUN_EXPLORATORY_TESTS") != "1")
+        {
+            TestOutput.WriteLine("Skipping exploratory smoke test because NUGET_MCP_RUN_EXPLORATORY_TESTS is not 1.");
+            return;
+        }
+
         var archiveService = CreateArchiveProcessingService();
 
         var listTypesLogger = new TestLogger<ListTypesTool>(TestOutput);
@@ -78,9 +73,9 @@ public class PopularPackagesSmokeTests : TestBase
         var interfaceDefLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
 
         var listTypesTool = new ListTypesTool(listTypesLogger, _packageService, archiveService);
-        var classDefTool = new GetClassDefinitionTool(classDefLogger, _packageService, new ClassFormattingService(), archiveService);
+        var classDefTool = new GetClassDefinitionTool(classDefLogger, _packageService, new ApiDefinitionFormatter(), archiveService);
         var listInterfacesTool = new ListInterfacesTool(listInterfacesLogger, _packageService, archiveService);
-        var interfaceDefTool = new GetInterfaceDefinitionTool(interfaceDefLogger, _packageService, new InterfaceFormattingService(), archiveService);
+        var interfaceDefTool = new GetInterfaceDefinitionTool(interfaceDefLogger, _packageService, new ApiDefinitionFormatter(), archiveService);
 
         var version = await _packageService.GetLatestVersion(packageId);
         await using var stream = await _packageService.DownloadPackageAsync(packageId, version);

@@ -2,7 +2,7 @@ using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Tools
 {
@@ -11,7 +11,7 @@ namespace NuGetMcpServer.Tests.Tools
         private readonly TestLogger<NuGetPackageService> _packageLogger;
         private readonly TestLogger<GetInterfaceDefinitionTool> _defToolLogger;
         private readonly NuGetPackageService _packageService;
-        private readonly InterfaceFormattingService _formattingService;
+        private readonly ApiDefinitionFormatter _formattingService;
         private readonly GetInterfaceDefinitionTool _defTool;
 
         public GetInterfaceDefinitionToolTests(ITestOutputHelper testOutput) : base(testOutput)
@@ -20,8 +20,11 @@ namespace NuGetMcpServer.Tests.Tools
             _defToolLogger = new TestLogger<GetInterfaceDefinitionTool>(TestOutput);
 
             _packageService = CreateNuGetPackageService();
-            _formattingService = new InterfaceFormattingService();
-            var archiveService = new ArchiveProcessingService(new TestLogger<ArchiveProcessingService>(TestOutput), _packageService);
+            _formattingService = new ApiDefinitionFormatter();
+            var archiveService = new ArchiveProcessingService(
+                new TestLogger<ArchiveProcessingService>(TestOutput),
+                _packageService,
+                new PackageMetadataReader(new TestLogger<PackageMetadataReader>(TestOutput)));
             _defTool = new GetInterfaceDefinitionTool(_defToolLogger, _packageService, _formattingService, archiveService);
         }
 

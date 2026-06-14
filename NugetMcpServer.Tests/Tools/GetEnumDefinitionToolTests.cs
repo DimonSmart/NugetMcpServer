@@ -7,7 +7,6 @@ using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace NuGetMcpServer.Tests.Tools;
 
@@ -16,7 +15,7 @@ public class GetEnumDefinitionToolTests : TestBase
     private readonly Mock<ILogger<GetEnumDefinitionTool>> _loggerMock = new();
     private readonly Mock<ILogger<ArchiveProcessingService>> _archiveLoggerMock = new();
     private readonly NuGetPackageService _packageService;
-    private readonly Mock<EnumFormattingService> _formattingServiceMock = new();
+    private readonly ApiDefinitionFormatter _formattingService = new();
 
     public GetEnumDefinitionToolTests(ITestOutputHelper testOutput) : base(testOutput)
     {
@@ -28,8 +27,11 @@ public class GetEnumDefinitionToolTests : TestBase
     [InlineData("SomePackage", "")]
     public async Task GetEnumDefinition_InvalidArguments_ThrowsArgumentNullException(string packageId, string enumName)
     {
-        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, _packageService);
-        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingServiceMock.Object, archiveService);
+        var archiveService = new ArchiveProcessingService(
+            _archiveLoggerMock.Object,
+            _packageService,
+            new PackageMetadataReader(new TestLogger<PackageMetadataReader>(TestOutput)));
+        var tool = new GetEnumDefinitionTool(_loggerMock.Object, _packageService, _formattingService, archiveService);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => tool.get_enum_definition(packageId, enumName));
     }
@@ -42,8 +44,11 @@ public class GetEnumDefinitionToolTests : TestBase
         var dataTypeEnumName = "DataType";
 
         var packageService = CreateNuGetPackageService();
-        var formattingService = new EnumFormattingService();
-        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
+        var formattingService = new ApiDefinitionFormatter();
+        var archiveService = new ArchiveProcessingService(
+            _archiveLoggerMock.Object,
+            packageService,
+            new PackageMetadataReader(new TestLogger<PackageMetadataReader>(TestOutput)));
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
         var definition = await tool.get_enum_definition(packageId, dataTypeEnumName);
@@ -62,8 +67,11 @@ public class GetEnumDefinitionToolTests : TestBase
         var fullDataTypeEnumName = "System.ComponentModel.DataAnnotations.DataType";
 
         var packageService = CreateNuGetPackageService();
-        var formattingService = new EnumFormattingService();
-        var archiveService = new ArchiveProcessingService(_archiveLoggerMock.Object, packageService);
+        var formattingService = new ApiDefinitionFormatter();
+        var archiveService = new ArchiveProcessingService(
+            _archiveLoggerMock.Object,
+            packageService,
+            new PackageMetadataReader(new TestLogger<PackageMetadataReader>(TestOutput)));
         var tool = new GetEnumDefinitionTool(_loggerMock.Object, packageService, formattingService, archiveService);
 
         var definition = await tool.get_enum_definition(packageId, fullDataTypeEnumName);

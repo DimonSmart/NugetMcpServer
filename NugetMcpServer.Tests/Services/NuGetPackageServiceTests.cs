@@ -1,10 +1,9 @@
 using System.IO.Compression;
-using System.Reflection;
 using Microsoft.Extensions.Caching.Memory;
 using NuGetMcpServer.Configuration;
 using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
-using Xunit.Abstractions;
+using Xunit;
 using static NuGetMcpServer.Extensions.ProgressNotifier;
 
 namespace NuGetMcpServer.Tests.Services
@@ -48,25 +47,6 @@ namespace NuGetMcpServer.Tests.Services
             Assert.NotNull(packageStream);
             Assert.True(packageStream.Length > 0);
             TestOutput.WriteLine($"Downloaded {packageId} version {version}, size: {packageStream.Length} bytes");
-        }
-
-        [Fact]
-        public void LoadAssemblyFromMemory_WithValidAssembly_ReturnsAssembly()
-        {
-            // Get a sample assembly bytes
-            var currentAssembly = Assembly.GetExecutingAssembly();
-            using var stream = new MemoryStream();
-            using var writer = new BinaryWriter(stream);
-
-            writer.Write(File.ReadAllBytes(currentAssembly.Location));
-            stream.Position = 0;
-
-            // Test loading from memory
-            var (loadedAssembly, _) = _packageService.LoadAssemblyFromMemoryWithTypes(stream.ToArray());
-
-            // Assert
-            Assert.NotNull(loadedAssembly);
-            TestOutput.WriteLine($"Successfully loaded assembly: {loadedAssembly.GetName().Name}");
         }
 
         [Fact]

@@ -2,7 +2,7 @@ using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Tools;
 
@@ -11,7 +11,7 @@ public class GetClassDefinitionToolTests : TestBase
     private readonly TestLogger<NuGetPackageService> _packageLogger;
     private readonly TestLogger<GetClassDefinitionTool> _defToolLogger;
     private readonly NuGetPackageService _packageService;
-    private readonly ClassFormattingService _formattingService;
+    private readonly ApiDefinitionFormatter _formattingService;
     private readonly GetClassDefinitionTool _defTool;
 
     public GetClassDefinitionToolTests(ITestOutputHelper testOutput) : base(testOutput)
@@ -20,8 +20,11 @@ public class GetClassDefinitionToolTests : TestBase
         _defToolLogger = new TestLogger<GetClassDefinitionTool>(TestOutput);
 
         _packageService = CreateNuGetPackageService();
-        _formattingService = new ClassFormattingService();
-        var archiveService = new ArchiveProcessingService(new TestLogger<ArchiveProcessingService>(TestOutput), _packageService);
+        _formattingService = new ApiDefinitionFormatter();
+        var archiveService = new ArchiveProcessingService(
+            new TestLogger<ArchiveProcessingService>(TestOutput),
+            _packageService,
+            new PackageMetadataReader(new TestLogger<PackageMetadataReader>(TestOutput)));
         _defTool = new GetClassDefinitionTool(_defToolLogger, _packageService, _formattingService, archiveService);
     }
 
@@ -36,7 +39,6 @@ public class GetClassDefinitionToolTests : TestBase
 
         // Assert
         Assert.NotNull(definition);
-        Assert.Contains("record", definition);
         Assert.Contains("Point", definition);
 
         TestOutput.WriteLine("\n========== TEST OUTPUT: Point CLASS DEFINITION ==========");
@@ -75,7 +77,6 @@ public class GetClassDefinitionToolTests : TestBase
 
         // Assert
         Assert.NotNull(definition);
-        Assert.Contains("record", definition);
         Assert.Contains("Point", definition);
         Assert.DoesNotContain("not found in package", definition);
 

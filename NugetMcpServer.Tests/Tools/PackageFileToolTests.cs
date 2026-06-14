@@ -3,7 +3,7 @@ using NuGetMcpServer.Services;
 using NuGetMcpServer.Tests.Helpers;
 using NuGetMcpServer.Tools;
 using Xunit;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Tools;
 

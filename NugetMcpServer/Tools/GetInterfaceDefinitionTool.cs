@@ -20,7 +20,7 @@ namespace NuGetMcpServer.Tools;
 public class GetInterfaceDefinitionTool(
     ILogger<GetInterfaceDefinitionTool> logger,
     NuGetPackageService packageService,
-    InterfaceFormattingService formattingService,
+    ApiDefinitionFormatter formattingService,
     ArchiveProcessingService archiveService) : McpToolBase<GetInterfaceDefinitionTool>(logger, packageService)
 {
     [McpServerTool]
@@ -56,77 +56,26 @@ public class GetInterfaceDefinitionTool(
             throw new ArgumentNullException(nameof(interfaceName));
         }
 
-        var (loaded, packageInfo, resolvedVersion) =
-            await archiveService.LoadPackageAssembliesAsync(packageId, version, progress, source);
+        LoadedPackageMetadata loaded =
+            await archiveService.LoadPackageMetadataAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Fetching interface {InterfaceName} from package {PackageId} version {Version}",
-            interfaceName, packageId, resolvedVersion);
+            interfaceName, packageId, loaded.Version);
 
-        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(packageInfo);
+        var metaPackageWarning = MetaPackageHelper.CreateMetaPackageWarning(loaded.PackageInfo);
 
-        foreach (var assemblyInfo in loaded.Assemblies)
+        foreach (var assemblyInfo in loaded.Api.Assemblies)
         {
             progress.ReportMessage($"Scanning {assemblyInfo.FileName}: {assemblyInfo.PackagePath}");
 
-            try
+            var iface = assemblyInfo.Types.FirstOrDefault(t =>
+                t.Kind == ApiTypeKind.Interface && ApiModelSearch.Matches(t, interfaceName));
+            if (iface != null)
             {
-                var iface = assemblyInfo.Types
-                        .FirstOrDefault(t =>
-                        {
-                            if (!t.IsInterface)
-                            {
-                                return false;
-                            }
-
-                            if (t.Name == interfaceName)
-                            {
-                                return true;
-                            }
-
-                            if (t.FullName == interfaceName)
-                            {
-                                return true;
-                            }
-
-                            if (!t.IsGenericType)
-                            {
-                                return false;
-                            }
-
-                            var backtickIndex = t.Name.IndexOf('`');
-                            if (backtickIndex > 0)
-                            {
-                                var baseName = t.Name.Substring(0, backtickIndex);
-                                if (baseName == interfaceName)
-                                {
-                                    return true;
-                                }
-                            }
-
-                            if (t.FullName != null)
-                            {
-                                var fullBacktickIndex = t.FullName.IndexOf('`');
-                                if (fullBacktickIndex > 0)
-                                {
-                                    var fullBaseName = t.FullName.Substring(0, fullBacktickIndex);
-                                    return fullBaseName == interfaceName;
-                                }
-                            }
-
-                            return false;
-                        });
-
-                if (iface != null)
-                {
-                    progress.ReportMessage($"Interface found: {interfaceName}");
-                    var formatted = formattingService.FormatInterfaceDefinition(iface, assemblyInfo.FileName, packageId);
-                    return metaPackageWarning + formatted;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error processing assembly {AssemblyName}", assemblyInfo.FileName);
+                progress.ReportMessage($"Interface found: {interfaceName}");
+                var formatted = formattingService.FormatTypeDefinition(iface, packageId, loaded.Version, assemblyInfo.TargetFramework);
+                return metaPackageWarning + formatted;
             }
         }
 

@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Loader;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,16 +17,13 @@ namespace NuGetMcpServer.Services;
 public class PackageComparisonService
 {
     private readonly ArchiveProcessingService _archiveProcessingService;
-    private readonly DocumentationProvider _documentationProvider;
     private readonly ILogger<PackageComparisonService> _logger;
 
     public PackageComparisonService(
         ArchiveProcessingService archiveProcessingService,
-        DocumentationProvider documentationProvider,
         ILogger<PackageComparisonService> logger)
     {
         _archiveProcessingService = archiveProcessingService;
-        _documentationProvider = documentationProvider;
         _logger = logger;
     }
 
@@ -67,46 +62,29 @@ public class PackageComparisonService
         string fromVersion,
         string toVersion,
         string? source,
-        Func<LoadedPackageAssemblies, LoadedPackageAssemblies, T> action)
+        Func<LoadedPackageMetadata, LoadedPackageMetadata, T> action)
     {
-        LoadedPackageAssemblies? oldLoaded = null;
-        LoadedPackageAssemblies? newLoaded = null;
+        var progress = ProgressNotifier.VoidProgressNotifier;
 
-        try
+        _logger.LogInformation("Loading old version {FromVersion}", fromVersion);
+        var oldLoaded = await _archiveProcessingService.LoadPackageMetadataAsync(
+            packageId, fromVersion, progress, source);
+
+        _logger.LogInformation("Loading new version {ToVersion}", toVersion);
+        var newLoaded = await _archiveProcessingService.LoadPackageMetadataAsync(
+            packageId, toVersion, progress, source);
+
+        if (oldLoaded.Api.Assemblies.Count == 0 || newLoaded.Api.Assemblies.Count == 0)
         {
-            var progress = ProgressNotifier.VoidProgressNotifier;
-
-            // Load both versions with separate load contexts
-            _logger.LogInformation("Loading old version {FromVersion}", fromVersion);
-            (oldLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
-                packageId, fromVersion, progress, source);
-
-            _logger.LogInformation("Loading new version {ToVersion}", toVersion);
-            (newLoaded, _, _) = await _archiveProcessingService.LoadPackageAssembliesAsync(
-                packageId, toVersion, progress, source);
-
-            if (oldLoaded.Assemblies.Count == 0 || newLoaded.Assemblies.Count == 0)
-            {
-                throw new InvalidOperationException("No assemblies found in one or both package versions");
-            }
-
-            return action(oldLoaded, newLoaded);
+            throw new InvalidOperationException("No managed assemblies found in one or both package versions");
         }
-        finally
-        {
-            // Unload contexts to free memory
-            oldLoaded?.AssemblyLoadContext.Unload();
-            newLoaded?.AssemblyLoadContext.Unload();
 
-            // Force GC to clean up unloaded assemblies
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-        }
+        return action(oldLoaded, newLoaded);
     }
 
     private ComparisonResult CompareLoadedPackages(
-        LoadedPackageAssemblies oldLoaded,
-        LoadedPackageAssemblies newLoaded,
+        LoadedPackageMetadata oldLoaded,
+        LoadedPackageMetadata newLoaded,
         string packageId,
         string fromVersion,
         string toVersion,
@@ -116,22 +94,22 @@ public class PackageComparisonService
         int maxChangesPerCategory)
     {
         // Get all public types from both versions
-        var oldTypes = GetPublicTypes(oldLoaded.Assemblies, typeNameFilter);
-        var newTypes = GetPublicTypes(newLoaded.Assemblies, typeNameFilter);
+        var oldTypes = GetPublicTypes(oldLoaded.Api, typeNameFilter);
+        var newTypes = GetPublicTypes(newLoaded.Api, typeNameFilter);
 
         _logger.LogInformation(
             "Found {OldCount} types in old version, {NewCount} types in new version",
             oldTypes.Count, newTypes.Count);
 
         // Create type comparer
-        var comparer = new TypeComparer(_documentationProvider);
+        var comparer = new TypeComparer();
 
         // Detect changes
         var changes = new List<TypeChange>();
 
         // Build dictionaries by full name for comparison
-        var oldTypeDict = oldTypes.ToDictionary(t => t.FullName ?? t.Name);
-        var newTypeDict = newTypes.ToDictionary(t => t.FullName ?? t.Name);
+        var oldTypeDict = oldTypes.ToDictionary(GetTypeIdentity, StringComparer.Ordinal);
+        var newTypeDict = newTypes.ToDictionary(GetTypeIdentity, StringComparer.Ordinal);
 
         // Find removed types
         foreach (var (fullName, type) in oldTypeDict)
@@ -212,9 +190,9 @@ public class PackageComparisonService
         };
     }
 
-    private List<Type> GetPublicTypes(List<LoadedAssemblyInfo> assemblies, string? typeNameFilter)
+    private List<ApiTypeModel> GetPublicTypes(PackageApiModel api, string? typeNameFilter)
     {
-        var types = new List<Type>();
+        var types = new List<ApiTypeModel>();
         Regex? filterRegex = null;
 
         if (!string.IsNullOrWhiteSpace(typeNameFilter))
@@ -224,19 +202,23 @@ public class PackageComparisonService
             filterRegex = new Regex(pattern, RegexOptions.IgnoreCase);
         }
 
-        foreach (var assemblyInfo in assemblies)
+        foreach (var assemblyInfo in api.Assemblies)
         {
             var assemblyTypes = assemblyInfo.Types
-                .Where(t => t.IsPublic || t.IsNestedPublic)
-                .Where(t => !t.Name.StartsWith("<")) // Skip compiler-generated types
                 .Where(t => filterRegex == null ||
-                           filterRegex.IsMatch(t.FullName ?? t.Name) ||
+                           filterRegex.IsMatch(t.FullName) ||
                            filterRegex.IsMatch(t.Name));
 
             types.AddRange(assemblyTypes);
         }
 
         return types;
+    }
+
+    private static string GetTypeIdentity(ApiTypeModel type)
+    {
+        var arity = type.GenericParameters.Count;
+        return $"{type.FullName}`{arity}";
     }
 
     private List<TypeChange> ApplyLimits(List<TypeChange> changes, int maxPerCategory)

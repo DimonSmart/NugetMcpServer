@@ -41,43 +41,42 @@ public class ListInterfacesTool(ILogger<ListInterfacesTool> logger, NuGetPackage
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress, source);
+        LoadedPackageMetadata loaded =
+            await _archiveProcessingService.LoadPackageMetadataAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Listing interfaces from package {PackageId} version {Version}",
-            packageId, resolvedVersion);
+            packageId, loaded.Version);
 
         InterfaceListResult result = new()
         {
             PackageId = packageId,
-            Version = resolvedVersion,
+            Version = loaded.Version,
             Interfaces = new List<InterfaceInfo>()
         };
 
-        result.IsMetaPackage = packageInfo.IsMetaPackage;
-        result.Dependencies = packageInfo.Dependencies;
-        result.Description = packageInfo.Description ?? string.Empty;
+        result.IsMetaPackage = loaded.PackageInfo.IsMetaPackage;
+        result.Dependencies = loaded.PackageInfo.Dependencies;
+        result.Description = loaded.PackageInfo.Description ?? string.Empty;
 
         progress.ReportMessage("Scanning assemblies for interfaces");
 
-        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
+        foreach (ApiAssemblyModel assemblyInfo in loaded.Api.Assemblies)
         {
             Logger.LogInformation("Processing archive entry: {AssemblyName}", assemblyInfo.FileName);
 
-            List<Type> interfaces = assemblyInfo.Types
-                .Where(t => t.IsInterface && (t.IsPublic || t.IsNestedPublic))
+            List<ApiTypeModel> interfaces = assemblyInfo.Types
+                .Where(t => t.Kind == ApiTypeKind.Interface)
                 .ToList();
 
             Logger.LogInformation("Found {InterfaceCount} interfaces in {AssemblyName}", interfaces.Count, assemblyInfo.FileName);
 
-            foreach (Type? iface in interfaces)
+            foreach (ApiTypeModel iface in interfaces)
             {
-                Logger.LogDebug("Found interface: {InterfaceName} ({FullName})", iface.Name, iface.FullName);
                 result.Interfaces.Add(new InterfaceInfo
                 {
                     Name = iface.Name,
-                    FullName = iface.FullName ?? string.Empty,
+                    FullName = iface.FullName,
                     AssemblyName = assemblyInfo.FileName
                 });
             }

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Helpers;
 

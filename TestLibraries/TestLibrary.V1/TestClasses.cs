@@ -1,4 +1,8 @@
+using System;
+
 namespace TestLibrary;
+
+#nullable enable
 
 // === BREAKING CHANGES ===
 
@@ -184,3 +188,58 @@ public class ClassWithParamReordering
     // V1: params in one order
     public void ConfigureSettings(string name, int value, bool enabled) { }
 }
+
+public interface IMetadataGenericInterface<T>
+    where T : class, new()
+{
+    T? Load(string id);
+}
+
+public class MetadataEdgeCases<T> : IMetadataGenericInterface<T>
+    where T : class, new()
+{
+    public const int ConstValue = 42;
+    public static readonly string ReadOnlyValue = "v1";
+    public event EventHandler? Changed;
+    public string? NullableText { get; set; }
+    public string this[int index] => index.ToString();
+    public T? Load(string id) => new();
+    public void Overload(int value) { }
+    public void Overload(string value) { }
+    public void Optional(int value = 5) { }
+    public void RefOutIn(ref int value, out string text, in Guid id)
+    {
+        text = id.ToString();
+    }
+    public void ParamsMethod(params string[] values) { }
+    [Obsolete("Use Optional")]
+    public void ObsoleteMethod() { }
+
+    public sealed class NestedPublicClass { }
+    public interface INestedPublicInterface { }
+}
+
+public static class MetadataStaticClass
+{
+    public static string Echo(this string value) => value;
+}
+
+public abstract class MetadataAbstractClass
+{
+    public abstract void Run();
+}
+
+public sealed class MetadataSealedClass { }
+
+public record MetadataRecord(string Name);
+
+public readonly record struct MetadataRecordStruct(int Value);
+
+public enum MetadataExplicitEnum : short
+{
+    None = 0,
+    First = 10,
+    Second = 20
+}
+
+public delegate string MetadataDelegate(int value);

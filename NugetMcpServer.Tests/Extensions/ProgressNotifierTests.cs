@@ -7,7 +7,7 @@ using NuGetMcpServer.Extensions;
 using NuGetMcpServer.Tests.Helpers;
 
 using Xunit;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace NuGetMcpServer.Tests.Extensions;
 

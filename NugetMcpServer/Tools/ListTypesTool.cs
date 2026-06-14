@@ -42,56 +42,53 @@ public class ListTypesTool(ILogger<ListTypesTool> logger, NuGetPackageService pa
         if (string.IsNullOrWhiteSpace(packageId))
             throw new ArgumentNullException(nameof(packageId));
 
-        (LoadedPackageAssemblies loaded, PackageInfo packageInfo, string resolvedVersion) =
-            await _archiveProcessingService.LoadPackageAssembliesAsync(packageId, version, progress, source);
+        LoadedPackageMetadata loaded =
+            await _archiveProcessingService.LoadPackageMetadataAsync(packageId, version, progress, source);
 
         Logger.LogInformation(
             "Listing types from package {PackageId} version {Version}",
-            packageId, resolvedVersion);
+            packageId, loaded.Version);
 
         var result = new TypeListResult
         {
             PackageId = packageId,
-            Version = resolvedVersion,
+            Version = loaded.Version,
             Types = []
         };
 
-        result.IsMetaPackage = packageInfo.IsMetaPackage;
-        result.Dependencies = packageInfo.Dependencies;
-        result.Description = packageInfo.Description ?? string.Empty;
+        result.IsMetaPackage = loaded.PackageInfo.IsMetaPackage;
+        result.Dependencies = loaded.PackageInfo.Dependencies;
+        result.Description = loaded.PackageInfo.Description ?? string.Empty;
 
         progress.ReportMessage("Scanning assemblies for classes/records/structs");
 
         var allTypes = new List<TypeInfo>();
 
-        foreach (LoadedAssemblyInfo assemblyInfo in loaded.Assemblies)
+        foreach (ApiAssemblyModel assemblyInfo in loaded.Api.Assemblies)
         {
             var types = assemblyInfo.Types
-                .Where(t =>
-                    (t.IsClass || TypeFormattingHelpers.IsRecordType(t) || (t.IsValueType && !t.IsEnum)) &&
-                    (t.IsPublic || t.IsNestedPublic))
+                .Where(t => t.Kind is ApiTypeKind.Class or ApiTypeKind.StaticClass or ApiTypeKind.AbstractClass
+                    or ApiTypeKind.SealedClass or ApiTypeKind.RecordClass or ApiTypeKind.Struct or ApiTypeKind.RecordStruct)
                 .ToList();
 
             foreach (var type in types)
             {
-                var kind = TypeKind.Class;
-                var isRecord = TypeFormattingHelpers.IsRecordType(type);
-                var isStruct = type.IsValueType && !type.IsEnum;
-                if (isRecord && isStruct)
-                    kind = TypeKind.RecordStruct;
-                else if (isRecord)
-                    kind = TypeKind.RecordClass;
-                else if (isStruct)
-                    kind = TypeKind.Struct;
+                var kind = type.Kind switch
+                {
+                    ApiTypeKind.Struct => TypeKind.Struct,
+                    ApiTypeKind.RecordClass => TypeKind.RecordClass,
+                    ApiTypeKind.RecordStruct => TypeKind.RecordStruct,
+                    _ => TypeKind.Class
+                };
 
                 allTypes.Add(new TypeInfo
                 {
                     Name = type.Name,
-                    FullName = type.FullName ?? string.Empty,
+                    FullName = type.FullName,
                     AssemblyName = assemblyInfo.FileName,
-                    IsStatic = type.IsAbstract && type.IsSealed,
-                    IsAbstract = type.IsAbstract && !type.IsSealed,
-                    IsSealed = type.IsSealed && !type.IsAbstract,
+                    IsStatic = type.IsStatic,
+                    IsAbstract = type.IsAbstract && !type.IsStatic,
+                    IsSealed = type.IsSealed && !type.IsStatic,
                     Kind = kind
                 });
             }

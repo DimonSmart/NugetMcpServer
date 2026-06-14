@@ -1,126 +1,22 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace NuGetMcpServer.Extensions
+namespace NuGetMcpServer.Extensions;
+
+public static class TypeFormattingExtensions
 {
-    public static class TypeFormattingExtensions
+    public static string FormatGenericTypeName(this string typeName)
     {
-        private static readonly Dictionary<string, string> PrimitiveTypeMap = new()
+        var tickIndex = typeName.IndexOf('`', StringComparison.Ordinal);
+        if (tickIndex < 0)
         {
-            { typeof(int).FullName!, "int" },
-            { typeof(string).FullName!, "string" },
-            { typeof(bool).FullName!, "bool" },
-            { typeof(double).FullName!, "double" },
-            { typeof(float).FullName!, "float" },
-            { typeof(long).FullName!, "long" },
-            { typeof(short).FullName!, "short" },
-            { typeof(byte).FullName!, "byte" },
-            { typeof(char).FullName!, "char" },
-            { typeof(object).FullName!, "object" },
-            { typeof(decimal).FullName!, "decimal" },
-            { typeof(void).FullName!, "void" },
-            { typeof(ulong).FullName!, "ulong" },
-            { typeof(uint).FullName!, "uint" },
-            { typeof(ushort).FullName!, "ushort" },
-            { typeof(sbyte).FullName!, "sbyte" }
-        };
-
-        public static string FormatCSharpTypeName(this Type type)
-        {
-            if (PrimitiveTypeMap.TryGetValue(type.FullName ?? type.Name, out var mappedName))
-                return mappedName;
-
-            if (type.IsGenericParameter)
-                return type.Name;
-
-            static string GetNestedName(Type t)
-            {
-                var name = t.Name;
-                var tickIndex = name.IndexOf('`');
-                if (tickIndex > 0)
-                    name = name.Substring(0, tickIndex);
-                name = name.Replace('+', '.');
-                if (t.IsNested && t.DeclaringType != null)
-                    return $"{GetNestedName(t.DeclaringType)}.{name}";
-                return name;
-            }
-
-            try
-            {
-                var resultName = GetNestedName(type);
-
-                if (type.IsGenericType)
-                {
-                    var genericArgs = type.GetGenericArguments();
-                    resultName += $"<{string.Join(", ", genericArgs.Select(FormatCSharpTypeName))}>";
-                }
-
-                return resultName;
-            }
-            catch (Exception ex) when (ex is System.IO.FileNotFoundException || ex is TypeLoadException)
-            {
-                // Fall back to using the raw name when dependencies are missing
-                return (type.FullName ?? type.Name).FormatFullGenericTypeName();
-            }
-        }
-        public static string FormatGenericTypeName(this string typeName)
-        {
-            // Handle nested types denoted by '+' by formatting each segment independently
-            var segments = typeName.Split('+');
-            var formattedSegments = new List<string>(segments.Length);
-
-            foreach (var segment in segments)
-            {
-                var tickIndex = segment.IndexOf('`');
-                if (tickIndex <= 0)
-                {
-                    formattedSegments.Add(segment);
-                    continue;
-                }
-
-                var baseName = segment.Substring(0, tickIndex);
-
-                // Generic arity may be followed by additional characters when dealing with nested types
-                var digits = new string(segment
-                    .Skip(tickIndex + 1)
-                    .TakeWhile(char.IsDigit)
-                    .ToArray());
-
-                if (!int.TryParse(digits, out var numGenericArgs))
-                {
-                    formattedSegments.Add(segment);
-                    continue;
-                }
-
-                var genericArgs = string.Join(", ", Enumerable.Range(0, numGenericArgs)
-                    .Select(GetGenericParamName));
-
-                formattedSegments.Add($"{baseName}<{genericArgs}>");
-            }
-
-            return string.Join('.', formattedSegments);
+            return typeName;
         }
 
-        public static string FormatFullGenericTypeName(this string fullTypeName)
-        {
-            var lastDot = fullTypeName.LastIndexOf('.');
-            if (lastDot <= 0)
-            {
-                return fullTypeName.FormatGenericTypeName();
-            }
+        return typeName[..tickIndex];
+    }
 
-            var ns = fullTypeName.Substring(0, lastDot + 1);
-            var name = fullTypeName.Substring(lastDot + 1);
-
-            return $"{ns}{name.FormatGenericTypeName()}";
-        }
-
-        private static string GetGenericParamName(int index)
-        {
-            return index < 26
-                ? ((char)('T' + index)).ToString()
-                : $"T{index}";
-        }
+    public static string FormatFullGenericTypeName(this string typeName)
+    {
+        return typeName.Replace('+', '.').FormatGenericTypeName();
     }
 }
