@@ -4,40 +4,32 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
-
-        <!-- Tool Packaging -->
-        <PackAsTool>true</PackAsTool>
-        <ToolCommandName>NugetMcpServer</ToolCommandName>
-        <PackageId>DimonSmart.NugetMcpServer</PackageId>
-        <PackageOutputPath>./nupkg</PackageOutputPath>
-
-        <!-- Disable CET (Control-flow Enforcement Technology) because .NET 9 single-file apps
-         crash with a FailFast on Windows 10/11 when Shadow Stacks are enabled.
-         Remove this line once the runtime bug (dotnet/runtime#108589) is fixed
-         or your minimum supported OS fully supports CET. -->
+        <!-- Keep CET disabled for current Windows single-file publish compatibility. -->
         <CetCompat>false</CetCompat>
+    </PropertyGroup>
 
-        <!-- Makes the package a .NET Tool so VS Code can run it through dnx -->
+    <PropertyGroup>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>NugetMcpServer</ToolCommandName>
+        <PackageOutputPath>./nupkg</PackageOutputPath>
+    </PropertyGroup>
 
-        <!-- MCP server marker -->
+    <PropertyGroup>
         <PackageType>McpServer</PackageType>
+    </PropertyGroup>
 
-        <!-- NuGet Metadata -->
+    <PropertyGroup>
         <PackageId>DimonSmart.NugetMcpServer</PackageId>
         <Authors>DimonSmart</Authors>
-        <Description>MCP server that exposes NuGet package metadata &amp; API surface.</Description>
+        <Description>MCP server that exposes NuGet package metadata and API surface.</Description>
         <PackageTags>mcp;mcpserver;stdio;nuget</PackageTags>
         <RepositoryUrl>https://github.com/DimonSmart/NugetMcpServer</RepositoryUrl>
         <PackageProjectUrl>https://github.com/DimonSmart/NugetMcpServer</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-
     </PropertyGroup>
 
-    <!-- Separate PropertyGroup for publish settings (not used for tool packaging) -->
     <PropertyGroup Condition="'$(PublishProfile)' != ''">
         <PublishSingleFile>true</PublishSingleFile>
         <PublishTrimmed>false</PublishTrimmed>

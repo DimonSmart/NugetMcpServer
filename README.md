@@ -3,58 +3,79 @@
 [![Install via Docker](https://img.shields.io/badge/Install%20via%20Docker-VS%20Code-blue?logo=docker&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Alatest%22%5D%7D)
 [![Install via .NET Tool](https://img.shields.io/badge/Install%20via%20.NET-VS%20Code-512BD4?logo=dotnet&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Local%29%22%2C%22command%22%3A%22NugetMcpServer%22%2C%22args%22%3A%5B%5D%7D)
 
-NugetMcpServer is an MCP server that helps you find and inspect NuGet packages. It gives you accurate information about interfaces, classes, enums, and other types directly from the packages. This helps AI assistants provide better code suggestions and avoid making up non-existent APIs.
+Bad NuGet API guesses are expensive.
+
+NugetMcpServer gives your AI assistant access to real NuGet package metadata. Instead of guessing which classes, interfaces, methods, properties, or enum values exist, the assistant can inspect the actual package version.
 
 Certified by [MCPHub](https://mcphub.com/mcp-servers/dimonsmart/nugetmcpserver).
 
-## Overview
+## Why this exists
 
-This server connects your AI assistant (like Claude or Copilot) to the real NuGet ecosystem. Instead of guessing, the AI can look up the exact methods and types available in a specific version of a package.
+LLMs often know popular libraries, but they do not reliably know the exact API surface of every package version. Small mistakes show up as:
 
-You can use it to:
-*   Find the right package for your task.
-*   See the exact interface definitions.
-*   Check for breaking changes between versions.
-*   Get correct code examples based on real metadata.
+- a method name from another version;
+- an overload that does not exist;
+- a property with the wrong type;
+- a class from a different package;
+- a migration suggestion based on outdated API.
 
-It works with any client that supports the Model Context Protocol (MCP), such as VS Code (with Copilot), Claude Desktop, or [OllamaChat](https://github.com/DimonSmart/OllamaChat).
+NugetMcpServer connects the assistant to NuGet packages directly, including private feeds and local package folders.
 
-## Supported Clients
+## What it gives to your assistant
 
-- **VS Code**: Integrate through MCP server configuration
-- **OllamaChat**: My experimental C# AI playground built on Semantic Kernel. It features RAG, image analysis support, multi-agent chat (e.g., philosophers debating), and MCP server support with automatic function selection via vector indexes. Check it out at [OllamaChat](https://github.com/DimonSmart/OllamaChat).
-- **GitHub Copilot**: Use as an MCP server to get accurate package information
-- **Other MCP Clients**: Any tool that supports the Model Context Protocol
+- Package search by name or task.
+- Exact public types from a package.
+- Interface, class, struct, record, and enum definitions.
+- API comparison between package versions.
+- Access to files inside the package.
+- Support for nuget.org, private feeds, and local package folders.
 
-## Quick Start
+## Typical use cases
 
-### Option 1: Docker (Recommended)
-**Prerequisite**: [Docker](https://www.docker.com/) installed and running.
+### Generate code against the real API
 
-[**Click to Install in VS Code (Docker)**](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Alatest%22%5D%7D)
+Ask your assistant to inspect the exact package version before writing code.
 
-### Option 2: .NET Tool (Native)
-**Prerequisite**: .NET 9.0 SDK installed.
+> Use `Dapper` and check the real public API before suggesting the implementation.
 
-1. Install the tool globally:
-   ```bash
-   dotnet tool install -g DimonSmart.NugetMcpServer
-   ```
-2. [**Click to Install in VS Code (Local)**](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Local%29%22%2C%22command%22%3A%22NugetMcpServer%22%2C%22args%22%3A%5B%5D%7D)
+### Check package migrations
 
-### Option 3: Claude Desktop
+Compare two package versions before upgrading.
 
-Run this command to install automatically via Smithery:
+> Compare `Some.Package` 1.8.0 and 2.0.0 and show breaking API changes.
+
+### Work with private packages
+
+Point the server to your internal feed and let the assistant inspect packages that are not visible on the public internet.
+
+## Quick start
+
+### Docker
+
+```bash
+docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
+```
+
+### .NET tool
+
+```bash
+dotnet tool install -g DimonSmart.NugetMcpServer
+```
+
+### VS Code
+
+[Install in VS Code with Docker](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Alatest%22%5D%7D)
+
+[Install in VS Code with the .NET tool](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Local%29%22%2C%22command%22%3A%22NugetMcpServer%22%2C%22args%22%3A%5B%5D%7D)
+
+### Claude Desktop
 
 ```bash
 npx -y @smithery/cli install @dimonsmart/nugetmcpserver --client claude
 ```
 
-### Option 4: Manual Configuration
+### Manual MCP configuration
 
-If you prefer to configure manually:
-
-#### Docker Configuration
 ```json
 {
   "mcpServers": {
@@ -66,247 +87,43 @@ If you prefer to configure manually:
 }
 ```
 
-#### .NET Tool Configuration
-```json
-{
-  "mcpServers": {
-    "nuget": {
-      "command": "NugetMcpServer",
-      "args": []
-    }
-  }
-}
-```
+## Private and local NuGet sources
 
-## Private & Local NuGet Sources
-
-You can point the server at private feeds (Azure Artifacts, Artifactory, ProGet, Nexus) and local folders.
-
-**Source resolution order (highest priority first):**
-1. `--source` / `--sources` command-line args
-2. `NUGET_SOURCES` + `NUGET_CONFIG` environment variables
-3. `NuGet:Sources` + `NuGet:ConfigPath` in `appsettings.json` (or client env binding)
-4. Default NuGet config discovery (machine/user/solution), fallback to `nuget.org`
-
-### CLI Examples
-```bash
-NugetMcpServer --source "C:\\NuGet\\LocalFeed" --source "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
-NugetMcpServer --nuget-config "C:\\path\\to\\nuget.config"
-```
-
-### MCP Client Config (VS Code / Claude / etc.)
-```json
-{
-  "mcpServers": {
-    "nuget": {
-      "command": "NugetMcpServer",
-      "args": [
-        "--source", "C:\\NuGet\\LocalFeed",
-        "--source", "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
-      ],
-      "env": {
-        "NUGET_CONFIG": "C:\\path\\to\\nuget.config"
-      }
-    }
-  }
-}
-```
-
-### Environment Variables
-```bash
-set NUGET_SOURCES=C:\NuGet\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json
-set NUGET_CONFIG=C:\path\to\nuget.config
-```
-
-### Tool Parameters
-All package-related tools accept an optional `source` parameter. It can be a source name from `nuget.config`
-or a full URL/local path.
-
-```json
-{
-  "name": "get_package_info",
-  "parameters": {
-    "packageId": "Contoso.Internal.Logging",
-    "source": "corp"
-  }
-}
-```
-
-## Installation Options
-
-### Option 1: Run with Docker (Recommended)
-
-This works on Windows, macOS, and Linux. You do not need the .NET SDK.
+Use `--source` to point the server at a local package folder or a private NuGet feed.
 
 ```bash
-docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
+NugetMcpServer --source "C:\NuGet\LocalFeed" --source "https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
 ```
 
-### Option 2: Install via Smithery
+More configuration options: [Technical details](docs/technical-details.md)
 
-To install for Claude Desktop automatically:
+## Available tools
 
-```bash
-npx -y @smithery/cli install @dimonsmart/nugetmcpserver --client claude
-```
+- `search_packages`: search packages by query and keywords.
+- `search_packages_fuzzy`: use AI-assisted fuzzy package search.
+- `get_package_info`: get package metadata, dependencies, and package shape.
+- `list_interfaces`: list public interfaces.
+- `list_classes_records_structs`: list public classes, records, and structs.
+- `get_interface_definition`: return a C# interface definition.
+- `get_class_or_record_or_struct_definition`: return a C# class, record, or struct definition.
+- `get_enum_definition`: return a C# enum definition.
+- `compare_package_versions`: compare public API changes between versions.
+- `list_package_files`: list files inside a package.
+- `get_package_file`: read a file from a package.
+- `get_current_time`: return the current server time.
 
-### Option 3: Install via WinGet (Windows)
+Detailed parameters and development notes: [Technical details](docs/technical-details.md)
 
-You can install using the Windows Package Manager:
+## Version
 
-```powershell
-winget install DimonSmart.NugetMcpServer
-```
+The release version is assigned by the GitHub Actions pipeline from the Git tag.
 
-### Option 4: Install as .NET Tool
+Check the installed version:
 
-If you have the .NET SDK installed:
-
-```bash
-dotnet tool install -g DimonSmart.NugetMcpServer
-```
-
-## Available Tools
-
-All package-related tools accept an optional `source` parameter (source name or URL/path) to target a specific feed or local folder.
-
-### Package Search
-
-*   `search_packages(query, maxResults?, source?)`
-    *   Searches for packages using keywords.
-    *   Good for finding a specific package if you know the name or a keyword.
-*   `search_packages_fuzzy(query, maxResults?, source?)`
-    *   Uses AI to guess package names based on your description.
-    *   Good if you don't know the exact package name (e.g., "library to generate mazes").
-
-### Package Information
-
-*   `get_package_info(packageId, version?, source?)`
-    *   Gets details about a package, including its dependencies and whether it is a meta-package.
-*   `compare_package_versions(packageId, fromVersion, toVersion, ..., source?)`
-    *   Compares two versions of a package.
-    *   Shows breaking changes, new methods, and removed APIs.
-    *   You can filter by type name or member name.
-
-### Type Definitions
-
-*   `get_interface_definition(packageId, interfaceName, version?, source?)`
-    *   Gets the C# code for an interface.
-*   `get_class_or_record_or_struct_definition(packageId, typeName, version?, source?)`
-    *   Gets the C# code for a class, record, or struct.
-*   `get_enum_definition(packageId, enumName, version?, source?)`
-    *   Gets the C# code for an enum.
-
-### Listing Types
-
-*   `list_interfaces(packageId, version?, source?)`
-    *   Lists all public interfaces in a package.
-*   `list_classes_records_structs(packageId, version?, source?)`
-    *   Lists all public classes, records, and structs in a package.
-
-### File Access
-
-*   `list_package_files(packageId, version?, source?)`
-    *   Lists all files inside the package.
-*   `get_package_file(packageId, filePath, ..., source?)`
-    *   Reads the content of a file from the package.
-
-### Utilities
-
-*   `get_current_time()`
-    *   Returns the current server time.
-
-## Examples
-
-<details>
-<summary>📄 See Example Responses</summary>
-
-### Get Interface Definition
-
-**Request:**
-```json
-{
-  "name": "get_interface_definition",
-  "parameters": {
-    "packageId": "DimonSmart.MazeGenerator",
-    "interfaceName": "IMazeGenerator"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "result": "namespace DimonSmart.MazeGenerator\n{\n    public interface IMazeGenerator\n    {\n        bool[,] Generate(int width, int height);\n        string AlgorithmName { get; }\n    }\n}"
-}
-```
-
-### Search Packages
-
-**Request:**
-```json
-{
-  "name": "search_packages",
-  "parameters": {
-    "query": "json"
-  }
-}
-```
-
-**Response:**
-```text
-## Newtonsoft.Json v13.0.3
-**Downloads**: 4,500,000,000
-**Description**: Json.NET is a popular high-performance JSON framework for .NET
-```
-
-</details>
-
-## Project Structure
-
-<details>
-<summary>📁 View File Structure</summary>
-
-*   `Program.cs`: Main entry point.
-*   `Tools/`: Contains the logic for each MCP tool.
-*   `Services/`: Handles NuGet downloads, formatting, and analysis.
-*   `Common/`: Shared code and base classes.
-
-</details>
-
-## Version Information
-
-Current version: **1.0.18**
-
-Check your version:
 ```bash
 NugetMcpServer --version
 ```
 
-## Developer Verification
-
-Run the regular verification suite:
-
-```bash
-dotnet restore
-dotnet build
-dotnet test --filter "Category!=Exploratory&Category!=Manual"
-```
-
-Run the manual metadata-only NuGet smoke test:
-
-```powershell
-$env:NUGET_MCP_RUN_EXPLORATORY_TESTS="1"
-dotnet test --filter "Category=Exploratory"
-Remove-Item Env:\NUGET_MCP_RUN_EXPLORATORY_TESTS
-```
-
-## Copyright
-
-© 2025 DimonSmart
-
 ## License
 
 MIT
-
-
