@@ -1,64 +1,164 @@
-name: Publish Release (NuGet, WinGet)
+name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  PACKAGE_ID: DimonSmart.NugetMcpServer
+  PROJECT_PATH: NugetMcpServer/NugetMcpServer.csproj
+  SOLUTION_PATH: NugetMcpServer.sln
+  PUBLISH_DIR: artifacts/publish/NugetMcpServer
+  RUNTIME_ID: win-x64
 
 jobs:
-  build-and-publish:
+  release:
+    name: Publish release
     runs-on: windows-latest
-    permissions:
-      contents: write
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Validate version tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Release tags must use vMAJOR.MINOR.PATCH format."
+          }
+
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "ASSEMBLY_VERSION=$version.0" >> $env:GITHUB_ENV
+          "NUPKG_PATH=nupkg/$env:PACKAGE_ID.$version.nupkg" >> $env:GITHUB_ENV
+          "ASSET_NAME=NugetMcpServer-win-x64-$version.zip" >> $env:GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        shell: pwsh
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release tag must point to a commit reachable from origin/main."
+          }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: 10.0.x
 
-      - name: Get Version
-        id: get_version
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        shell: powershell
-
-      - name: Update MCP Server Version
+      - name: Update MCP server manifest version
+        shell: pwsh
         run: |
           $path = "NugetMcpServer/.mcp/server.json"
           $json = Get-Content $path -Raw | ConvertFrom-Json
-          $json.version = "${{ steps.get_version.outputs.VERSION }}"
-          $json.packages[0].version = "${{ steps.get_version.outputs.VERSION }}"
+          $json.version = $env:VERSION
+          $json.packages[0].version = $env:VERSION
           $json | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $path
-        shell: powershell
+
+      - name: Restore
+        run: dotnet restore $env:SOLUTION_PATH
 
       - name: Build
-        run: dotnet build -c Release /p:Version=${{ steps.get_version.outputs.VERSION }}
+        run: >
+          dotnet build $env:SOLUTION_PATH
+          --configuration Release
+          --no-restore
+          /p:Version=$env:VERSION
+          /p:AssemblyVersion=$env:ASSEMBLY_VERSION
+          /p:FileVersion=$env:ASSEMBLY_VERSION
+          /p:InformationalVersion=$env:GITHUB_REF_NAME
+
+      - name: Test
+        run: dotnet test $env:SOLUTION_PATH --configuration Release --no-build --verbosity normal
 
       - name: Pack
-        run: dotnet pack -c Release /p:Version=${{ steps.get_version.outputs.VERSION }} --no-build --output nupkg
+        run: >
+          dotnet pack $env:PROJECT_PATH
+          --configuration Release
+          --no-build
+          --output nupkg
+          /p:Version=$env:VERSION
+          /p:AssemblyVersion=$env:ASSEMBLY_VERSION
+          /p:FileVersion=$env:ASSEMBLY_VERSION
+          /p:InformationalVersion=$env:GITHUB_REF_NAME
+
+      - name: Verify NuGet package contents
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:NUPKG_PATH -PathType Leaf)) {
+            throw "Expected NuGet package '$env:NUPKG_PATH' was not created."
+          }
+
+          $entries = tar -tf $env:NUPKG_PATH
+          foreach ($required in @(".mcp/server.json", "README.md")) {
+            if ($entries -notcontains $required) {
+              throw "NuGet package '$env:NUPKG_PATH' does not contain '$required'."
+            }
+          }
+
+          $manifest = tar -xOf $env:NUPKG_PATH ".mcp/server.json" | ConvertFrom-Json
+          if ($manifest.version -ne $env:VERSION) {
+            throw "MCP manifest version '$($manifest.version)' does not match '$env:VERSION'."
+          }
+
+          if ($manifest.packages[0].version -ne $env:VERSION) {
+            throw "MCP package version '$($manifest.packages[0].version)' does not match '$env:VERSION'."
+          }
 
       - name: Publish to NuGet
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          Get-ChildItem nupkg\*.nupkg | ForEach-Object {
-            dotnet nuget push $_.FullName --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
+            throw "NUGET_API_KEY secret is required to publish to NuGet."
           }
-        
-      - name: Publish Single File
-        run: dotnet publish NugetMcpServer/NugetMcpServer.csproj -c Release -r win-x64 /p:Version=${{ steps.get_version.outputs.VERSION }} /p:PublishSingleFile=true --self-contained true --output publish
 
-      - name: Zip for WinGet
+          dotnet nuget push $env:NUPKG_PATH `
+            --api-key $env:NUGET_API_KEY `
+            --source https://api.nuget.org/v3/index.json `
+            --skip-duplicate
+
+      - name: Publish WinGet asset
+        shell: pwsh
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          Compress-Archive -Path publish\NugetMcpServer.exe -DestinationPath "NugetMcpServer-win-x64-$version.zip"
-        shell: powershell
+          dotnet publish $env:PROJECT_PATH `
+            --configuration Release `
+            --runtime $env:RUNTIME_ID `
+            --self-contained true `
+            --output $env:PUBLISH_DIR `
+            /p:PublishSingleFile=true `
+            /p:PublishTrimmed=false `
+            /p:Version=$env:VERSION `
+            /p:AssemblyVersion=$env:ASSEMBLY_VERSION `
+            /p:FileVersion=$env:ASSEMBLY_VERSION `
+            /p:InformationalVersion=$env:GITHUB_REF_NAME
 
-      - name: Create Release
+          $exePath = Join-Path $env:PUBLISH_DIR "NugetMcpServer.exe"
+          if (-not (Test-Path $exePath -PathType Leaf)) {
+            throw "Expected '$exePath' in publish output."
+          }
+
+          $assetPath = Join-Path $env:RUNNER_TEMP $env:ASSET_NAME
+          if (Test-Path $assetPath) {
+            Remove-Item $assetPath
+          }
+
+          Compress-Archive -Path $exePath -DestinationPath $assetPath -CompressionLevel Optimal
+          "ASSET_PATH=$assetPath" >> $env:GITHUB_ENV
+
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            NugetMcpServer-win-x64-${{ steps.get_version.outputs.VERSION }}.zip
-            nupkg/*.nupkg
+            ${{ env.NUPKG_PATH }}
+            ${{ env.ASSET_PATH }}
           generate_release_notes: true

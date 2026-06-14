@@ -172,6 +172,24 @@ Check the installed version:
 NugetMcpServer --version
 ```
 
+## Publishing
+
+NuGet releases are published from version tags on `main`:
+
+```powershell
+.\publish-next-version.ps1
+```
+
+The script creates and pushes the next `vMAJOR.MINOR.PATCH` tag. GitHub Actions builds, tests, updates the MCP manifest version, packs the NuGet MCP server package, and publishes it to NuGet.
+
+WinGet publishing is also tag-driven after the GitHub release exists:
+
+```powershell
+.\publish-winget-version.ps1
+```
+
+By default, the WinGet script uses the latest `vMAJOR.MINOR.PATCH` release tag. Pass `-Version 1.2.3` to publish a specific release.
+
 ## License
 
 MIT

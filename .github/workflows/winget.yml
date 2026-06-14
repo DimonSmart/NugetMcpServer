@@ -3,7 +3,13 @@ name: Publish WinGet
 on:
   push:
     tags:
-      - 'wg*'
+      - 'wg*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, without v prefix'
+        required: true
+        type: string
 
 jobs:
   publish-winget:
@@ -14,16 +20,22 @@ jobs:
       - name: Get Version
         id: get_version
         run: |
-          $tag = "${{ github.ref_name }}"
-          if (-not $tag.StartsWith('wg')) {
-            Write-Host "Unexpected tag prefix: $tag"
-            exit 1
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
           }
-          $version = $tag -replace '^wg[-v]?', ''
-          if ([string]::IsNullOrWhiteSpace($version)) {
-            Write-Host "Failed to parse version from tag: $tag"
-            exit 1
+          else {
+            $tag = "${{ github.ref_name }}"
+            if ($tag -notmatch '^wg(?<version>\d+\.\d+\.\d+)$') {
+              throw "WinGet tags must use wgMAJOR.MINOR.PATCH format."
+            }
+
+            $version = $Matches.version
           }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version '$version' must use MAJOR.MINOR.PATCH format."
+          }
+
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: powershell
 

@@ -153,6 +153,26 @@ Docker packaging is provided as a fallback by the repository Dockerfile and publ
 docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
 ```
 
+## Release publishing
+
+The canonical release path is a `vMAJOR.MINOR.PATCH` tag on `main`.
+
+```powershell
+.\publish-next-version.ps1
+```
+
+The release workflow validates the tag format, verifies that the tag commit is reachable from `origin/main`, restores, builds, tests, updates `.mcp/server.json`, creates the NuGet package, verifies that the package contains `.mcp/server.json` and `README.md`, and publishes the package to NuGet.
+
+WinGet publishing is a separate tag-driven step that uses the zip asset from the GitHub release:
+
+```powershell
+.\publish-winget-version.ps1
+```
+
+By default, the WinGet script uses the latest `vMAJOR.MINOR.PATCH` release tag. Pass `-Version 1.2.3` to publish a specific release.
+
+This creates and pushes a `wgMAJOR.MINOR.PATCH` tag at the matching `vMAJOR.MINOR.PATCH` release commit. The WinGet workflow publishes the release zip through `winget-releaser`.
+
 ## Troubleshooting
 
 - Private feed authentication depends on the active NuGet configuration and available credential providers.
