@@ -1,6 +1,6 @@
 # NugetMcpServer technical details
 
-This document covers configuration, tool parameters, development checks, and packaging notes.
+This document covers source resolution, tool parameters, implementation constraints, development checks, and packaging notes.
 
 ## Source resolution
 
@@ -13,6 +13,17 @@ NuGet sources are resolved in this order:
 5. Fallback to nuget.org.
 
 Package-related tools also accept an optional `source` parameter. It can be a source name from `nuget.config`, a feed URL, or a local package folder.
+
+Supported environment variables:
+
+- `NUGET_SOURCES`: semicolon-, comma-, or newline-separated source URLs and local package folders.
+- `NUGET_CONFIG`: path to a specific `NuGet.Config` file.
+
+Supported command-line source options:
+
+- `--source <value>` or `-s <value>`: add one source. Can be repeated.
+- `--sources <value>`: add multiple semicolon-, comma-, or newline-separated sources.
+- `--nuget-config <path>` or `--nugetconfig <path>`: use a specific NuGet configuration file.
 
 ## Private feeds and local folders
 
@@ -41,13 +52,14 @@ VS Code MCP configuration with `dnx`:
       "command": "dnx",
       "args": ["DimonSmart.NugetMcpServer@<version>", "--yes"],
       "env": {
-        "NUGET_SOURCES": "C:\\NuGet\\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json",
-        "NUGET_CONFIG": "C:\\path\\to\\nuget.config"
+        "NUGET_SOURCES": "C:\\NuGet\\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
       }
     }
   }
 }
 ```
+
+Use either `NUGET_SOURCES` or `NUGET_CONFIG` for most setups. If both are set, explicit sources replace the source list read from configuration, while credentials and other NuGet settings still depend on the active NuGet configuration and credential providers.
 
 For clients that use the `mcpServers` shape, keep the same `command`, `args`, and `env` values under that client-specific key.
 
@@ -90,6 +102,18 @@ All package-related tools accept an optional `source` parameter unless noted.
 Package DLLs are read as metadata. They are not loaded into the server runtime.
 
 Target frameworks are selected through NuGet framework compatibility logic. The server reads public types, methods, properties, fields, events, and enum values from managed assemblies. Native DLLs are skipped.
+
+## Caching behavior
+
+Downloaded package bytes are cached in memory for five minutes per package ID, version, and source. NuGet's own HTTP and global package caches may also affect subsequent runs. The server does not persist its in-memory package cache after the process exits.
+
+## Known limitations
+
+- Package analysis reads managed assemblies only; native DLLs are skipped.
+- Local folder sources must contain valid `.nupkg` packages.
+- Private feed authentication is delegated to NuGet configuration and installed credential providers.
+- The `source` parameter accepts one source name, feed URL, or local package folder for a tool call. Configure multiple fallback sources through server configuration.
+- `get_package_file` reads a maximum chunk size of 1 MB per call.
 
 ## Developer verification
 

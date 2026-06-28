@@ -33,7 +33,7 @@ jobs:
           "VERSION=$version" >> $env:GITHUB_ENV
           "ASSEMBLY_VERSION=$version.0" >> $env:GITHUB_ENV
           "NUPKG_PATH=nupkg/$env:PACKAGE_ID.$version.nupkg" >> $env:GITHUB_ENV
-          "ASSET_NAME=NugetMcpServer-win-x64-$version.zip" >> $env:GITHUB_ENV
+          "WINGET_ASSET_PATH=artifacts/NugetMcpServer-win-x64-$version.zip" >> $env:GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -147,18 +147,22 @@ jobs:
             throw "Expected '$exePath' in publish output."
           }
 
-          $assetPath = Join-Path $env:RUNNER_TEMP $env:ASSET_NAME
-          if (Test-Path $assetPath) {
+          $assetPath = $env:WINGET_ASSET_PATH
+          New-Item -ItemType Directory -Path (Split-Path $assetPath -Parent) -Force | Out-Null
+          if (Test-Path $assetPath -PathType Leaf) {
             Remove-Item $assetPath
           }
 
           Compress-Archive -Path $exePath -DestinationPath $assetPath -CompressionLevel Optimal
-          "ASSET_PATH=$assetPath" >> $env:GITHUB_ENV
+          if (-not (Test-Path $assetPath -PathType Leaf)) {
+            throw "Expected WinGet asset '$assetPath' was not created."
+          }
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             ${{ env.NUPKG_PATH }}
-            ${{ env.ASSET_PATH }}
+            ${{ env.WINGET_ASSET_PATH }}
           generate_release_notes: true
+          fail_on_unmatched_files: true

@@ -39,6 +39,48 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: powershell
 
+      - name: Verify release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          $releaseTag = "v$env:VERSION"
+          $releaseInfo = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$releaseTag" `
+            -Headers @{
+              Accept = "application/vnd.github+json"
+              Authorization = "Bearer $env:GH_TOKEN"
+              "X-GitHub-Api-Version" = "2022-11-28"
+            }
+
+          $zipAssets = @($releaseInfo.assets | Where-Object { $_.name -match '\.zip$' })
+          if ($zipAssets.Count -eq 0) {
+            throw "Release '$releaseTag' does not contain a .zip asset for WinGet."
+          }
+
+      - name: Verify WinGet token
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINGET_TOKEN)) {
+            throw "WINGET_TOKEN secret is required to publish to WinGet."
+          }
+
+          try {
+            Invoke-RestMethod `
+              -Uri "https://api.github.com/user" `
+              -Headers @{
+                Accept = "application/vnd.github+json"
+                Authorization = "Bearer $env:WINGET_TOKEN"
+                "X-GitHub-Api-Version" = "2022-11-28"
+              } | Out-Null
+          }
+          catch {
+            throw "WINGET_TOKEN secret is not accepted by GitHub. Create a new token and update the repository secret."
+          }
+
       - name: Publish to WinGet
         uses: vedantmgoyal9/winget-releaser@v2
         with:

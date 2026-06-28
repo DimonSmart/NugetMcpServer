@@ -20,6 +20,46 @@ function Invoke-Git {
     return $output
 }
 
+function Get-GitHubRepositorySlug {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RemoteUrl
+    )
+
+    $normalizedUrl = $RemoteUrl.Trim()
+    if ($normalizedUrl -match '^https://github\.com/(?<owner>[^/]+)/(?<name>[^/]+?)(?:\.git)?$') {
+        return "$($Matches.owner)/$($Matches.name)"
+    }
+
+    if ($normalizedUrl -match '^git@github\.com:(?<owner>[^/]+)/(?<name>[^/]+?)(?:\.git)?$') {
+        return "$($Matches.owner)/$($Matches.name)"
+    }
+
+    throw "Remote URL '$RemoteUrl' is not a supported GitHub repository URL."
+}
+
+function Assert-GitHubReleaseHasWingetAsset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RepositorySlug,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ReleaseTag
+    )
+
+    $releaseInfo = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$RepositorySlug/releases/tags/$ReleaseTag" `
+        -Headers @{
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+        }
+
+    $zipAssets = @($releaseInfo.assets | Where-Object { $_.name -match '\.zip$' })
+    if ($zipAssets.Count -eq 0) {
+        throw "Release '$ReleaseTag' does not contain a .zip asset for WinGet."
+    }
+}
+
 $repoRoot = (Invoke-Git -Arguments @("rev-parse", "--show-toplevel")).Trim()
 Set-Location $repoRoot
 
@@ -65,6 +105,10 @@ $releaseRef = Invoke-Git -Arguments @("rev-parse", "--verify", "$releaseTag^{com
 if (-not $releaseRef) {
     throw "Release tag '$releaseTag' does not exist."
 }
+
+$remoteUrl = (Invoke-Git -Arguments @("remote", "get-url", $Remote)).Trim()
+$repositorySlug = Get-GitHubRepositorySlug -RemoteUrl $remoteUrl
+Assert-GitHubReleaseHasWingetAsset -RepositorySlug $repositorySlug -ReleaseTag $releaseTag
 
 $existingTag = Invoke-Git -Arguments @("tag", "--list", $wingetTag)
 if ($existingTag) {

@@ -7,7 +7,9 @@
 
 Bad NuGet API guesses are expensive.
 
-NugetMcpServer gives your AI assistant access to real NuGet package metadata. Instead of guessing which classes, interfaces, methods, properties, or enum values exist, the assistant can inspect the actual package version.
+NugetMcpServer lets Codex, Claude Code, VS Code, Claude Desktop, and other MCP clients inspect real NuGet package metadata and public APIs before generating code. This reduces hallucinated method names, wrong overloads, outdated migration advice, and guesses about private package APIs.
+
+Fastest path: install it with `codex mcp add` or `claude mcp add`, then ask your assistant to use the NuGet MCP server before writing package-dependent code.
 
 Certified by [MCPHub](https://mcphub.com/mcp-servers/dimonsmart/nugetmcpserver).
 
@@ -32,31 +34,56 @@ NugetMcpServer connects the assistant to NuGet packages directly, including priv
 - Access to files inside the package.
 - Support for nuget.org, private feeds, and local package folders.
 
-## Typical use cases
-
-### Generate code against the real API
-
-Ask your assistant to inspect the exact package version before writing code.
-
-> Use `Dapper` and check the real public API before suggesting the implementation.
-
-### Check package migrations
-
-Compare two package versions before upgrading.
-
-> Compare `Some.Package` 1.8.0 and 2.0.0 and show breaking API changes.
-
-### Work with private packages
-
-Point the server to your internal feed and let the assistant inspect packages that are not visible on the public internet.
-
 ## Quick start
 
-### Recommended: VS Code via NuGet
+Replace `<version>` with the NuGet package version you want to pin. The server name `nuget` is used in examples.
+
+### 1. Install via Codex CLI
+
+```bash
+codex mcp add nuget -- dnx DimonSmart.NugetMcpServer@<version> --yes
+```
+
+Check available MCP commands:
+
+```bash
+codex mcp --help
+```
+
+Inside the Codex TUI, run:
+
+```text
+/mcp
+```
+
+Codex CLI and the Codex IDE extension share MCP configuration, so configuring the server once should make it available in both clients.
+
+### 2. Install via Claude Code CLI
+
+```bash
+claude mcp add --transport stdio nuget -- dnx DimonSmart.NugetMcpServer@<version> --yes
+```
+
+Everything after `--` is the actual MCP server command and arguments.
+
+Manage and verify the server:
+
+```bash
+claude mcp list
+claude mcp get nuget
+```
+
+Inside Claude Code, run:
+
+```text
+/mcp
+```
+
+### 3. Install in VS Code
 
 Open the [NuGet package page](https://www.nuget.org/packages/DimonSmart.NugetMcpServer), select the MCP Server tab, and copy the generated VS Code configuration.
 
-For manual VS Code configuration, add this to `mcp.json` and replace `<version>` with the package version you want to use:
+For manual VS Code configuration, add this to `mcp.json`:
 
 ```json
 {
@@ -70,9 +97,23 @@ For manual VS Code configuration, add this to `mcp.json` and replace `<version>`
 }
 ```
 
-### Docker
+### 4. Install via Docker
 
 Use Docker when the MCP client environment does not have the .NET SDK available.
+
+Codex:
+
+```bash
+codex mcp add nuget-docker -- docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
+```
+
+Claude Code:
+
+```bash
+claude mcp add --transport stdio nuget-docker -- docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
+```
+
+Run the container directly:
 
 ```bash
 docker run -i --rm ghcr.io/dimonsmart/nugetmcpserver:latest
@@ -94,9 +135,25 @@ VS Code `mcp.json`:
 
 [Install in VS Code with Docker](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Alatest%22%5D%7D)
 
-### Claude Desktop
+### 5. Manual configuration
 
-Add the server to the Claude Desktop MCP configuration and replace `<version>` with the package version you want to use:
+Codex `config.toml`:
+
+```toml
+[mcp_servers.nuget]
+command = "dnx"
+args = ["DimonSmart.NugetMcpServer@<version>", "--yes"]
+```
+
+Codex Docker variant:
+
+```toml
+[mcp_servers.nuget]
+command = "docker"
+args = ["run", "-i", "--rm", "ghcr.io/dimonsmart/nugetmcpserver:latest"]
+```
+
+Claude Desktop and generic MCP clients that use the `mcpServers` JSON shape:
 
 ```json
 {
@@ -109,24 +166,47 @@ Add the server to the Claude Desktop MCP configuration and replace `<version>` w
 }
 ```
 
-### Other MCP clients
+### 6. Private/local NuGet sources
 
-Use the client-specific MCP configuration format. For clients that use the common `mcpServers` shape:
+Use `NUGET_SOURCES` for one or more source URLs or local package folders. Separate sources with semicolons. Use `NUGET_CONFIG` when you want NuGet to read a specific `NuGet.Config`, for example when credentials or source names are already configured there.
 
-```json
-{
-  "mcpServers": {
-    "nuget": {
-      "command": "dnx",
-      "args": ["DimonSmart.NugetMcpServer@<version>", "--yes"]
-    }
-  }
-}
+Codex with `NUGET_SOURCES`:
+
+```bash
+codex mcp add nuget-private \
+  --env NUGET_SOURCES="C:\NuGet\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json" \
+  -- dnx DimonSmart.NugetMcpServer@<version> --yes
 ```
 
-## Private and local NuGet sources
+Claude Code with `NUGET_SOURCES`:
 
-Use `NUGET_SOURCES` or `NUGET_CONFIG` to point the server at local package folders or private NuGet feeds.
+```bash
+claude mcp add --transport stdio \
+  --env NUGET_SOURCES="C:\NuGet\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json" \
+  nuget-private \
+  -- dnx DimonSmart.NugetMcpServer@<version> --yes
+```
+
+Codex with `NUGET_CONFIG`:
+
+```bash
+codex mcp add nuget-config \
+  --env NUGET_CONFIG="/path/to/NuGet.Config" \
+  -- dnx DimonSmart.NugetMcpServer@<version> --yes
+```
+
+Claude Code with `NUGET_CONFIG`:
+
+```bash
+claude mcp add --transport stdio \
+  --env NUGET_CONFIG="/path/to/NuGet.Config" \
+  nuget-config \
+  -- dnx DimonSmart.NugetMcpServer@<version> --yes
+```
+
+Use Windows paths such as `C:\path\to\NuGet.Config` on Windows. Use Unix-style paths such as `/path/to/NuGet.Config` on Linux and macOS. Keep paths quoted when they contain spaces.
+
+VS Code `mcp.json` with private sources:
 
 ```json
 {
@@ -143,7 +223,34 @@ Use `NUGET_SOURCES` or `NUGET_CONFIG` to point the server at local package folde
 }
 ```
 
+Codex `config.toml` with private sources:
+
+```toml
+[mcp_servers.nuget]
+command = "dnx"
+args = ["DimonSmart.NugetMcpServer@<version>", "--yes"]
+
+[mcp_servers.nuget.env]
+NUGET_SOURCES = "C:\\NuGet\\LocalFeed;https://pkgs.dev.azure.com/ORG/_packaging/Feed/nuget/v3/index.json"
+```
+
 More configuration options: [Technical details](docs/technical-details.md)
+
+## Verify it works
+
+After the MCP client shows the server as connected, ask your assistant to use it explicitly:
+
+```text
+Use the NuGet MCP server to inspect Dapper 2.1.66 and show the public extension methods for IDbConnection.
+```
+
+```text
+Before writing code, use the NuGet MCP server to inspect the real API of Microsoft.Extensions.DependencyInjection.Abstractions and use only existing public types and methods.
+```
+
+```text
+Use the NuGet MCP server to compare public APIs of Some.Package 1.8.0 and 2.0.0 and summarize breaking changes.
+```
 
 ## Available tools
 
@@ -161,6 +268,16 @@ More configuration options: [Technical details](docs/technical-details.md)
 - `get_current_time`: return the current server time.
 
 Detailed parameters and development notes: [Technical details](docs/technical-details.md)
+
+## Troubleshooting
+
+- `dnx` is not found: install a current .NET SDK and make sure the .NET tools path is available in your shell, or use the Docker install path.
+- Docker is not running: start Docker Desktop or your Docker daemon, then retry the MCP client command.
+- The MCP client shows the server but no tools: restart the client, check the client logs, and verify the server command starts successfully outside the client.
+- Private feed authentication fails: check the active `NuGet.Config`, credential provider setup, feed URL, and whether the same user account can restore from that feed with normal NuGet tooling.
+- Package restore or search is slow on first run: the server and NuGet client may need to download package metadata and package files before later cached reads are faster.
+- Windows path quoting fails: keep paths in quotes, escape backslashes in JSON/TOML strings, and prefer `NUGET_CONFIG` when complex source paths or credentials are involved.
+- Claude Code or Codex CLI command fails unexpectedly: make sure the command includes the `--` separator before `dnx` or `docker`; the MCP client options must appear before that separator.
 
 ## Version
 
