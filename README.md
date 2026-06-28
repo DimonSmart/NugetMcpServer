@@ -7,39 +7,30 @@
 
 Bad NuGet API guesses are expensive.
 
-NugetMcpServer lets Codex, Claude Code, VS Code, Claude Desktop, and other MCP clients inspect real NuGet package metadata and public APIs before generating code. This reduces hallucinated method names, wrong overloads, outdated migration advice, and guesses about private package APIs.
+NugetMcpServer lets Codex, Claude Code, VS Code, Claude Desktop, and other MCP clients inspect real NuGet package metadata and public APIs before generating code. It is most useful when package version details matter or when the package lives in a private feed.
 
 Fastest path: install it with `codex mcp add` or `claude mcp add`, then ask your assistant to use the NuGet MCP server before writing package-dependent code.
 
 ## Why this exists
 
-LLMs often know popular libraries, but they do not reliably know the exact API surface of every package version. Small mistakes show up as:
-
-- a method name from another version;
-- an overload that does not exist;
-- a property with the wrong type;
-- a class from a different package;
-- a migration suggestion based on outdated API.
+LLMs often know popular libraries, but they do not reliably know the exact API surface of every package version. NugetMcpServer gives the assistant a way to check the package first instead of filling gaps from memory.
 
 NugetMcpServer connects the assistant to NuGet packages directly, including private feeds and local package folders.
 
 ## What it gives to your assistant
 
-- Package search by name or task.
-- Exact public types from a package.
-- Interface, class, struct, record, and enum definitions.
-- API comparison between package versions.
-- Access to files inside the package.
-- Support for nuget.org, private feeds, and local package folders.
+- Search NuGet packages and inspect package metadata.
+- Read public API definitions for real package versions.
+- Compare versions, inspect package files, and use nuget.org, private feeds, or local package folders.
 
 ## Quick start
 
-Replace `<version>` with the NuGet package version you want to pin. The server name `nuget` is used in examples.
+These commands use the current published NuGet package version, `1.1.7`. `dnx` downloads and runs the .NET tool from NuGet, so you do not need a separate `dotnet tool install` step.
 
 ### 1. Install via Codex CLI
 
 ```bash
-codex mcp add nuget -- dnx DimonSmart.NugetMcpServer@<version> --yes
+codex mcp add nuget -- dnx DimonSmart.NugetMcpServer@1.1.7 --yes
 ```
 
 Check available MCP commands:
@@ -59,7 +50,7 @@ Codex CLI and the Codex IDE extension share MCP configuration, so configuring th
 ### 2. Install via Claude Code CLI
 
 ```bash
-claude mcp add --transport stdio nuget -- dnx DimonSmart.NugetMcpServer@<version> --yes
+claude mcp add --transport stdio nuget -- dnx DimonSmart.NugetMcpServer@1.1.7 --yes
 ```
 
 Everything after `--` is the actual MCP server command and arguments.
@@ -81,7 +72,7 @@ Inside Claude Code, run:
 
 Open the [NuGet package page](https://www.nuget.org/packages/DimonSmart.NugetMcpServer), select the MCP Server tab, and copy the generated VS Code configuration.
 
-For manual VS Code configuration, add this to `mcp.json`:
+For manual VS Code configuration, add this to `mcp.json`. Replace `<version>` with the package version you want to pin:
 
 ```json
 {
