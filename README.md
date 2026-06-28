@@ -11,8 +11,6 @@ NugetMcpServer lets Codex, Claude Code, VS Code, Claude Desktop, and other MCP c
 
 Fastest path: install it with `codex mcp add` or `claude mcp add`, then ask your assistant to use the NuGet MCP server before writing package-dependent code.
 
-Certified by [MCPHub](https://mcphub.com/mcp-servers/dimonsmart/nugetmcpserver).
-
 ## Why this exists
 
 LLMs often know popular libraries, but they do not reliably know the exact API surface of every package version. Small mistakes show up as:
