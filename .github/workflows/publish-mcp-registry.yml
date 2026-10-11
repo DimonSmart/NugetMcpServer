@@ -93,7 +93,9 @@ jobs:
           url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.dimonsmart%2FNugetMcpServer/versions/${VERSION}"
           for attempt in {1..12}; do
             if curl --fail --show-error --silent --location "$url" -o registry-response.json &&
-               jq -e --arg version "$VERSION"                      '.server.name == "io.github.dimonsmart/NugetMcpServer" and .server.version == $version'                      registry-response.json > /dev/null; then
+               jq -e --arg version "$VERSION" --arg name "io.github.dimonsmart/NugetMcpServer" \
+                 '.server.name == $name and .server.version == $version' \
+                 registry-response.json > /dev/null; then
               echo "Published io.github.dimonsmart/NugetMcpServer@${VERSION}"
               exit 0
             fi
