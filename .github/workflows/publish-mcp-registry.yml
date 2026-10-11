@@ -1,0 +1,104 @@
+name: Publish MCP Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing published NuGet package version"
+        type: string
+        required: true
+        default: "1.1.9"
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Register NuGet MCP package
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version input
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be MAJOR.MINOR.PATCH (without v)."
+            exit 1
+          fi
+
+      - name: Verify published NuGet package and ownership marker
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          package_id="dimonsmart.nugetmcpserver"
+          url="https://api.nuget.org/v3-flatcontainer/${package_id}/${VERSION}/${package_id}.${VERSION}.nupkg"
+          curl --fail --show-error --silent --location --retry 3 "$url" -o package.nupkg
+          unzip -p package.nupkg README.md | grep -Fq 'mcp-name: io.github.dimonsmart/NugetMcpServer'
+
+      - name: Set published version in registry manifest
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          manifest="NugetMcpServer/.mcp/server.json"
+          jq -e '.name == "io.github.dimonsmart/NugetMcpServer" and
+                 ([.packages[] | select(.registryType == "nuget" and .identifier == "DimonSmart.NugetMcpServer")] | length) == 1' "$manifest" > /dev/null
+          jq --arg version "$VERSION" '
+            .version = $version |
+            .packages |= map(
+              if .registryType == "nuget" and .identifier == "DimonSmart.NugetMcpServer"
+              then .version = $version
+              else . end
+            )
+          ' "$manifest" > server.json.tmp
+          mv server.json.tmp "$manifest"
+
+      - name: Install official MCP publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location --retry 3 \
+            https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz \
+            -o mcp-publisher.tar.gz
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          chmod +x ./mcp-publisher
+
+      - name: Validate manifest
+        run: ./mcp-publisher validate NugetMcpServer/.mcp/server.json
+
+      - name: Authenticate with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to official MCP Registry
+        run: ./mcp-publisher publish NugetMcpServer/.mcp/server.json
+
+      - name: Verify published version in Registry API
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.dimonsmart%2FNugetMcpServer/versions/${VERSION}"
+          for attempt in {1..12}; do
+            if curl --fail --show-error --silent --location "$url" -o registry-response.json &&
+               jq -e --arg version "$VERSION"                      '.server.name == "io.github.dimonsmart/NugetMcpServer" and .server.version == $version'                      registry-response.json > /dev/null; then
+              echo "Published io.github.dimonsmart/NugetMcpServer@${VERSION}"
+              exit 0
+            fi
+            echo "Registry entry not visible yet (attempt ${attempt}/12)"
+            sleep 5
+          done
+          echo "::error::Published version could not be confirmed via Registry API."
+          exit 1
