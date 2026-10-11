@@ -92,6 +92,10 @@ jobs:
             )
           ' "$manifest" > server.json.tmp
           mv server.json.tmp "$manifest"
+          jq -e '(.description | type == "string") and (.description | length > 0 and length <= 100)' "$manifest" >/dev/null || {
+            echo "::error::MCP Registry description must contain 1–100 characters."
+            exit 1
+          }
 
       - name: Install official MCP publisher
         shell: bash
