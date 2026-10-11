@@ -1,0 +1,132 @@
+name: Publish MCP Registry
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Version tag provided by the release workflow"
+        required: true
+        type: string
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Register NuGet MCP package
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout with tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve and verify release tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          tag="$INPUT_TAG"
+          if [[ -z "$tag" ]]; then
+            # First-time/backfill registration: use the latest published GitHub release.
+            tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must be vMAJOR.MINOR.PATCH."
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$tag" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::Supplied tag differs from triggering release tag."
+            exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/$tag^{commit}" >/dev/null; then
+            echo "::error::Published release tag not found in repository."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "refs/tags/$tag^{commit}" refs/remotes/origin/main; then
+            echo "::error::Release tag must point to a commit on main."
+            exit 1
+          fi
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+          echo "Using release tag $tag"
+
+      - name: Verify NuGet package and ownership marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_id="dimonsmart.nugetmcpserver"
+          url="https://api.nuget.org/v3-flatcontainer/$package_id/$VERSION/$package_id.$VERSION.nupkg"
+          for attempt in {1..18}; do
+            if curl --fail --silent --show-error --location "$url" -o package.nupkg; then
+              break
+            fi
+            if [[ "$attempt" == 18 ]]; then
+              echo "::error::NuGet package version $VERSION not available."
+              exit 1
+            fi
+            sleep 10
+          done
+          unzip -p package.nupkg README.md | grep -Fq 'mcp-name: io.github.dimonsmart/NugetMcpServer'
+
+      - name: Set published version in registry manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="NugetMcpServer/.mcp/server.json"
+          jq -e '.name == "io.github.dimonsmart/NugetMcpServer" and
+                 ([.packages[] | select(.registryType == "nuget" and .identifier == "DimonSmart.NugetMcpServer")] | length) == 1' "$manifest" > /dev/null
+          jq --arg version "$VERSION" '
+            .version = $version |
+            .packages |= map(
+              if .registryType == "nuget" and .identifier == "DimonSmart.NugetMcpServer"
+              then .version = $version
+              else . end
+            )
+          ' "$manifest" > server.json.tmp
+          mv server.json.tmp "$manifest"
+
+      - name: Install official MCP publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location --retry 3 \
+            https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz \
+            -o mcp-publisher.tar.gz
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          chmod +x ./mcp-publisher
+
+      - name: Validate manifest
+        run: ./mcp-publisher validate NugetMcpServer/.mcp/server.json
+
+      - name: Authenticate with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to official MCP Registry
+        run: ./mcp-publisher publish NugetMcpServer/.mcp/server.json
+
+      - name: Verify version in official MCP Registry API
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.dimonsmart%2FNugetMcpServer/versions/$VERSION"
+          for attempt in {1..12}; do
+            if curl --fail --silent --location "$url" -o registry-response.json &&
+               jq -e --arg version "$VERSION" --arg name "io.github.dimonsmart/NugetMcpServer" \
+                 '.server.name == $name and .server.version == $version' \
+                 registry-response.json > /dev/null; then
+              echo "Published io.github.dimonsmart/NugetMcpServer@$VERSION"
+              exit 0
+            fi
+            echo "Registry entry not visible yet (attempt $attempt/12)"
+            sleep 5
+          done
+          echo "::error::Published version could not be confirmed via Registry API."
+          exit 1
