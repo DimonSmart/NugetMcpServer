@@ -74,14 +74,21 @@ jobs:
             fi
             sleep 10
           done
-          unzip -p package.nupkg README.md | grep -Fq 'mcp-name: io.github.dimonsmart/NugetMcpServer'
+          server_name="$(jq -r '.name' NugetMcpServer/.mcp/server.json)"
+          unzip -p package.nupkg README.md > package-README.md
+          grep -Fq -- "mcp-name: $server_name" package-README.md || {
+            echo "::error::Published NuGet package $VERSION does not contain the matching MCP name marker ($server_name). Publish a new package version."
+            exit 1
+          }
 
       - name: Set published version in registry manifest
         shell: bash
         run: |
           set -euo pipefail
           manifest="NugetMcpServer/.mcp/server.json"
-          jq -e '.name == "io.github.dimonsmart/NugetMcpServer" and
+          owner="${GITHUB_REPOSITORY%%/*}"
+          expected_name="io.github.${owner}/NugetMcpServer"
+          jq -e --arg expected_name "$expected_name" '.name == $expected_name and
                  ([.packages[] | select(.registryType == "nuget" and .identifier == "DimonSmart.NugetMcpServer")] | length) == 1' "$manifest" > /dev/null
           jq --arg version "$VERSION" '
             .version = $version |
@@ -120,13 +127,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.dimonsmart%2FNugetMcpServer/versions/$VERSION"
+          server_name="$(jq -r '.name' NugetMcpServer/.mcp/server.json)"
+          escaped_server_name="$(jq -nr --arg name "$server_name" '$name | @uri')"
+          url="https://registry.modelcontextprotocol.io/v0.1/servers/$escaped_server_name/versions/$VERSION"
           for attempt in {1..12}; do
             if curl --fail --silent --location "$url" -o registry-response.json &&
-               jq -e --arg version "$VERSION" --arg name "io.github.dimonsmart/NugetMcpServer" \
+               jq -e --arg version "$VERSION" --arg name "$server_name" \
                  '.server.name == $name and .server.version == $version' \
                  registry-response.json > /dev/null; then
-              echo "Published io.github.dimonsmart/NugetMcpServer@$VERSION"
+              echo "Published $server_name@$VERSION"
               exit 0
             fi
             echo "Registry entry not visible yet (attempt $attempt/12)"

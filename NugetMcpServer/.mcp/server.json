@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.dimonsmart/NugetMcpServer",
+  "name": "io.github.DimonSmart/NugetMcpServer",
   "version": "0.0.0",
   "description": "Inspect NuGet package APIs, dependencies, metadata, and breaking changes across versions.",
   "title": "NuGet API Inspector",

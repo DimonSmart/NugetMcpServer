@@ -1,6 +1,6 @@
 # NugetMcpServer
 
-<!-- mcp-name: io.github.dimonsmart/NugetMcpServer -->
+<!-- mcp-name: io.github.DimonSmart/NugetMcpServer -->
 
 [![NuGet](https://img.shields.io/nuget/v/DimonSmart.NugetMcpServer?logo=nuget)](https://www.nuget.org/packages/DimonSmart.NugetMcpServer)
 [![Install via Docker](https://img.shields.io/badge/Install%20via%20Docker-VS%20Code-blue?logo=docker&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22NugetMcpServer%20%28Docker%29%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22ghcr.io%2Fdimonsmart%2Fnugetmcpserver%3Alatest%22%5D%7D)

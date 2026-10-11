@@ -113,6 +113,12 @@ jobs:
             throw "MCP package version '$($manifest.packages[0].version)' does not match '$env:VERSION'."
           }
 
+          $packageReadme = tar -xOf $env:NUPKG_PATH "README.md" | Out-String
+          $expectedMcpMarker = "mcp-name: $($manifest.name)"
+          if (-not $packageReadme.Contains($expectedMcpMarker)) {
+            throw "Packed README.md does not contain the exact MCP ownership marker '$expectedMcpMarker'."
+          }
+
       - name: Publish to NuGet
         shell: pwsh
         env:
