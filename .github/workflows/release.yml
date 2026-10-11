@@ -166,3 +166,13 @@ jobs:
             ${{ env.WINGET_ASSET_PATH }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  publish-mcp-registry:
+    name: Publish MCP Registry
+    needs: release
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-mcp-registry.yml
+    with:
+      release_tag: ${{ github.ref_name }}
