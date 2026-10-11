@@ -33,7 +33,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git fetch origin main --tags
+          # Checkout with fetch-depth: 0 already fetched refs/tags; avoid clobbering annotated tag refs.
+          git fetch origin main
           tag="$INPUT_TAG"
           if [[ -z "$tag" ]]; then
             # First-time/backfill registration: use the latest published GitHub release.
