@@ -1,9 +1,9 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.dimonsmart/NugetMcpServer",
   "version": "0.0.0",
-  "description": "Inspect NuGet package metadata and public API surface.",
-  "title": "NugetMcpServer",
+  "description": "Inspect real NuGet package APIs, metadata, dependencies, and breaking changes across package versions.",
+  "title": "NuGet API Inspector",
   "websiteUrl": "https://github.com/DimonSmart/NugetMcpServer",
   "packages": [
     {
@@ -14,11 +14,28 @@
         "type": "stdio"
       },
       "packageArguments": [],
-      "environmentVariables": []
+      "environmentVariables": [
+        {
+          "name": "NUGET_CONFIG",
+          "description": "Optional path to a NuGet.Config file for private feeds and custom package sources.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "NUGET_SOURCES",
+          "description": "Optional semicolon-separated NuGet feed URLs or local package directories.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ],
+      "registryBaseUrl": "https://api.nuget.org/v3/index.json",
+      "runtimeHint": "dnx"
     }
   ],
   "repository": {
     "url": "https://github.com/DimonSmart/NugetMcpServer",
-    "source": "github"
+    "source": "github",
+    "id": "978348926"
   }
 }
